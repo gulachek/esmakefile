@@ -59,11 +59,19 @@ class ClangDepfile extends Target {
 		this.#path = path;
 	}
 
+	build() {
+		return Promise.resolve();
+	}
+
+	toString() {
+		return `ClangDepfile{${this.abs()}}`;
+	}
+
 	abs() {
 		return this.sys().abs(this.#path);
 	}
 
-	age() {
+	mtime() {
 		const zero = new Date(0);
 		const path = this.abs();
 		if (!fs.existsSync(path)) return zero; // nothing to depend on
@@ -151,8 +159,14 @@ class CppObjectGroup extends Target {
 
 	deps() { return this.#objects; }
 	build() { return Promise.resolve(); }
-	age() {
-		return Math.max(...this.#objects.map((o) => { return o.age(); }));
+	mtime() {
+		let max = new Date(0);
+		for (const o of this.#objects) {
+			const mtime = o.mtime();
+			if (!mtime) { return null; }
+			if (mtime > max) { max = mtime; }
+		}
+		return max;
 	}
 
 	link(lib) {

@@ -1,5 +1,5 @@
-import 'jasmine-core';
-import { FileSystem } from '../lib/fs.js';
+require('jasmine-core');
+const { FileSystem } = require('../lib/fs.js');
 
 describe('FileSystem', () => {
 	let fsMod;

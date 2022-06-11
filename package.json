@@ -1,6 +1,5 @@
 {
-  "name": "buildsys",
-	"type": "module",
+  "name": "gulpachek",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",

@@ -68,7 +68,6 @@ class ClangDepfile extends Target {
 		const path = this.abs();
 		if (!fs.existsSync(path)) return zero; // nothing to depend on
 
-		console.log('DEPFILE', path);
 		let maxAge = zero;
 		for (const f of depfileEntries(path)) {
 			const age = fs.statSync(f).mtime;

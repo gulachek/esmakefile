@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const semver = require('semver');
 const { pathTarget, BuildSystem, StaticPath, Target } = require('../lib/build_system.js');
 
 // testing with clang, generates invalid makefile w/ ':' in src file name
@@ -310,6 +311,7 @@ class CppLibrootImport extends Target {
 	#config;
 	#binaries;
 	#includes;
+	#deps;
 
 	constructor(sys, dir) {
 		super(sys);
@@ -320,12 +322,57 @@ class CppLibrootImport extends Target {
 			{ encoding: 'utf8' }
 		));
 
+		this.#deps = {};
+
+		this.#searchDeps('deps', { include: true, binary: false });
+		this.#searchDeps('leaky-deps', { include: true, binary: true });
+		this.#searchDeps('leaky-bin-deps', { include: false, binary: true });
+	}
+
+	#searchDeps(key, traits)
+	{
+		for (const dep in this.#config[key]) {
+			if (this.#deps[dep]) {
+				throw new Error(`${dep} can only be specified as depencency once`);
+			}
+
+			const cpp = new Cpp(this.sys());
+			const version = this.#config[key][dep];
+			const lib = cpp.find_library(dep, version);
+			this.#deps[dep] = { traits, lib };
+		}
+	}
+
+	build() {
+		return Promise.resolve();
+	}
+
+	binaries() {
+		if (this.#binaries) {
+			return this.#binaries;
+		}
+
 		this.#binaries = [];
 		const binaries = this.#config.binaries;
 		if (binaries) {
 			for (const bin of binaries) {
 				this.#binaries.push(this.sys().ext(bin));
 			}
+		}
+
+		for (const dep in this.#deps) {
+			if (!this.#deps[dep].traits.binary) { continue; }
+			for (const bin of this.#deps[dep].lib.binaries()) {
+				this.#binaries.push(bin);
+			}
+		}
+
+		return this.#binaries;
+	}
+
+	includes() {
+		if (this.#includes) {
+			return this.#includes;
 		}
 
 		this.#includes = [];
@@ -335,14 +382,16 @@ class CppLibrootImport extends Target {
 				this.#includes.push(this.sys().ext(inc));
 			}
 		}
-	}
 
-	build() {
-		return Promise.resolve();
-	}
+		for (const dep in this.#deps) {
+			if (!this.#deps[dep].traits.include) { continue; }
+			for (const bin of this.#deps[dep].lib.binaries()) {
+				this.#binaries.push(bin);
+			}
+		}
 
-	binaries() { return this.#binaries; }
-	includes() { return this.#includes; }
+		return this.#includes;
+	}
 }
 
 class Cpp {
@@ -372,7 +421,7 @@ class Cpp {
 		return lib;
 	}
 
-	find_library(name) {
+	find_library(name, version) {
 		if (!/^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name)) {
 			throw new Error(`Invalid cpp libroot name ${name}`);
 		}
@@ -387,11 +436,16 @@ class Cpp {
 		for (const root of paths) {
 			const dir = path.resolve(root, name);
 			if (fs.existsSync(dir)) {
-				return new CppLibrootImport(this.#sys, dir);
+				const versions = fs.readdirSync(dir);
+				const latest = semver.maxSatisfying(versions, `^${version}`);
+				if (latest) {
+					console.log(`Found ${name} (${latest})`);
+					return new CppLibrootImport(this.#sys, path.join(dir, latest));
+				}
 			}
 		}
 
-		throw new Error(`${name} not found in CPP_LIBROOT_PATH`);
+		throw new Error(`${name} (${semverRange}) not found in CPP_LIBROOT_PATH`);
 	}
 }
 

@@ -338,7 +338,7 @@ class CppLibrootImport extends Target {
 
 			const cpp = new Cpp(this.sys());
 			const version = this.#config[key][dep];
-			const lib = cpp.find_library(dep, version);
+			const lib = cpp.require(dep, version);
 			this.#deps[dep] = { traits, lib };
 		}
 	}
@@ -421,7 +421,7 @@ class Cpp {
 		return lib;
 	}
 
-	find_library(name, version) {
+	require(name, version) {
 		if (!/^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name)) {
 			throw new Error(`Invalid cpp libroot name ${name}`);
 		}
@@ -437,7 +437,7 @@ class Cpp {
 			const dir = path.resolve(root, name);
 			if (fs.existsSync(dir)) {
 				const versions = fs.readdirSync(dir);
-				const latest = semver.maxSatisfying(versions, `^${version}`);
+				const latest = semver.minSatisfying(versions, `^${version}`);
 				if (latest) {
 					console.log(`Found ${name} (${latest})`);
 					return new CppLibrootImport(this.#sys, path.join(dir, latest));

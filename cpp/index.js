@@ -267,15 +267,22 @@ class CppExecutable extends StaticPath {
 class CppLibrary extends StaticPath {
 	#objects;
 	#includes;
+	#libs;
 
 	constructor(sys, args) {
 		super(sys, sys.dest(args.dest));
 		this.#objects = new CppObjectGroup(sys);
 		this.#includes = [];
+		this.#libs = [];
 	}
 
 	add_src(src) {
 		this.#objects.add_src(src);
+	}
+
+	link(lib) {
+		this.#libs.push(lib);
+		this.#objects.link(lib);
 	}
 
 	include(dir) {
@@ -288,7 +295,17 @@ class CppLibrary extends StaticPath {
 	includes() { return this.#includes; }
 	binaries() { return [this]; }
 
-	deps() { return this.#objects; }
+	deps() {
+		const deps = [this.#objects];
+
+		for (const lib of this.#libs) {
+			for (const bin of lib.binaries()) {
+				deps.push(bin);
+			}
+		}
+
+		return deps;
+	}
 
 	build() {
 		console.log(`linking ${this.path()}`);
@@ -300,6 +317,12 @@ class CppLibrary extends StaticPath {
 
 		for (const obj of this.#objects) {
 			args.push(obj.abs());
+		}
+
+		for (const lib of this.#libs) {
+			for (const bin of lib.binaries()) {
+				args.push(bin.abs());
+			}
 		}
 
 		return spawn('libtool', args, { stdio: 'inherit' });

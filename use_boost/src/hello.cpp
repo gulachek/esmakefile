@@ -1,7 +1,7 @@
-#include <boost/log/trivial.hpp>
+#include "foo.hpp"
 
 int main()
 {
-	BOOST_LOG_TRIVIAL(trace) << "trace logging";
+	foo("tracing yo");
 	return 0;
 }

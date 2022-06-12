@@ -126,6 +126,7 @@ class ClangObject extends StaticPath {
 		console.log(`compiling ${this.path()}`);
 		const args = [
 			'--std=c++20',
+			'-fvisibility=hidden',
 			'-MD', '-MF', this.#depfile.abs(),
 			'-o', this.abs(),
 			'-c', this.#src.abs()

@@ -486,7 +486,7 @@ class Cpp {
 			}
 		}
 
-		throw new Error(`${name} (${semverRange}) not found in CPP_LIBROOT_PATH`);
+		throw new Error(`${name} (${version}) not found in CPP_LIBROOT_PATH`);
 	}
 }
 

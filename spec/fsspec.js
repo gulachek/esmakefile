@@ -10,8 +10,11 @@ describe('FileSystem', () => {
 	beforeEach(() => {
 		path = jasmine.createSpyObj('path', [
 			'resolve',
-			'join'
+			'join',
+			'isAbsolute'
 		]);
+
+		path.sep = '/';
 
 		fsMod = jasmine.createSpyObj('fs', [
 			'mkdirSync'
@@ -23,7 +26,11 @@ describe('FileSystem', () => {
 		});
 
 		path.join.and.callFake((...args) => {
-			return args.join('/');
+			return args.join(path.sep);
+		});
+
+		path.isAbsolute.and.callFake((p) => {
+			return p.startsWith(path.sep);
 		});
 
 		fs = new FileSystem({
@@ -34,10 +41,26 @@ describe('FileSystem', () => {
 		});
 	});
 
-	it('makes a build path', () => {
-		const p = fs.dest('my/path');
-		const abs = fs.abs(p);
-		expect(abs).toEqual('/resolved/src/build/my/path');
+	describe('dest', () => {
+		it('makes a build path', () => {
+			const p = fs.dest('my/path');
+			const abs = fs.abs(p);
+			expect(abs).toEqual('/resolved/src/build/my/path');
+		});
+
+		it('throws if given a source path', () => {
+			const src = fs.src('my/path');
+			expect(() => {
+				fs.dest(src);
+			}).toThrow();
+		});
+
+		it('throws if given a system path', () => {
+			const src = fs.ext('/my/path');
+			expect(() => {
+				fs.dest(src);
+			}).toThrow();
+		});
 	});
 
 	it('throws if non-path is given to abs', () => {
@@ -63,7 +86,10 @@ describe('FileSystem', () => {
 
 	it('dest makes a new dir', () => {
 		fs.dest('my/path');
-		expect(fsMod.mkdirSync).toHaveBeenCalledWith('/resolved/src/build/my');
+		expect(fsMod.mkdirSync).toHaveBeenCalledWith(
+			'/resolved/src/build/my',
+			{ recursive: true }
+		);
 	});
 
 	it('makes a cache path from a build path', () => {
@@ -73,6 +99,15 @@ describe('FileSystem', () => {
 		});
 		const abs = fs.abs(p);
 		expect(abs).toEqual('/resolved/src/build/my/__com.gulachek.test__/path.ext');
+	});
+
+	it('makes a directory for a cache path', () => {
+		const b = fs.dest('my/path.ext');
+		const p = fs.cache(b, {
+			namespace: 'com.gulachek.test'
+		});
+		const abs = fs.abs(p);
+		expect(fsMod.mkdirSync).toHaveBeenCalledWith('/resolved/src/build/my/__com.gulachek.test__', { recursive: true });
 	});
 
 	it('adds an extension in cache path', () => {
@@ -119,5 +154,30 @@ describe('FileSystem', () => {
 
 		const abs = fs.abs(p2);
 		expect(abs).toEqual('/resolved/src/build/my/__t.one__/__t.two__/path.ext');
+	});
+
+	describe('ext', () => {
+		beforeEach(() => {
+			path.isAbsolute.and.returnValue(true);
+		});
+
+		it('imports external paths', () => {
+			const p = fs.ext('/my/ext/path');
+			expect(fs.abs(p)).toEqual('/my/ext/path');
+		});
+
+		it('uses native path separator', () => {
+			path.sep = '\\';
+			const p = fs.ext('C:\\Program Files\\Test\\path.exe');
+			expect(fs.abs(p)).toEqual('C:\\Program Files\\Test\\path.exe');
+		});
+
+		it('throws if importing relative path', () => {
+			path.isAbsolute.and.returnValue(false);
+
+			expect(() => {
+				fs.ext('my/relative/path');
+			}).toThrow();
+		});
 	});
 });

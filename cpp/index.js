@@ -1,5 +1,6 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 const { pathTarget, BuildSystem, StaticPath, Target } = require('../lib/build_system.js');
 
 // testing with clang, generates invalid makefile w/ ':' in src file name
@@ -121,11 +122,11 @@ class ClangObject extends StaticPath {
 	}
 
 	build() {
-		console.log('compiling', this.path().abs());
+		console.log(`compiling ${this.path()}`);
 		const args = [
 			'--std=c++20',
 			'-MD', '-MF', this.#depfile.abs(),
-			'-o', this.path().abs(),
+			'-o', this.abs(),
 			'-c', this.#src.abs()
 		];
 
@@ -229,21 +230,33 @@ class CppExecutable extends StaticPath {
 		this.#objects.include(dir);
 	}
 
-	deps() { return [this.#objects, ...this.#libs]; }
+	deps() {
+		const deps = [this.#objects];
+
+		for (const lib of this.#libs) {
+			for (const bin of lib.binaries()) {
+				deps.push(bin);
+			}
+		}
+
+		return deps;
+	}
 
 	build() {
-		console.log('linking', this.path().abs());
+		console.log(`linking ${this.path()}`);
 
 		const args = [
-			'-o', this.path().abs()
+			'-o', this.abs()
 		];
 
 		for (const obj of this.#objects) {
-			args.push(obj.path().abs());
+			args.push(obj.abs());
 		}
 
 		for (const lib of this.#libs) {
-			args.push(lib.path().abs());
+			for (const bin of lib.binaries()) {
+				args.push(bin.abs());
+			}
 		}
 
 		return spawn('c++', args, { stdio: 'inherit' });
@@ -272,23 +285,64 @@ class CppLibrary extends StaticPath {
 	}
 
 	includes() { return this.#includes; }
+	binaries() { return [this]; }
 
 	deps() { return this.#objects; }
 
 	build() {
-		console.log('linking', this.path().abs());
+		console.log(`linking ${this.path()}`);
 
 		const args = [
 			'-static',
-			'-o', this.path().abs()
+			'-o', this.abs()
 		];
 
 		for (const obj of this.#objects) {
-			args.push(obj.path().abs());
+			args.push(obj.abs());
 		}
 
 		return spawn('libtool', args, { stdio: 'inherit' });
 	}
+}
+
+class CppLibrootImport extends Target {
+	#dir;
+	#config;
+	#binaries;
+	#includes;
+
+	constructor(sys, dir) {
+		super(sys);
+
+		this.#dir = dir;
+		this.#config = JSON.parse(fs.readFileSync(
+			path.resolve(dir, 'lib.json'),
+			{ encoding: 'utf8' }
+		));
+
+		this.#binaries = [];
+		const binaries = this.#config.binaries;
+		if (binaries) {
+			for (const bin of binaries) {
+				this.#binaries.push(this.sys().ext(bin));
+			}
+		}
+
+		this.#includes = [];
+		const includes = this.#config.includes;
+		if (includes) {
+			for (const inc of includes) {
+				this.#includes.push(this.sys().ext(inc));
+			}
+		}
+	}
+
+	build() {
+		return Promise.resolve();
+	}
+
+	binaries() { return this.#binaries; }
+	includes() { return this.#includes; }
 }
 
 class Cpp {
@@ -316,6 +370,28 @@ class Cpp {
 		}
 
 		return lib;
+	}
+
+	find_library(name) {
+		if (!/^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name)) {
+			throw new Error(`Invalid cpp libroot name ${name}`);
+		}
+
+		const librootPath = process.env.CPP_LIBROOT_PATH;
+
+		if (!librootPath) {
+			throw new Error(`Environment variable CPP_LIBROOT_PATH not defined`);
+		}
+
+		const paths = librootPath.split(':');
+		for (const root of paths) {
+			const dir = path.resolve(root, name);
+			if (fs.existsSync(dir)) {
+				return new CppLibrootImport(this.#sys, dir);
+			}
+		}
+
+		throw new Error(`${name} not found in CPP_LIBROOT_PATH`);
 	}
 }
 

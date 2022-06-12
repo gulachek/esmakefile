@@ -292,19 +292,32 @@ class CppLibrary extends StaticPath {
 		this.#objects.include(dirpath);
 	}
 
-	includes() { return this.#includes; }
-	binaries() { return [this]; }
-
-	deps() {
-		const deps = [this.#objects];
+	includes() {
+		const incs = [...this.#includes];
 
 		for (const lib of this.#libs) {
-			for (const bin of lib.binaries()) {
-				deps.push(bin);
+			for (const inc of lib.includes()) {
+				incs.push(inc);
 			}
 		}
 
-		return deps;
+		return incs;
+	}
+
+	binaries() {
+		const bins = [this];
+
+		for (const lib of this.#libs) {
+			for (const bin of lib.binaries()) {
+				bins.push(bin);
+			}
+		}
+
+		return bins;
+	}
+
+	deps() {
+		return this.#objects;
 	}
 
 	build() {
@@ -317,12 +330,6 @@ class CppLibrary extends StaticPath {
 
 		for (const obj of this.#objects) {
 			args.push(obj.abs());
-		}
-
-		for (const lib of this.#libs) {
-			for (const bin of lib.binaries()) {
-				args.push(bin.abs());
-			}
 		}
 
 		return spawn('libtool', args, { stdio: 'inherit' });
@@ -351,9 +358,8 @@ class CppLibrootImport extends Target {
 
 		this.#deps = {};
 
-		this.#searchDeps('deps', { include: true, binary: false });
-		this.#searchDeps('leaky-deps', { include: true, binary: true });
-		this.#searchDeps('leaky-bin-deps', { include: false, binary: true });
+		this.#searchDeps('deps', { include: true, binary: true });
+		this.#searchDeps('bin-deps', { include: false, binary: true });
 	}
 
 	toString() {

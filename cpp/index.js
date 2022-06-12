@@ -331,17 +331,21 @@ class CppLibrary extends StaticPath {
 
 class CppLibrootImport extends Target {
 	#dir;
+	#name;
+	#version;
 	#config;
 	#binaries;
 	#includes;
 	#deps;
 
-	constructor(sys, dir) {
+	constructor(sys, args) {
 		super(sys);
 
-		this.#dir = dir;
+		this.#name = args.name;
+		this.#version = args.version;
+		this.#dir = args.dir;
 		this.#config = JSON.parse(fs.readFileSync(
-			path.resolve(dir, 'lib.json'),
+			path.resolve(this.#dir, 'lib.json'),
 			{ encoding: 'utf8' }
 		));
 
@@ -350,6 +354,10 @@ class CppLibrootImport extends Target {
 		this.#searchDeps('deps', { include: true, binary: false });
 		this.#searchDeps('leaky-deps', { include: true, binary: true });
 		this.#searchDeps('leaky-bin-deps', { include: false, binary: true });
+	}
+
+	toString() {
+		return `${this.constructor.name}{${this.#name} (${this.#version})}`;
 	}
 
 	#searchDeps(key, traits)
@@ -408,8 +416,8 @@ class CppLibrootImport extends Target {
 
 		for (const dep in this.#deps) {
 			if (!this.#deps[dep].traits.include) { continue; }
-			for (const bin of this.#deps[dep].lib.binaries()) {
-				this.#binaries.push(bin);
+			for (const inc of this.#deps[dep].lib.includes()) {
+				this.#includes.push(inc);
 			}
 		}
 
@@ -463,7 +471,11 @@ class Cpp {
 				const latest = semver.minSatisfying(versions, `^${version}`);
 				if (latest) {
 					console.log(`Found ${name} (${latest})`);
-					return new CppLibrootImport(this.#sys, path.join(dir, latest));
+					return new CppLibrootImport(this.#sys, {
+						name,
+						version,
+						dir: path.join(dir, latest)
+					});
 				}
 			}
 		}

@@ -1,4 +1,4 @@
-const { task } = require('gulp');
+const { task, series } = require('gulp');
 const { BuildSystem } = require('gulpachek');
 const { Cpp } = require('gulpachek/cpp');
 
@@ -21,4 +21,4 @@ const hello = cpp.executable('hello',
 
 hello.link(foo);
 
-task('default', sys.rule(hello));
+task('default', series(sys.rule(hello)));

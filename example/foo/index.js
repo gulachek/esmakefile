@@ -4,7 +4,7 @@ function foo(sys) {
 	const cpp = new Cpp(sys.sub(__dirname));
 
 	const lib = cpp.library(
-		'libfoo.a',
+		'com.example.foo', '0.1.0',
 		'src/foo.cpp'
 	);
 

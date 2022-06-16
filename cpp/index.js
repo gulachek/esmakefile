@@ -271,7 +271,9 @@ class CppLibrary extends StaticPath {
 	#libs;
 
 	constructor(sys, args) {
-		super(sys, sys.dest(args.dest));
+		const nameUnder = args.name.replaceAll('.', '_');
+		const fname = `lib${nameUnder}.${args.version}.a`;
+		super(sys, sys.dest(fname));
 		this.#objects = new CppObjectGroup(sys);
 		this.#includes = [];
 		this.#libs = [];
@@ -432,6 +434,10 @@ class CppLibrootImport extends Target {
 	}
 }
 
+function isLibrootName(name) {
+	return /^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name);
+}
+
 class Cpp {
 	#sys;
 
@@ -449,8 +455,20 @@ class Cpp {
 		return exec;
 	}
 
-	library(fname, ...srcs) {
-		const lib = new CppLibrary(this.#sys, { dest: fname });
+	library(name, version, ...srcs) {
+		if (!isLibrootName(name)) {
+			throw new Error(`Invalid cpp libroot name ${name}`);
+		}
+
+		const parsedVersion = semver.valid(version);
+		if (!parsedVersion) {
+			throw new Error(`Invalid version '${version}'`);
+		}
+
+		const lib = new CppLibrary(this.#sys, {
+			name,
+			version: parsedVersion
+		});
 
 		for (const src of srcs) {
 			lib.add_src(src);
@@ -460,7 +478,7 @@ class Cpp {
 	}
 
 	require(name, version) {
-		if (!/^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name)) {
+		if (!isLibrootName(name)) {
 			throw new Error(`Invalid cpp libroot name ${name}`);
 		}
 

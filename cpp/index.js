@@ -308,11 +308,9 @@ class InstallLibroot extends StaticPath {
 		obj.binaries = this.#binaries.map(b => b.abs());
 		obj.deps = {};
 		for (const dep of this.#deps) {
-			console.log(dep);
 			obj.deps[dep.name()] = dep.version();
 		}
 
-		console.log(obj);
 		fs.writeFile(this.abs(), JSON.stringify(obj), cb);
 	}
 

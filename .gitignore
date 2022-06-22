@@ -1,4 +1,5 @@
 node_modules
 libroot
 build
+install
 *.swp

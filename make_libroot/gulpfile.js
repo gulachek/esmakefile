@@ -1,4 +1,4 @@
-const { task } = require('gulp');
+const { task, series } = require('gulp');
 const { BuildSystem } = require('gulpachek');
 const { Cpp } = require('gulpachek/cpp');
 
@@ -16,17 +16,22 @@ const lib = cpp.library('com.example.foo', '0.1.0',
 lib.link(boost.log);
 lib.include("include");
 
-task('default', sys.rule(lib));
+const libroot = lib.libroot();
 
-//const libroot = lib.libroot();
-/*
- * above makes file at $GULPACHEK_INSTALL_ROOT/share/cpplibroot/<name>/<version>/lib.json
- *
- * {
- * 	"includes": ["$GULPACHEK_INSTALL_ROOT/include"]
- * 	"binaries": ["$GULPACHEK_INSTALL_ROOT/lib/libcom.example.foo_0.1.0.a"],
- * 	"deps": {
- *		"org.boost.log": "1.78.0"
- * 	}
- * }
- */
+process.env.CPP_LIBROOT_PATH =
+	`${process.env.GULPACHEK_INSTALL_ROOT}/share/cpplibroot:${process.env.CPP_LIBROOT_PATH}`;
+
+const postInstall = (cb) => {
+	const foo = cpp.require('com.example.foo', '0.1.0');
+
+	const hello = cpp.executable('hello',
+		'hello.cpp'
+	);
+
+	hello.link(foo);
+
+	const rule = sys.rule(hello);
+	return rule(cb);
+};
+
+task('default', series(sys.rule(libroot), postInstall));

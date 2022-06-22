@@ -2,7 +2,14 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const semver = require('semver');
-const { pathTarget, BuildSystem, StaticPath, Target } = require('../lib/build_system.js');
+const {
+	pathTarget,
+	BuildSystem,
+	StaticPath,
+	Target,
+	copyDir,
+	copyFile
+} = require('../lib/build_system.js');
 
 // testing with clang, generates invalid makefile w/ ':' in src file name
 // based on that, assume ':' clearly delimits end of target name,
@@ -265,7 +272,62 @@ class CppExecutable extends StaticPath {
 	}
 }
 
+class InstallLibroot extends StaticPath {
+	#includes;
+	#binaries;
+	#deps;
+	#depLibroots;
+
+	constructor(sys, args) {
+		const { name, version, includes, binaries, deps } = args;
+		super(sys, sys.install(`share/cpplibroot/${name}/${version}/lib.json`));
+
+		this.#includes = [];
+		for (const inc of includes) {
+			this.#includes.push(copyDir(this.sys(), inc, sys.install('include')));
+		}
+
+		this.#binaries = [];
+		for (const bin of binaries) {
+			this.#binaries.push(copyFile(this.sys(), bin, sys.install('lib')));
+		}
+
+		this.#depLibroots = [];
+		for (const dep of deps) {
+			if (typeof dep.libroot === 'function') {
+				this.#depLibroots.push(dep.libroot());
+			}
+		}
+
+		this.#deps = deps;
+	}
+
+	build(cb) {
+		const obj = {};
+		obj.includes = this.#includes.map(i => i.abs());
+		obj.binaries = this.#binaries.map(b => b.abs());
+		obj.deps = {};
+		for (const dep of this.#deps) {
+			console.log(dep);
+			obj.deps[dep.name()] = dep.version();
+		}
+
+		console.log(obj);
+		fs.writeFile(this.abs(), JSON.stringify(obj), cb);
+	}
+
+	deps() {
+		return [
+			...this.#includes,
+			...this.#binaries,
+			...this.#depLibroots
+		];
+	}
+}
+
 class CppLibrary extends StaticPath {
+	#name;
+	#version;
 	#objects;
 	#includes;
 	#libs;
@@ -274,9 +336,24 @@ class CppLibrary extends StaticPath {
 		const nameUnder = args.name.replaceAll('.', '_');
 		const fname = `lib${nameUnder}.${args.version}.a`;
 		super(sys, sys.dest(fname));
+		this.#name = args.name;
+		this.#version = args.version;
 		this.#objects = new CppObjectGroup(sys);
 		this.#includes = [];
 		this.#libs = [];
+	}
+
+	name() { return this.#name; }
+	version() { return this.#version; }
+
+	libroot() {
+		return new InstallLibroot(this.sys(), {
+			name: this.#name,
+			version: this.#version,
+			includes: this.#includes,
+			binaries: [this],
+			deps: this.#libs
+		});
 	}
 
 	add_src(src) {
@@ -364,6 +441,9 @@ class CppLibrootImport extends Target {
 		this.#searchDeps('deps', { include: true, binary: true });
 		this.#searchDeps('bin-deps', { include: false, binary: true });
 	}
+
+	name() { return this.#name; }
+	version() { return this.#version; }
 
 	toString() {
 		return `${this.constructor.name}{${this.#name} (${this.#version})}`;

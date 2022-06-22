@@ -21,8 +21,18 @@ describe('FileSystem', () => {
 		]);
 
 		path.resolve.and.callFake((...args) => {
-			const p = args.join('/');
-			return p.startsWith('/') ? p : `/resolved/${p}`;
+			if (args.length === 0) { throw new Error('why no paths to resolve?'); }
+
+			let sub = args[args.length - 1];;
+			for (let i = 1; i < args.length; ++i) {
+				sub = [args[args.length - i - 1], sub].join(path.sep);
+				if (path.isAbsolute(sub))
+				{
+					return sub;
+				}
+			}
+
+			return ['/resolved', sub].join('/');
 		});
 
 		path.join.and.callFake((...args) => {
@@ -157,16 +167,13 @@ describe('FileSystem', () => {
 	});
 
 	describe('ext', () => {
-		beforeEach(() => {
-			path.isAbsolute.and.returnValue(true);
-		});
-
 		it('imports external paths', () => {
 			const p = fs.ext('/my/ext/path');
 			expect(fs.abs(p)).toEqual('/my/ext/path');
 		});
 
 		it('uses native path separator', () => {
+			path.isAbsolute.and.callFake((p) => p.startsWith('C:'));
 			path.sep = '\\';
 			const p = fs.ext('C:\\Program Files\\Test\\path.exe');
 			expect(fs.abs(p)).toEqual('C:\\Program Files\\Test\\path.exe');

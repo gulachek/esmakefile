@@ -139,6 +139,13 @@ class ClangObject extends StaticPath {
 			'-c', this.#src.abs()
 		];
 
+		if (this.sys().isDebugBuild()) {
+			args.push('-g');
+			args.push('-Og');
+		} else {
+			args.push('-O3');
+		}
+
 		for (const i of this.#includes) {
 			args.push('-I');
 			args.push(i.abs());
@@ -280,7 +287,8 @@ class InstallLibroot extends StaticPath {
 
 	constructor(sys, args) {
 		const { name, version, includes, binaries, deps } = args;
-		super(sys, sys.install(`cpplibroot/${name}/${version}/lib.json`));
+		const fname = sys.isDebugBuild() ? 'debug' : 'release';
+		super(sys, sys.install(`cpplibroot/${name}/${version}/${fname}.json`));
 
 		this.#includes = [];
 		for (const inc of includes) {
@@ -429,8 +437,9 @@ class CppLibrootImport extends Target {
 		this.#name = args.name;
 		this.#version = args.version;
 		this.#dir = args.dir;
+		const f = sys.isDebugBuild() ? 'debug.json' : 'release.json';
 		this.#config = JSON.parse(fs.readFileSync(
-			path.resolve(this.#dir, 'lib.json'),
+			path.resolve(this.#dir, f),
 			{ encoding: 'utf8' }
 		));
 

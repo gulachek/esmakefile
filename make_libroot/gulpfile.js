@@ -19,7 +19,7 @@ lib.include("include");
 const libroot = lib.libroot();
 
 process.env.CPP_LIBROOT_PATH =
-	`${process.env.GULPACHEK_INSTALL_ROOT}/share/cpplibroot:${process.env.CPP_LIBROOT_PATH}`;
+	`${process.env.GULPACHEK_INSTALL_ROOT_CPPLIBROOT}:${process.env.CPP_LIBROOT_PATH}`;
 
 const postInstall = (cb) => {
 	const foo = cpp.require('com.example.foo', '0.1.0');

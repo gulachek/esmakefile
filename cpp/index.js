@@ -280,7 +280,7 @@ class InstallLibroot extends StaticPath {
 
 	constructor(sys, args) {
 		const { name, version, includes, binaries, deps } = args;
-		super(sys, sys.install(`share/cpplibroot/${name}/${version}/lib.json`));
+		super(sys, sys.install(`cpplibroot/${name}/${version}/lib.json`));
 
 		this.#includes = [];
 		for (const inc of includes) {

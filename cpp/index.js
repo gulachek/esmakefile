@@ -174,6 +174,8 @@ class CppObjectGroup extends Target {
 		this.#libs = [];
 	}
 
+	get length() { return this.#objects.length; }
+
 	deps() { return this.#objects; }
 	build() { return Promise.resolve(); }
 	mtime() {
@@ -352,6 +354,8 @@ class CppLibrary extends StaticPath {
 	name() { return this.#name; }
 	version() { return this.#version; }
 
+	#headerOnly() { return this.#objects.length < 1; }
+
 	libroot() {
 		return new InstallLibroot(this.sys(), {
 			name: this.#name,
@@ -391,7 +395,11 @@ class CppLibrary extends StaticPath {
 	}
 
 	binaries() {
-		const bins = [this];
+		const bins = [];
+
+		if (!this.#headerOnly()) {
+			bins.push(this);
+		}
 
 		for (const lib of this.#libs) {
 			for (const bin of lib.binaries()) {
@@ -407,6 +415,10 @@ class CppLibrary extends StaticPath {
 	}
 
 	build() {
+		if (this.#headerOnly()) {
+			return Promise.resolve();
+		}
+
 		console.log(`linking ${this.path()}`);
 
 		const args = [

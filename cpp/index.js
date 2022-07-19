@@ -361,7 +361,7 @@ class CppLibrary extends StaticPath {
 			name: this.#name,
 			version: this.#version,
 			includes: this.#includes,
-			binaries: [this],
+			binaries: this.#headerOnly() ? [] : [this],
 			deps: this.#libs
 		});
 	}

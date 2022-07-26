@@ -11,7 +11,7 @@ const hello = cpp.executable('hello',
 	'hello.cpp',
 );
 
-const foolib = foo(sys);
+const foolib = foo(sys.sub('foo'));
 
 hello.link(foolib);
 

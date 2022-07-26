@@ -1,5 +1,6 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const semver = require('semver');
 const {
@@ -60,6 +61,43 @@ function* depfileEntries(path) {
 	}
 }
 
+class CppDepfile extends Target {
+	#path;
+	#toolchain;
+
+	constructor(sys, args) {
+		super(sys);
+		this.#path = args.path;
+		this.#toolchain = args.toolchain;
+	}
+
+	build() {
+		return Promise.resolve();
+	}
+
+	toString() {
+		return `CppDepfile{${this.abs()}}`;
+	}
+
+	abs() {
+		return this.sys().abs(this.#path);
+	}
+
+	mtime() {
+		const zero = new Date(0);
+		const path = this.abs();
+		if (!fs.existsSync(path)) return zero; // nothing to depend on
+
+		let maxAge = zero;
+		for (const f of this.#toolchain.depfileEntries(path)) {
+			const age = fs.statSync(f).mtime;
+			maxAge = maxAge < age ? age : maxAge;
+		}
+
+		return maxAge;
+	}
+}
+
 class ClangDepfile extends Target {
 	#path;
 
@@ -92,6 +130,71 @@ class ClangDepfile extends Target {
 		}
 
 		return maxAge;
+	}
+}
+
+class CppObject extends StaticPath {
+	#src;
+	#includes;
+	#libs;
+	#depfile;
+	#toolchain;
+
+	constructor(sys, args) {
+		const src = sys.src(args.src);
+		super(sys, sys.cache(src.path(), {
+			namespace: 'com.gulachek.cpp.obj',
+			ext: args.toolchain.objectExt
+		}));
+		this.#src = src;
+		this.#includes = [];
+		this.#libs = [];
+		this.#toolchain = args.toolchain;
+
+		this.#depfile = new CppDepfile(sys, {
+			path: sys.cache(src.path(), {
+				namespace: 'com.gulachek.cpp.obj',
+				ext: 'd'
+			}),
+			toolchain: args.toolchain
+		});
+	}
+
+	include(dir) {
+		this.#includes.push(this.sys().src(dir));
+	}
+
+	link(lib) {
+		this.#libs.push(lib);
+	}
+
+	deps() {
+		return [this.#src, ...this.#includes, this.#depfile];
+	}
+
+	build(cb) {
+		console.log(`compiling ${this.path()}`);
+		const args = {
+			gulpCallback: cb,
+			cppVersion: 20,
+			depfilePath: this.#depfile.abs(),
+			outputPath: this.abs(),
+			srcPath: this.#src.abs(),
+			isDebug: this.sys().isDebugBuild(),
+			includes: [],
+		};
+
+		for (const i of this.#includes) {
+			args.includes.push(i.abs());
+		}
+
+		for (const lib of this.#libs) {
+			for (const i of lib.includes()) {
+				args.includes.push(i.abs());
+            }
+		}
+
+		return this.#toolchain.compile(args);
 	}
 }
 
@@ -166,9 +269,11 @@ class CppObjectGroup extends Target {
 	#objects;
 	#includes;
 	#libs;
+	#toolchain;
 
-	constructor(sys) {
+	constructor(sys, args) {
 		super(sys);
+		this.#toolchain = args.toolchain;
 		this.#objects = [];
 		this.#includes = [];
 		this.#libs = [];
@@ -197,7 +302,10 @@ class CppObjectGroup extends Target {
 	}
 
 	add_src(src) {
-		const o = new ClangObject(this.sys(), { src: src });
+		const o = new CppObject(this.sys(), {
+			src: src,
+			toolchain: this.#toolchain
+		});
 
 		for (const i of this.#includes) {
 			o.include(i);
@@ -228,10 +336,16 @@ class CppObjectGroup extends Target {
 class CppExecutable extends StaticPath {
 	#objects;
 	#libs;
+	#toolchain;
 
 	constructor(sys, args) {
-		super(sys, sys.dest(args.dest));
-		this.#objects = new CppObjectGroup(sys);
+		const ext = args.toolchain.executableExt;
+		const out = ext ? `${args.name}.${ext}` : args.name;
+		super(sys, sys.dest(out));
+		this.#toolchain = args.toolchain;
+		this.#objects = new CppObjectGroup(sys, {
+			toolchain: args.toolchain
+        });
 		this.#libs = [];
 	}
 
@@ -261,23 +375,24 @@ class CppExecutable extends StaticPath {
 	}
 
 	build() {
-		console.log(`linking ${this.path()}`);
+		console.log(`linking executable ${this.path()}`);
 
-		const args = [
-			'-o', this.abs()
-		];
+		const args = {
+			outputPath: this.abs(),
+			objects: []
+		};
 
 		for (const obj of this.#objects) {
-			args.push(obj.abs());
+			args.objects.push(obj.abs());
 		}
 
 		for (const lib of this.#libs) {
 			for (const bin of lib.binaries()) {
-				args.push(bin.abs());
+				args.objects.push(bin.abs());
 			}
 		}
 
-		return spawn('c++', args, { stdio: 'inherit' });
+		return this.#toolchain.linkExecutable(args);
 	}
 }
 
@@ -339,14 +454,18 @@ class CppLibrary extends StaticPath {
 	#objects;
 	#includes;
 	#libs;
+	#toolchain;
 
 	constructor(sys, args) {
 		const nameUnder = args.name.replaceAll('.', '_');
-		const fname = `lib${nameUnder}.${args.version}.a`;
+		const fname = `lib${nameUnder}.${args.version}.${args.toolchain.archiveExt}`;
 		super(sys, sys.dest(fname));
 		this.#name = args.name;
 		this.#version = args.version;
-		this.#objects = new CppObjectGroup(sys);
+		this.#toolchain = args.toolchain;
+		this.#objects = new CppObjectGroup(sys, {
+			toolchain: args.toolchain
+        });
 		this.#includes = [];
 		this.#libs = [];
 	}
@@ -419,18 +538,18 @@ class CppLibrary extends StaticPath {
 			return Promise.resolve();
 		}
 
-		console.log(`linking ${this.path()}`);
+		console.log(`archiving ${this.path()}`);
 
-		const args = [
-			'-static',
-			'-o', this.abs()
-		];
+		const args = {
+			outputPath: this.abs(),
+			objects: []
+		};
 
 		for (const obj of this.#objects) {
-			args.push(obj.abs());
+			args.objects.push(obj.abs());
 		}
 
-		return spawn('libtool', args, { stdio: 'inherit' });
+		return this.#toolchain.archive(args);
 	}
 }
 
@@ -537,15 +656,32 @@ function isLibrootName(name) {
 	return /^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name);
 }
 
+function findToolchain(os) {
+	const platform = os.platform();
+	if (platform === 'win32') {
+		const { MsvcToolchain } = require('./msvcToolchain');
+		return new MsvcToolchain();
+	} else if (platform === 'darwin') {
+		const { ClangToolchain } = require('./clangToolchain');
+		return new ClangToolchain();
+	} else {
+		throw new Error(`No toolchain defined for platform '${platform}'`);
+    }
+}
+
 class Cpp {
 	#sys;
+	#toolchain;
 
 	constructor(sys) {
 		this.#sys = sys;
+		this.#toolchain = findToolchain(os);
 	}
 
 	executable(name, ...srcs) {
-		const exec = new CppExecutable(this.#sys, { dest: name });
+		const exec = new CppExecutable(this.#sys, {
+			name, toolchain: this.#toolchain
+		});
 
 		for (const src of srcs) {
 			exec.add_src(src);
@@ -566,7 +702,8 @@ class Cpp {
 
 		const lib = new CppLibrary(this.#sys, {
 			name,
-			version: parsedVersion
+			version: parsedVersion,
+			toolchain: this.#toolchain
 		});
 
 		for (const src of srcs) {

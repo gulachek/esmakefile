@@ -191,7 +191,7 @@ class CppObject extends StaticPath {
 		for (const lib of this.#libs) {
 			for (const i of lib.includes()) {
 				args.includes.push(i.abs());
-            }
+			}
 		}
 
 		return this.#toolchain.compile(args);
@@ -374,10 +374,11 @@ class CppExecutable extends StaticPath {
 		return deps;
 	}
 
-	build() {
+	build(cb) {
 		console.log(`linking executable ${this.path()}`);
 
 		const args = {
+			gulpCallback: cb,
 			outputPath: this.abs(),
 			objects: []
 		};
@@ -533,7 +534,7 @@ class CppLibrary extends StaticPath {
 		return this.#objects;
 	}
 
-	build() {
+	build(cb) {
 		if (this.#headerOnly()) {
 			return Promise.resolve();
 		}
@@ -541,6 +542,7 @@ class CppLibrary extends StaticPath {
 		console.log(`archiving ${this.path()}`);
 
 		const args = {
+			gulpCallback: cb,
 			outputPath: this.abs(),
 			objects: []
 		};

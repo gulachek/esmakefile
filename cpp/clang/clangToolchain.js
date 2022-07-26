@@ -1,4 +1,4 @@
-const { Toolchain } = require('./toolchain');
+const { Toolchain } = require('../toolchain');
 const { spawn } = require('child_process');
 const fs = require('fs');
 

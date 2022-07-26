@@ -508,10 +508,10 @@ function isLibrootName(name) {
 function findToolchain(os) {
 	const platform = os.platform();
 	if (platform === 'win32') {
-		const { MsvcToolchain } = require('./msvcToolchain');
+		const { MsvcToolchain } = require('./msvc/msvcToolchain');
 		return new MsvcToolchain();
 	} else if (platform === 'darwin') {
-		const { ClangToolchain } = require('./clangToolchain');
+		const { ClangToolchain } = require('./clang/clangToolchain');
 		return new ClangToolchain();
 	} else {
 		throw new Error(`No toolchain defined for platform '${platform}'`);

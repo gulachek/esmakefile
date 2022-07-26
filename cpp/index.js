@@ -47,41 +47,6 @@ class CppDepfile extends Target {
 	}
 }
 
-class ClangDepfile extends Target {
-	#path;
-
-	constructor(sys, path) {
-		super(sys);
-		this.#path = path;
-	}
-
-	build() {
-		return Promise.resolve();
-	}
-
-	toString() {
-		return `ClangDepfile{${this.abs()}}`;
-	}
-
-	abs() {
-		return this.sys().abs(this.#path);
-	}
-
-	mtime() {
-		const zero = new Date(0);
-		const path = this.abs();
-		if (!fs.existsSync(path)) return zero; // nothing to depend on
-
-		let maxAge = zero;
-		for (const f of depfileEntries(path)) {
-			const age = fs.statSync(f).mtime;
-			maxAge = maxAge < age ? age : maxAge;
-		}
-
-		return maxAge;
-	}
-}
-
 class CppObject extends StaticPath {
 	#src;
 	#includes;
@@ -144,73 +109,6 @@ class CppObject extends StaticPath {
 		}
 
 		return this.#toolchain.compile(args);
-	}
-}
-
-class ClangObject extends StaticPath {
-	#src;
-	#includes;
-	#libs;
-	#depfile;
-
-	constructor(sys, args) {
-		const src = sys.src(args.src);
-		super(sys, sys.cache(src.path(), {
-			namespace: 'com.gulachek.clang.cpp.obj',
-			ext: 'o'
-		}));
-		this.#src = src;
-		this.#includes = [];
-		this.#libs = [];
-
-		this.#depfile = new ClangDepfile(sys, sys.cache(src.path(), {
-			namespace: 'com.gulachek.clang.cpp.obj',
-			ext: 'd'
-		}));
-	}
-
-	include(dir) {
-		this.#includes.push(this.sys().src(dir));
-	}
-
-	link(lib) {
-		this.#libs.push(lib);
-	}
-
-	deps() {
-		return [this.#src, ...this.#includes, this.#depfile];
-	}
-
-	build() {
-		console.log(`compiling ${this.path()}`);
-		const args = [
-			'--std=c++20',
-			'-fvisibility=hidden',
-			'-MD', '-MF', this.#depfile.abs(),
-			'-o', this.abs(),
-			'-c', this.#src.abs()
-		];
-
-		if (this.sys().isDebugBuild()) {
-			args.push('-g');
-			args.push('-Og');
-		} else {
-			args.push('-O3');
-		}
-
-		for (const i of this.#includes) {
-			args.push('-I');
-			args.push(i.abs());
-		}
-
-		for (const lib of this.#libs) {
-			for (const i of lib.includes()) {
-				args.push('-I');
-				args.push(i.abs());
-			}
-		}
-
-		return spawn('c++', args, { stdio: 'inherit' });
 	}
 }
 

@@ -39,8 +39,13 @@ class CppDepfile extends Target {
 
 		let maxAge = zero;
 		for (const f of this.#toolchain.depfileEntries(path)) {
-			const age = fs.statSync(f).mtime;
-			maxAge = maxAge < age ? age : maxAge;
+			try {
+				const age = fs.statSync(f).mtime;
+				maxAge = maxAge < age ? age : maxAge;
+			} catch (e) {
+				e.message += `: ${f}`;
+				throw e;
+            }
 		}
 
 		return maxAge;

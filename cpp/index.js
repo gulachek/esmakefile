@@ -232,6 +232,7 @@ class CppExecutable extends StaticPath {
 		const args = {
 			gulpCallback: cb,
 			outputPath: this.abs(),
+			isDebug: this.sys().isDebugBuild(),
 			objects: []
 		};
 

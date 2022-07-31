@@ -37,6 +37,7 @@ class MsvcToolchain extends Toolchain {
         if (opts.isDebug) {
             args.push('/Od');
             args.push('/MDd');
+		args.push('/Z7');
         } else {
             args.push('/Ot');
             args.push('/MD');
@@ -91,9 +92,13 @@ class MsvcToolchain extends Toolchain {
     linkExecutable(opts) {
         const args = [
             `/OUT:${opts.outputPath}`,
-            '/DEBUG',
             ...opts.objects
         ];
+
+        if (opts.isDebug) {
+            args.push('/DEBUG');
+        }
+        
         return spawn('link', args, {
             stdio: 'inherit'
         });

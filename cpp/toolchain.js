@@ -36,6 +36,7 @@ class Toolchain {
 	 * gulpCallback: Function (gulp task completion callback)
 	 * outputPath: string (path to generated executable)
 	 * objects: string[] (paths to object files and libraries)
+	 * isDebug: boolean (debug vs release build)
 	 */
 	linkExecutable(args) {
 		this.#stub('linkExecutable');

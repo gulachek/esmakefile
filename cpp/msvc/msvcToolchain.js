@@ -36,9 +36,13 @@ class MsvcToolchain extends Toolchain {
 
         if (opts.isDebug) {
             args.push('/Od');
+            args.push('/MDd');
         } else {
             args.push('/Ot');
+            args.push('/MD');
         }
+        // eventually will need support for /MT[d] and maybe /LD[d]
+        // better to have a use case to design for than to preemptively design the wrong thing.
 
         const depfile = fs.createWriteStream(opts.depfilePath, 'utf8');
         let dfProm = new Promise((resolve) => {

@@ -9,6 +9,10 @@ function foo(sys) {
 
 	lib.include('include');
 
+	// make sure we don't require install paths to be defined
+	// simply to reference this
+	const libroot = lib.libroot();
+
 	return lib;
 }
 

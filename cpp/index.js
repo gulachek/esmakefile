@@ -3,12 +3,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const semver = require('semver');
-const {
-	StaticPath,
-	Target,
-	copyDir,
-	copyFile
-} = require('../lib/build_system.js');
+
+const { StaticPath, copyDir, copyFile } = require('../lib/pathTargets');
+const { Target } = require('../lib/target');
 
 class CppDepfile extends Target {
 	#path;

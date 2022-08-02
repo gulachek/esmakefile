@@ -1,4 +1,5 @@
-const { BuildSystem, Target } = require('./lib/build_system');
+const { BuildSystem } = require('./lib/build_system');
+const { Target } = require('./lib/target');
 
 module.exports = {
 	BuildSystem,

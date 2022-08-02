@@ -516,9 +516,12 @@ function findToolchain(os) {
 	} else if (platform === 'darwin') {
 		const { ClangToolchain } = require('./clang/clangToolchain');
 		return new ClangToolchain();
+	} else if (platform === 'linux') {
+		const { GccToolchain } = require('./gcc/gccToolchain');
+		return new GccToolchain();
 	} else {
 		throw new Error(`No toolchain defined for platform '${platform}'`);
-    }
+	}
 }
 
 class Cpp {

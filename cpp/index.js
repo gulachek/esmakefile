@@ -42,7 +42,7 @@ class CppDepfile extends Target {
 			} catch (e) {
 				e.message += `: ${f}`;
 				throw e;
-            }
+			}
 		}
 
 		return maxAge;

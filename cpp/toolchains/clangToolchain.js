@@ -29,6 +29,7 @@ class ClangToolchain extends Toolchain {
 			args.push('-Og');
 		} else {
 			args.push('-O3');
+			args.push('-DNDEBUG');
 		}
 
 		for (const i of opts.includes) {

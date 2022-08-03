@@ -2,6 +2,12 @@
 #include "foo.hpp"
 
 int main() {
-	std::cout << "hello world: " << foo() << std::endl;
+
+#ifndef NDEBUG
+	std::cout << "hello debug world: " << foo() << std::endl;
+#else
+	std::cout << "hello release world: " << foo() << std::endl;
+#endif
+
 	return 0;
 }

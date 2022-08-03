@@ -1,0 +1,23 @@
+Interface for library class.
+
+class Library {
+	// reverse domain notation of the library
+	name(): rdn-string
+
+	// semver version of library
+	version(): semver-string
+
+	// iterable absolute paths to directories needed to include for this
+	// library (not dependencies)
+	includes(): path[]
+
+	// iterable absolute paths to binaries needed to link for this library
+	// (not dependencies)
+	binaries(): path[]
+
+	// iterable dependencies that also must be included / linked
+	deps(): Library[]
+}
+
+Consumer can then collect all dependencies and only link the newest
+compatible versions of libraries.

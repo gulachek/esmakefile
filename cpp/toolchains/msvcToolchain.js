@@ -41,6 +41,7 @@ class MsvcToolchain extends Toolchain {
         } else {
             args.push('/Ot');
             args.push('/MD');
+            args.push('/DNDEBUG');
         }
         // eventually will need support for /MT[d] and maybe /LD[d]
         // better to have a use case to design for than to preemptively design the wrong thing.

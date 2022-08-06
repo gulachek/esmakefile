@@ -9,6 +9,7 @@ class CppLibrary extends StaticPath {
 	#includes;
 	#libs;
 	#toolchain;
+	#cppVersion;
 
 	constructor(sys, args) {
 		const nameUnder = args.name.replaceAll('.', '_');
@@ -17,8 +18,10 @@ class CppLibrary extends StaticPath {
 		this.#name = args.name;
 		this.#version = args.version;
 		this.#toolchain = args.toolchain;
+		this.#cppVersion = args.cppVersion;
 		this.#objects = new CppObjectGroup(sys, {
-			toolchain: args.toolchain
+			toolchain: args.toolchain,
+			cppVersion: args.cppVersion
         });
 		this.#includes = [];
 		this.#libs = [];
@@ -26,6 +29,7 @@ class CppLibrary extends StaticPath {
 
 	name() { return this.#name; }
 	version() { return this.#version; }
+	cppVersion() { return this.#cppVersion; }
 
 	#headerOnly() { return this.#objects.length < 1; }
 
@@ -35,7 +39,8 @@ class CppLibrary extends StaticPath {
 			version: this.#version,
 			includes: this.#includes,
 			binaries: this.#headerOnly() ? [] : [this],
-			deps: this.#libs
+			deps: this.#libs,
+			cppVersion: this.#cppVersion
 		});
 	}
 

@@ -8,6 +8,7 @@ function isLibrootName(name) {
 }
 
 class InstallLibroot extends StaticPath {
+	#cppVersion;
 	#includes;
 	#binaries;
 	#deps;
@@ -17,6 +18,8 @@ class InstallLibroot extends StaticPath {
 		const { name, version, includes, binaries, deps } = args;
 		const fname = sys.isDebugBuild() ? 'debug' : 'release';
 		super(sys, sys.install(`cpplibroot/${name}/${version}/${fname}.json`));
+
+		this.#cppVersion = args.cppVersion;
 
 		this.#includes = [];
 		for (const inc of includes) {
@@ -40,6 +43,7 @@ class InstallLibroot extends StaticPath {
 
 	build(cb) {
 		const obj = {};
+		obj.language = `c++${this.#cppVersion}`;
 		obj.includes = this.#includes.map(i => i.abs());
 		obj.binaries = this.#binaries.map(b => b.abs());
 		obj.deps = {};
@@ -57,6 +61,82 @@ class InstallLibroot extends StaticPath {
 			...this.#depLibroots
 		];
 	}
+}
+
+class LibrootConfig {
+	#lang;
+	#deps;
+	#cppVersion;
+
+	// TODO: remove these in favor of symlinks
+	includes;
+	binaries;
+
+	constructor(obj) {
+		this.#initLang(obj.language);
+		this.#initDeps(obj.deps);
+
+		this.includes = obj.includes;
+		this.binaries = obj.binaries;
+	}
+
+	#initLang(lang) {
+		if (!lang) {
+			throw new Error('Missing "language" property');
+		}
+
+		const match = lang.match(/c\+\+(\d\d)/);
+		if (!match) {
+			throw new Error(`Invalid "language": ${lang}`);
+		}
+
+		const cppVersion = parseInt(match[1], 10);
+		switch (cppVersion) {
+			case 98:
+			case 11:
+			case 14:
+			case 17:
+			case 20:
+				break;
+			default:
+				throw new Error(`Invalid c++ version: ${cppVersion}`);
+				break;
+		}
+
+		this.#cppVersion = cppVersion;
+		this.#lang = lang;
+	}
+
+	#initDeps(deps) {
+		this.#deps = {};
+		for (const nm in deps) {
+			if (!isLibrootName(nm)) {
+				throw new Error(`${nm} is not a valid libroot name`);
+			}
+
+			if (this.#deps[nm]) {
+				throw new Error(`${nm} can only be specified as depencency once`);
+			}
+
+			this.#deps[nm] = deps[nm];
+		}
+	}
+
+	*deps() {
+		for (const nm in this.#deps) {
+			yield nm;
+		}
+	}
+
+	depVersion(nm) {
+		if (!this.#deps[nm]) {
+			throw new Error(`No dependency on ${nm}`);
+		}
+
+		return this.#deps[nm];
+	}
+
+	cppVersion() { return this.#cppVersion; }
 }
 
 class CppLibrootImport extends Target {
@@ -77,34 +157,35 @@ class CppLibrootImport extends Target {
 		this.#version = args.version;
 		this.#dir = args.dir;
 		const f = sys.isDebugBuild() ? 'debug.json' : 'release.json';
-		this.#config = JSON.parse(fs.readFileSync(
-			path.resolve(this.#dir, f),
-			{ encoding: 'utf8' }
-		));
+		const p = path.resolve(this.#dir, f);
+
+		try {
+			this.#config = new LibrootConfig(JSON.parse(fs.readFileSync(
+				p, { encoding: 'utf8' }
+			)));
+		} catch (e) {
+			e.message = `Error parsing ${p}: ${e.message}`;
+			throw e;
+		}
 
 		this.#deps = {};
-
-		this.#searchDeps('deps', { include: true, binary: true });
-		this.#searchDeps('bin-deps', { include: false, binary: true });
+		this.#searchDeps();
 	}
 
 	name() { return this.#name; }
 	version() { return this.#version; }
+	cppVersion() { return this.#config.cppVersion(); }
 
 	toString() {
 		return `${this.constructor.name}{${this.#name} (${this.#version})}`;
 	}
 
-	#searchDeps(key, traits)
+	#searchDeps()
 	{
-		for (const dep in this.#config[key]) {
-			if (this.#deps[dep]) {
-				throw new Error(`${dep} can only be specified as depencency once`);
-			}
-
-			const version = this.#config[key][dep];
-			const lib = this.#cpp.require(dep, version);
-			this.#deps[dep] = { traits, lib };
+		for (const name of this.#config.deps()) {
+			const version = this.#config.depVersion(name);
+			const lib = this.#cpp.require(name, version);
+			this.#deps[name] = { lib };
 		}
 	}
 
@@ -126,7 +207,6 @@ class CppLibrootImport extends Target {
 		}
 
 		for (const dep in this.#deps) {
-			if (!this.#deps[dep].traits.binary) { continue; }
 			for (const bin of this.#deps[dep].lib.binaries()) {
 				this.#binaries.push(bin);
 			}
@@ -149,7 +229,6 @@ class CppLibrootImport extends Target {
 		}
 
 		for (const dep in this.#deps) {
-			if (!this.#deps[dep].traits.include) { continue; }
 			for (const inc of this.#deps[dep].lib.includes()) {
 				this.#includes.push(inc);
 			}

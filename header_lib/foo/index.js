@@ -1,7 +1,4 @@
-const { Cpp } = require('gulpachek/cpp');
-
-function foo(sys) {
-	const cpp = new Cpp(sys);
+function foo(cpp) {
 
 	const dep = cpp.library('com.example.dep', '0.1.0',
 		'dep.cpp'

@@ -1,9 +1,11 @@
 const { task } = require('gulp');
 const { BuildSystem } = require('gulpachek');
-const { Cpp } = require('gulpachek/cpp');
+const { CppSystem } = require('gulpachek/cpp');
 
 const sys = new BuildSystem(__dirname);
-const cpp = new Cpp(sys);
+const cpp = new CppSystem({sys,
+	cppVersion: 17
+});
 
 const foo = cpp.library(
 	'com.example.foo', '0.1.0',

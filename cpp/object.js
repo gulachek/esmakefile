@@ -7,6 +7,7 @@ class CppObject extends StaticPath {
 	#libs;
 	#depfile;
 	#toolchain;
+	#cppVersion;
 
 	constructor(sys, args) {
 		const src = sys.src(args.src);
@@ -18,6 +19,7 @@ class CppObject extends StaticPath {
 		this.#includes = [];
 		this.#libs = [];
 		this.#toolchain = args.toolchain;
+		this.#cppVersion = args.cppVersion;
 
 		this.#depfile = new CppDepfile(sys, {
 			path: sys.cache(src.path(), {
@@ -33,6 +35,17 @@ class CppObject extends StaticPath {
 	}
 
 	link(lib) {
+		const order = [98, 3, 11, 14, 17, 20];
+		const libIndex = order.indexOf(lib.cppVersion());
+
+		if (libIndex === -1) {
+			throw new Error(`'${lib.name()}' has an invalid c++ version ${lib.cppVersion()}`);
+		}
+
+		if (order.indexOf(this.#cppVersion) < libIndex) {
+			throw new Error(`'${lib.name()}' uses a newer version of c++ than ${this.#src}`);
+		}
+
 		this.#libs.push(lib);
 	}
 
@@ -44,7 +57,7 @@ class CppObject extends StaticPath {
 		console.log(`compiling ${this.path()}`);
 		const args = {
 			gulpCallback: cb,
-			cppVersion: 20,
+			cppVersion: this.#cppVersion,
 			depfilePath: this.#depfile.abs(),
 			outputPath: this.abs(),
 			srcPath: this.#src.abs(),

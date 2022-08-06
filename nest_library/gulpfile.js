@@ -1,12 +1,14 @@
 const { task } = require('gulp');
 const { BuildSystem, Target } = require('gulpachek');
-const { Cpp } = require('gulpachek/cpp');
+const { CppSystem } = require('gulpachek/cpp');
 const { spawn } = require('child_process');
 const os = require('os');
 const path = require('path');
 
 const sys = new BuildSystem(__dirname);
-const cpp = new Cpp(sys);
+const cpp = new CppSystem({sys,
+	cppVersion: 20
+});
 
 const librootPath = process.env.GULPACHEK_INSTALL_ROOT_CPPLIBROOT ||
 	sys.dest('cpplibroot').abs();
@@ -25,7 +27,7 @@ class NpxTarget extends Target {
 
 	// as old as the newest output file
 	mtime() {
-		return this.#outputPaths && this.sys().mtime(...this.#outputPaths);
+		return  this.#outputPaths && this.sys().mtime(...this.#outputPaths);
     }
 
 	build() {

@@ -1,9 +1,11 @@
 const { task, series } = require('gulp');
 const { BuildSystem } = require('gulpachek');
-const { Cpp } = require('gulpachek/cpp');
+const { CppSystem } = require('gulpachek/cpp');
 
 const sys = new BuildSystem(__dirname);
-const cpp = new Cpp(sys);
+const cpp = new CppSystem({sys,
+	cppVersion: 20
+});
 
 const boost = {};
 boost.log = cpp.require('org.boost.log', '1.74.0');

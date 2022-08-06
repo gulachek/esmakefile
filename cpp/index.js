@@ -12,18 +12,39 @@ const { CppLibrary } = require('./library');
 const { CppExecutable } = require('./executable');
 const { isLibrootName, CppLibrootImport } = require('./libroot');
 
-class Cpp {
+class CppSystem {
 	#sys;
+	#cppVersion;
 	#toolchain;
 
-	constructor(sys) {
-		this.#sys = sys;
-		this.#toolchain = findToolchain(os);
+	constructor(args) {
+		if (!args.sys) {
+			throw new Error('sys is required');
+		}
+		this.#sys = args.sys;
+
+		if (!args.cppVersion) {
+			throw new Error('cppVersion is required');
+		}
+		this.#cppVersion = args.cppVersion;
+
+		this.#toolchain = args.toolchain || findToolchain(os);
 	}
+
+	sub(dir) {
+		return new CppSystem({
+			sys: this.#sys.sub(dir),
+			cppVersion: this.#cppVersion,
+			toolchain: this.#toolchain
+		});
+	}
+
+	sys() { return this.#sys; }
+	cppVersion() { return this.#cppVersion; }
 
 	executable(name, ...srcs) {
 		const exec = new CppExecutable(this.#sys, {
-			name, toolchain: this.#toolchain
+			name, toolchain: this.#toolchain, cppVersion: this.#cppVersion
 		});
 
 		for (const src of srcs) {
@@ -46,7 +67,8 @@ class Cpp {
 		const lib = new CppLibrary(this.#sys, {
 			name,
 			version: parsedVersion,
-			toolchain: this.#toolchain
+			toolchain: this.#toolchain,
+			cppVersion: this.#cppVersion
 		});
 
 		for (const src of srcs) {
@@ -90,5 +112,5 @@ class Cpp {
 }
 
 module.exports = {
-	Cpp: Cpp
+	CppSystem
 };

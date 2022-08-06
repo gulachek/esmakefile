@@ -12,7 +12,8 @@ class CppExecutable extends StaticPath {
 		super(sys, sys.dest(out));
 		this.#toolchain = args.toolchain;
 		this.#objects = new CppObjectGroup(sys, {
-			toolchain: args.toolchain
+			toolchain: args.toolchain,
+			cppVersion: args.cppVersion
         });
 		this.#libs = [];
 	}

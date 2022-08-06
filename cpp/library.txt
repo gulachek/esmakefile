@@ -7,6 +7,9 @@ class Library {
 	// semver version of library
 	version(): semver-string
 
+	// minimum version of c++ the library can be compiled against
+	cppVersion(): one of 98, 3, 11, 14, 17, 20
+
 	// iterable absolute paths to directories needed to include for this
 	// library (not dependencies)
 	includes(): path[]

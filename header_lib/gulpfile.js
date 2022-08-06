@@ -1,17 +1,20 @@
 const { task } = require('gulp');
 const { BuildSystem } = require('gulpachek');
-const { Cpp } = require('gulpachek/cpp');
+const { CppSystem } = require('gulpachek/cpp');
 
 const { foo } = require('./foo');
 
 const sys = new BuildSystem(__dirname);
-const cpp = new Cpp(sys);
+const cpp = new CppSystem({
+	sys,
+	cppVersion: 20
+});
 
 const hello = cpp.executable('hello',
 	'hello.cpp',
 );
 
-const foolib = foo(sys.sub('foo'));
+const foolib = foo(cpp.sub('foo'));
 
 hello.link(foolib);
 

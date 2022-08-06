@@ -8,18 +8,19 @@ function isLibrootName(name) {
 }
 
 class InstallLibroot extends StaticPath {
-	#cppVersion;
+	#cpp;
 	#includes;
 	#binaries;
 	#deps;
 	#depLibroots;
 
-	constructor(sys, args) {
+	constructor(cpp, args) {
 		const { name, version, includes, binaries, deps } = args;
+		const sys = cpp.sys();
 		const fname = sys.isDebugBuild() ? 'debug' : 'release';
 		super(sys, sys.install(`cpplibroot/${name}/${version}/${fname}.json`));
 
-		this.#cppVersion = args.cppVersion;
+		this.#cpp = cpp;
 
 		this.#includes = [];
 		for (const inc of includes) {
@@ -43,7 +44,7 @@ class InstallLibroot extends StaticPath {
 
 	build(cb) {
 		const obj = {};
-		obj.language = `c++${this.#cppVersion}`;
+		obj.language = `c++${this.#cpp.cppVersion()}`;
 		obj.includes = this.#includes.map(i => i.abs());
 		obj.binaries = this.#binaries.map(b => b.abs());
 		obj.deps = {};
@@ -149,9 +150,10 @@ class CppLibrootImport extends Target {
 	#deps;
 	#cpp;
 
-	constructor(sys, args) {
+	constructor(cpp, args) {
+		const sys = cpp.sys();
 		super(sys);
-		this.#cpp = args.cpp;
+		this.#cpp = cpp;
 
 		this.#name = args.name;
 		this.#version = args.version;

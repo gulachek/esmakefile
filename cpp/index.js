@@ -27,7 +27,6 @@ class CppSystem {
 			throw new Error('cppVersion is required');
 		}
 		this.#cppVersion = args.cppVersion;
-
 		this.#toolchain = args.toolchain || findToolchain(os);
 	}
 
@@ -41,11 +40,10 @@ class CppSystem {
 
 	sys() { return this.#sys; }
 	cppVersion() { return this.#cppVersion; }
+	toolchain() { return this.#toolchain; }
 
 	executable(name, ...srcs) {
-		const exec = new CppExecutable(this.#sys, {
-			name, toolchain: this.#toolchain, cppVersion: this.#cppVersion
-		});
+		const exec = new CppExecutable(this, { name });
 
 		for (const src of srcs) {
 			exec.add_src(src);
@@ -64,11 +62,9 @@ class CppSystem {
 			throw new Error(`Invalid version '${version}'`);
 		}
 
-		const lib = new CppLibrary(this.#sys, {
+		const lib = new CppLibrary(this, {
 			name,
-			version: parsedVersion,
-			toolchain: this.#toolchain,
-			cppVersion: this.#cppVersion
+			version: parsedVersion
 		});
 
 		for (const src of srcs) {
@@ -97,8 +93,7 @@ class CppSystem {
 				const latest = semver.minSatisfying(versions, `^${version}`);
 				if (latest) {
 					console.log(`Found ${name} (${latest})`);
-					return new CppLibrootImport(this.#sys, {
-						cpp: this,
+					return new CppLibrootImport(this, {
 						name,
 						version,
 						dir: path.join(dir, latest)

@@ -8,39 +8,34 @@ class CppLibrary extends StaticPath {
 	#objects;
 	#includes;
 	#libs;
-	#toolchain;
-	#cppVersion;
+	#cpp;
 
-	constructor(sys, args) {
+	constructor(cpp, args) {
+		const sys = cpp.sys();
 		const nameUnder = args.name.replaceAll('.', '_');
-		const fname = `lib${nameUnder}.${args.version}.${args.toolchain.archiveExt}`;
+		const fname = `lib${nameUnder}.${args.version}.${cpp.toolchain().archiveExt}`;
 		super(sys, sys.dest(fname));
 		this.#name = args.name;
 		this.#version = args.version;
-		this.#toolchain = args.toolchain;
-		this.#cppVersion = args.cppVersion;
-		this.#objects = new CppObjectGroup(sys, {
-			toolchain: args.toolchain,
-			cppVersion: args.cppVersion
-        });
+		this.#cpp = cpp;
+		this.#objects = new CppObjectGroup(cpp);
 		this.#includes = [];
 		this.#libs = [];
 	}
 
 	name() { return this.#name; }
 	version() { return this.#version; }
-	cppVersion() { return this.#cppVersion; }
+	cppVersion() { return this.#cpp.cppVersion(); }
 
 	#headerOnly() { return this.#objects.length < 1; }
 
 	libroot() {
-		return new InstallLibroot(this.sys(), {
+		return new InstallLibroot(this.#cpp, {
 			name: this.#name,
 			version: this.#version,
 			includes: this.#includes,
 			binaries: this.#headerOnly() ? [] : [this],
-			deps: this.#libs,
-			cppVersion: this.#cppVersion
+			deps: this.#libs
 		});
 	}
 
@@ -109,7 +104,7 @@ class CppLibrary extends StaticPath {
 			args.objects.push(obj.abs());
 		}
 
-		return this.#toolchain.archive(args);
+		return this.#cpp.toolchain().archive(args);
 	}
 }
 

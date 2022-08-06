@@ -5,10 +5,10 @@ class CppDepfile extends Target {
 	#path;
 	#toolchain;
 
-	constructor(sys, args) {
-		super(sys);
+	constructor(cpp, args) {
+		super(cpp.sys());
 		this.#path = args.path;
-		this.#toolchain = args.toolchain;
+		this.#toolchain = cpp.toolchain();
 	}
 
 	build() {

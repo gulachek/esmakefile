@@ -6,27 +6,25 @@ class CppObject extends StaticPath {
 	#includes;
 	#libs;
 	#depfile;
-	#toolchain;
-	#cppVersion;
+	#cpp;
 
-	constructor(sys, args) {
+	constructor(cpp, args) {
+		const sys = cpp.sys();
 		const src = sys.src(args.src);
 		super(sys, sys.cache(src.path(), {
 			namespace: 'com.gulachek.cpp.obj',
-			ext: args.toolchain.objectExt
+			ext: cpp.toolchain().objectExt
 		}));
 		this.#src = src;
 		this.#includes = [];
 		this.#libs = [];
-		this.#toolchain = args.toolchain;
-		this.#cppVersion = args.cppVersion;
+		this.#cpp = cpp;
 
-		this.#depfile = new CppDepfile(sys, {
+		this.#depfile = new CppDepfile(cpp, {
 			path: sys.cache(src.path(), {
 				namespace: 'com.gulachek.cpp.obj',
 				ext: 'd'
 			}),
-			toolchain: args.toolchain
 		});
 	}
 
@@ -42,7 +40,7 @@ class CppObject extends StaticPath {
 			throw new Error(`'${lib.name()}' has an invalid c++ version ${lib.cppVersion()}`);
 		}
 
-		if (order.indexOf(this.#cppVersion) < libIndex) {
+		if (order.indexOf(this.#cpp.cppVersion()) < libIndex) {
 			throw new Error(`'${lib.name()}' uses a newer version of c++ than ${this.#src}`);
 		}
 
@@ -57,7 +55,7 @@ class CppObject extends StaticPath {
 		console.log(`compiling ${this.path()}`);
 		const args = {
 			gulpCallback: cb,
-			cppVersion: this.#cppVersion,
+			cppVersion: this.#cpp.cppVersion(),
 			depfilePath: this.#depfile.abs(),
 			outputPath: this.abs(),
 			srcPath: this.#src.abs(),
@@ -75,7 +73,7 @@ class CppObject extends StaticPath {
 			}
 		}
 
-		return this.#toolchain.compile(args);
+		return this.#cpp.toolchain().compile(args);
 	}
 }
 

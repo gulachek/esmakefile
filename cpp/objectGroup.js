@@ -5,13 +5,11 @@ class CppObjectGroup extends Target {
 	#objects;
 	#includes;
 	#libs;
-	#toolchain;
-	#cppVersion;
+	#cpp;
 
-	constructor(sys, args) {
-		super(sys);
-		this.#toolchain = args.toolchain;
-		this.#cppVersion = args.cppVersion;
+	constructor(cpp, args) {
+		super(cpp.sys());
+		this.#cpp = cpp;
 		this.#objects = [];
 		this.#includes = [];
 		this.#libs = [];
@@ -40,10 +38,8 @@ class CppObjectGroup extends Target {
 	}
 
 	add_src(src) {
-		const o = new CppObject(this.sys(), {
-			src: src,
-			toolchain: this.#toolchain,
-			cppVersion: this.#cppVersion
+		const o = new CppObject(this.#cpp, {
+			src: src
 		});
 
 		for (const i of this.#includes) {

@@ -4,18 +4,16 @@ const { CppObjectGroup } = require('./objectGroup');
 class CppExecutable extends StaticPath {
 	#objects;
 	#libs;
-	#toolchain;
+	#cpp;
 
-	constructor(sys, args) {
-		const ext = args.toolchain.executableExt;
+	constructor(cpp, args) {
+		const sys = cpp.sys();
+		const ext = cpp.toolchain().executableExt;
 		const out = ext ? `${args.name}.${ext}` : args.name;
 		super(sys, sys.dest(out));
-		this.#toolchain = args.toolchain;
-		this.#objects = new CppObjectGroup(sys, {
-			toolchain: args.toolchain,
-			cppVersion: args.cppVersion
-        });
+		this.#objects = new CppObjectGroup(cpp);
 		this.#libs = [];
+		this.#cpp = cpp;
 	}
 
 	add_src(src) {
@@ -63,7 +61,7 @@ class CppExecutable extends StaticPath {
 			}
 		}
 
-		return this.#toolchain.linkExecutable(args);
+		return this.#cpp.toolchain().linkExecutable(args);
 	}
 }
 

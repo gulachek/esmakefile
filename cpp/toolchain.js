@@ -16,6 +16,7 @@ class Toolchain {
 	 * srcPath: string (path to c++ source)
 	 * isDebug: boolean (debug vs release build)
 	 * includes: string[]? (paths to directories that should be included in search path)
+	 * definitions: { [string]: string } compiler definitions
 	 */
 	compile(args) {
 		this.#stub('compile');

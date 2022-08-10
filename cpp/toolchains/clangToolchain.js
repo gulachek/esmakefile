@@ -29,7 +29,6 @@ class ClangToolchain extends Toolchain {
 			args.push('-Og');
 		} else {
 			args.push('-O3');
-			args.push('-DNDEBUG');
 		}
 
 		for (const i of opts.includes) {
@@ -37,6 +36,13 @@ class ClangToolchain extends Toolchain {
 			args.push(i);
 		}
 
+		for (const key in opts.definitions) {
+			if (!opts.definitions.hasOwnProperty(key)) { continue; }
+			args.push('-D');
+			args.push(`${key}=${opts.definitions[key]}`);
+		}
+
+		console.log('c++', ...args);
 		return spawn('c++', args, { stdio: 'inherit' });
 	}
 

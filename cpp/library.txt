@@ -18,6 +18,10 @@ class Library {
 	// (not dependencies)
 	binaries(): path[]
 
+	// compiling against library requires these definitions. values have
+	// to be strings. Deps definitions() not included
+	definitions(): object
+
 	// iterable dependencies that also must be included / linked
 	deps(): Library[]
 }

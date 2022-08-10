@@ -29,6 +29,10 @@ class CppExecutable extends StaticPath {
 		this.#objects.include(dir);
 	}
 
+	define(defs) {
+		this.#objects.define(defs);
+	}
+
 	deps() {
 		const deps = [this.#objects];
 

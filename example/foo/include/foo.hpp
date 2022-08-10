@@ -2,5 +2,6 @@
 #define FOO_HPP
 
 int foo();
+void bar();
 
 #endif

@@ -55,6 +55,10 @@ class CppLibrary extends StaticPath {
 		this.#objects.include(dirpath);
 	}
 
+	define(defs) {
+		this.#objects.define(defs);
+	}
+
 	includes() {
 		const incs = [...this.#includes];
 
@@ -81,6 +85,11 @@ class CppLibrary extends StaticPath {
 		}
 
 		return bins;
+	}
+
+	definitions() {
+		// ERROR: does not include dependencies right now
+		return this.#objects.interfaceDefs();
 	}
 
 	deps() {

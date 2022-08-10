@@ -1,5 +1,6 @@
 const { StaticPath } = require('../lib/pathTargets');
 const { CppDepfile } = require('./depfile');
+const { mergeDefs } = require('./mergeDefs');
 
 class CppObject extends StaticPath {
 	#src;
@@ -7,6 +8,7 @@ class CppObject extends StaticPath {
 	#libs;
 	#depfile;
 	#cpp;
+	#defs;
 
 	constructor(cpp, args) {
 		const sys = cpp.sys();
@@ -19,6 +21,7 @@ class CppObject extends StaticPath {
 		this.#includes = [];
 		this.#libs = [];
 		this.#cpp = cpp;
+		this.#defs = {};
 
 		this.#depfile = new CppDepfile(cpp, {
 			path: sys.cache(src.path(), {
@@ -26,6 +29,10 @@ class CppObject extends StaticPath {
 				ext: 'd'
 			}),
 		});
+	}
+
+	define(defs) {
+		Object.assign(this.#defs, defs);
 	}
 
 	include(dir) {
@@ -53,6 +60,7 @@ class CppObject extends StaticPath {
 
 	build(cb) {
 		console.log(`compiling ${this.path()}`);
+
 		const args = {
 			gulpCallback: cb,
 			cppVersion: this.#cpp.cppVersion(),
@@ -60,18 +68,30 @@ class CppObject extends StaticPath {
 			outputPath: this.abs(),
 			srcPath: this.#src.abs(),
 			isDebug: this.sys().isDebugBuild(),
-			includes: [],
+			includes: []
 		};
 
 		for (const i of this.#includes) {
 			args.includes.push(i.abs());
 		}
 
+		const defs = {};
+		if (this.sys().isDebugBuild()) {
+			defs.DEBUG = 1;
+		} else {
+			defs.NDEBUG = 1;
+		}
+
 		for (const lib of this.#libs) {
 			for (const i of lib.includes()) {
 				args.includes.push(i.abs());
 			}
+
+			mergeDefs(defs, lib.definitions());
 		}
+
+		mergeDefs(defs, this.#defs);
+		args.definitions = defs;
 
 		return this.#cpp.toolchain().compile(args);
 	}

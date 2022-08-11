@@ -15,6 +15,11 @@ const foo = cpp.compile({
 
 foo.include('include');
 
+foo.define({
+	FOO_PRIVATE: { implementation: '"private"' },
+	FOO_PUBLIC: '"public"'
+});
+
 task('install', (cb) => {
 	const libroot = foo.libroot();
 	const rule = sys.rule(libroot);

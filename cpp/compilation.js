@@ -108,7 +108,8 @@ class Compilation extends Library {
 			version: this.#version,
 			includes: this.#includes,
 			binaries: this.isHeaderOnly() ? [] : [this.archive()],
-			deps: this.#libs
+			deps: this.#libs,
+			defs: this.#interfaceDefs
 		});
 	}
 

@@ -3,6 +3,7 @@ const { StaticPath, copyDir, copyFile } = require('../lib/pathTargets');
 const { Target } = require('../lib/target');
 const path = require('path');
 const fs = require('fs');
+const { mergeDefs } = require('./mergeDefs');
 
 function isLibrootName(name) {
 	return /^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name);
@@ -14,9 +15,10 @@ class InstallLibroot extends StaticPath {
 	#binaries;
 	#deps;
 	#depLibroots;
+	#defs;
 
 	constructor(cpp, args) {
-		const { name, version, includes, binaries, deps } = args;
+		const { name, version, includes, binaries, deps, defs } = args;
 		const sys = cpp.sys();
 		const fname = sys.isDebugBuild() ? 'debug' : 'release';
 		super(sys, sys.install(`cpplibroot/${name}/${version}/${fname}.json`));
@@ -40,6 +42,11 @@ class InstallLibroot extends StaticPath {
 			}
 		}
 
+		this.#defs = [];
+		for (const kv of defs) {
+			this.#defs.push(kv);
+		}
+
 		this.#deps = deps;
 	}
 
@@ -48,6 +55,7 @@ class InstallLibroot extends StaticPath {
 		obj.language = `c++${this.#cpp.cppVersion()}`;
 		obj.includes = this.#includes.map(i => i.abs());
 		obj.binaries = this.#binaries.map(b => b.abs());
+		obj.definitions = this.#defs;
 		obj.deps = {};
 		for (const dep of this.#deps) {
 			obj.deps[dep.name()] = dep.version();
@@ -69,6 +77,7 @@ class LibrootConfig {
 	#lang;
 	#deps;
 	#cppVersion;
+	#defs;
 
 	// TODO: remove these in favor of symlinks
 	includes;
@@ -77,6 +86,7 @@ class LibrootConfig {
 	constructor(obj) {
 		this.#initLang(obj.language);
 		this.#initDeps(obj.deps);
+		this.#initDefs(obj.definitions);
 
 		this.includes = obj.includes;
 		this.binaries = obj.binaries;
@@ -124,6 +134,11 @@ class LibrootConfig {
 		}
 	}
 
+	#initDefs(defs) {
+		this.#defs = new Map();
+		mergeDefs(this.#defs, defs);
+	}
+
 	*deps() {
 		for (const nm in this.#deps) {
 			yield nm;
@@ -136,6 +151,10 @@ class LibrootConfig {
 		}
 
 		return this.#deps[nm];
+	}
+
+	definitions() {
+		return this.#defs;
 	}
 
 	cppVersion() { return this.#cppVersion; }
@@ -177,7 +196,7 @@ class CppLibrootImport extends Library {
 	name() { return this.#name; }
 	version() { return this.#version; }
 	cppVersion() { return this.#config.cppVersion(); }
-	definitions() { return {}; }
+	definitions() { return this.#config.definitions(); }
 
 	deps() {
 		return this.#deps;

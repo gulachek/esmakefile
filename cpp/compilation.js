@@ -49,7 +49,8 @@ class Compilation extends Library {
 		this.#interfaceDefs = {};
 		this.#implDefs = {};
 
-		for (const src of args.src) {
+		const srcs = args.src || [];
+		for (const src of srcs) {
 			this.add_src(src);
 		}
 	}

@@ -65,13 +65,14 @@ class HelloTarget extends Target {
 
 		const foo = cpp.require('com.example.foo', '0.1.0');
 
-		const hello = cpp.executable('hello',
-			'hello.cpp',
-		);
+		const hello = cpp.compile({
+			name: 'hello',
+			src: ['hello.cpp'],
+		});
 
 		hello.link(foo);
 
-		return sys.rule(hello)(cb);
+		return sys.rule(hello.executable())(cb);
 	}
 }
 

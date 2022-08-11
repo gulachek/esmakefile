@@ -10,17 +10,20 @@ const cpp = new CppSystem({sys,
 const boost = {};
 boost.log = cpp.require('org.boost.log', '1.74.0');
 
-const foo = cpp.library('com.example.foo', '0.1.0',
-	'src/foo.cpp'
-);
+const foo = cpp.compile({
+	name: 'com.example.foo',
+	version: '0.1.0',
+	src: ['src/foo.cpp']
+});
 
 foo.include('include');
 foo.link(boost.log);
 
-const hello = cpp.executable('hello',
-	'src/hello.cpp'
-);
+const hello = cpp.compile({
+	name: 'hello',
+	src: ['src/hello.cpp']
+});
 
 hello.link(foo);
 
-task('default', series(sys.rule(hello)));
+task('default', series(sys.rule(hello.executable())));

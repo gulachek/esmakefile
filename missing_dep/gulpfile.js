@@ -8,6 +8,9 @@ const cpp = new CppSystem({
 	cppVersion: 20
 });
 
-const exec = cpp.executable('hello', 'does_not_exist.cpp');
+const exec = cpp.compile({
+	name: 'hello',
+	src: ['does_not_exist.cpp']
+});
 
-task('default', sys.rule(exec));
+task('default', sys.rule(exec.executable()));

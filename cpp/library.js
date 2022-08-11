@@ -1,5 +1,4 @@
 const { StaticPath } = require('../lib/pathTargets');
-const { InstallLibroot } = require('./libroot');
 const semver = require('semver');
 
 class Library {

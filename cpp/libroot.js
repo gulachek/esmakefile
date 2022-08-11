@@ -1,3 +1,4 @@
+const { Library } = require('./library');
 const { StaticPath, copyDir, copyFile } = require('../lib/pathTargets');
 const { Target } = require('../lib/target');
 const path = require('path');
@@ -140,7 +141,7 @@ class LibrootConfig {
 	cppVersion() { return this.#cppVersion; }
 }
 
-class CppLibrootImport extends Target {
+class CppLibrootImport extends Library {
 	#dir;
 	#name;
 	#version;
@@ -151,8 +152,8 @@ class CppLibrootImport extends Target {
 	#cpp;
 
 	constructor(cpp, args) {
+		super();
 		const sys = cpp.sys();
-		super(sys);
 		this.#cpp = cpp;
 
 		this.#name = args.name;
@@ -170,13 +171,17 @@ class CppLibrootImport extends Target {
 			throw e;
 		}
 
-		this.#deps = {};
 		this.#searchDeps();
 	}
 
 	name() { return this.#name; }
 	version() { return this.#version; }
 	cppVersion() { return this.#config.cppVersion(); }
+	definitions() { return {}; }
+
+	deps() {
+		return this.#deps;
+	}
 
 	toString() {
 		return `${this.constructor.name}{${this.#name} (${this.#version})}`;
@@ -184,10 +189,10 @@ class CppLibrootImport extends Target {
 
 	#searchDeps()
 	{
+		this.#deps = [];
 		for (const name of this.#config.deps()) {
 			const version = this.#config.depVersion(name);
-			const lib = this.#cpp.require(name, version);
-			this.#deps[name] = { lib };
+			this.#deps.push(this.#cpp.require(name, version));
 		}
 	}
 
@@ -195,26 +200,9 @@ class CppLibrootImport extends Target {
 		return Promise.resolve();
 	}
 
-	binaries() {
-		if (this.#binaries) {
-			return this.#binaries;
-		}
-
-		this.#binaries = [];
+	archive() {
 		const binaries = this.#config.binaries;
-		if (binaries) {
-			for (const bin of binaries) {
-				this.#binaries.push(this.sys().ext(bin));
-			}
-		}
-
-		for (const dep in this.#deps) {
-			for (const bin of this.#deps[dep].lib.binaries()) {
-				this.#binaries.push(bin);
-			}
-		}
-
-		return this.#binaries;
+		return binaries && this.#cpp.sys().ext(binaries[0]);
 	}
 
 	includes() {
@@ -226,13 +214,7 @@ class CppLibrootImport extends Target {
 		const includes = this.#config.includes;
 		if (includes) {
 			for (const inc of includes) {
-				this.#includes.push(this.sys().ext(inc));
-			}
-		}
-
-		for (const dep in this.#deps) {
-			for (const inc of this.#deps[dep].lib.includes()) {
-				this.#includes.push(inc);
+				this.#includes.push(this.#cpp.sys().ext(inc));
 			}
 		}
 

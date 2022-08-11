@@ -7,10 +7,11 @@ const cpp = new CppSystem({sys,
 	cppVersion: 17
 });
 
-const foo = cpp.library(
-	'com.example.foo', '0.1.0',
-	'src/foo.cpp'
-);
+const foo = cpp.compile({
+	name: 'com.example.foo',
+	version: '0.1.0',
+	src: ['src/foo.cpp']
+});
 
 foo.include('include');
 

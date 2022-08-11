@@ -12,9 +12,11 @@ const boost = {
 	log: cpp.require('org.boost.log', '1.78.0')
 };
 
-const lib = cpp.library('com.example.foo', '0.1.0',
-	'foo.cpp'
-);
+const lib = cpp.compile({
+	name: 'com.example.foo',
+	version: '0.1.0',
+	src: ['foo.cpp']
+});
 
 lib.link(boost.log);
 lib.include("include");
@@ -27,13 +29,14 @@ process.env.CPP_LIBROOT_PATH =
 const postInstall = (cb) => {
 	const foo = cpp.require('com.example.foo', '0.1.0');
 
-	const hello = cpp.executable('hello',
-		'hello.cpp'
-	);
+	const hello = cpp.compile({
+		name: 'hello',
+		src: ['hello.cpp']
+	});
 
 	hello.link(foo);
 
-	const rule = sys.rule(hello);
+	const rule = sys.rule(hello.executable());
 	return rule(cb);
 };
 

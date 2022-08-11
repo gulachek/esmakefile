@@ -30,12 +30,16 @@ class GccToolchain extends Toolchain {
 			args.push('-Og');
 		} else {
 			args.push('-O3');
-			args.push('-DNDEBUG');
 		}
 
 		for (const i of opts.includes) {
 			args.push('-I');
 			args.push(i);
+		}
+
+		for (const [key, val] of opts.definitions) {
+			args.push('-D');
+			args.push(`${key}=${val}`);
 		}
 
 		return spawn('g++', args, { stdio: 'inherit' });

@@ -205,6 +205,7 @@ class Compilation extends Library {
 				const tree = new DepTree(that);
 				this.#archives = [];
 				for (const lib of tree.backwards()) {
+					if (lib === that) { continue; }
 					const ar = lib.archive();
 					if (ar) {
 						this.#archives.push(ar);
@@ -224,7 +225,7 @@ class Compilation extends Library {
 			}
 
 			deps() {
-				return this.archives;
+				return [...that.#objects, ...this.archives];
 			}
 
 			build(cb) {
@@ -237,6 +238,9 @@ class Compilation extends Library {
 					objects: []
 				};
 
+				for (const obj of that.#objects) {
+					args.objects.push(obj.abs());
+				}
 				for (const ar of this.archives) {
 					args.objects.push(ar.abs());
 				}

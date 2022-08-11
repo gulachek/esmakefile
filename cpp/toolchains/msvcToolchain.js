@@ -12,6 +12,7 @@ class MsvcToolchain extends Toolchain {
     async compile(opts) {
         const out = path.parse(opts.outputPath);
         const args = [
+            '/nologo',
             '/c', opts.srcPath,
             '/EHsc',
             `/Fo${out.base}`,
@@ -41,10 +42,14 @@ class MsvcToolchain extends Toolchain {
         } else {
             args.push('/Ot');
             args.push('/MD');
-            args.push('/DNDEBUG');
         }
         // eventually will need support for /MT[d] and maybe /LD[d]
         // better to have a use case to design for than to preemptively design the wrong thing.
+
+        for (const [key,val] of opts.definitions) {
+            args.push('/D');
+            args.push(`${key}=${val}`);
+        }
 
         const depfile = fs.createWriteStream(opts.depfilePath, 'utf8');
         let dfProm = new Promise((resolve) => {
@@ -82,6 +87,7 @@ class MsvcToolchain extends Toolchain {
 
     archive(opts) {
         const args = [
+            '/nologo',
             `/OUT:${opts.outputPath}`,
             ...opts.objects
         ];
@@ -92,6 +98,7 @@ class MsvcToolchain extends Toolchain {
 
     linkExecutable(opts) {
         const args = [
+            '/nologo',
             `/OUT:${opts.outputPath}`,
             ...opts.objects
         ];

@@ -1,8 +1,9 @@
 function foo(cpp) {
-	const lib = cpp.library(
-		'com.example.foo', '0.1.0',
-		'src/foo.cpp'
-	);
+	const lib = cpp.compile({
+		name: 'com.example.foo',
+		version: '0.1.0',
+		src: [ 'src/foo.cpp' ]
+	});
 
 	lib.include('include');
 

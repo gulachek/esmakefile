@@ -42,7 +42,6 @@ class ClangToolchain extends Toolchain {
 			args.push(`${key}=${opts.definitions[key]}`);
 		}
 
-		console.log('c++', ...args);
 		return spawn('c++', args, { stdio: 'inherit' });
 	}
 

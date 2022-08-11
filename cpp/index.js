@@ -5,11 +5,10 @@ const path = require('path');
 const semver = require('semver');
 
 const { findToolchain } = require('./findToolchain');
+const { Compilation } = require('./compilation');
 
 const { StaticPath } = require('../lib/pathTargets');
 const { Target } = require('../lib/target');
-const { CppLibrary } = require('./library');
-const { CppExecutable } = require('./executable');
 const { isLibrootName, CppLibrootImport } = require('./libroot');
 
 class CppSystem {
@@ -42,36 +41,8 @@ class CppSystem {
 	cppVersion() { return this.#cppVersion; }
 	toolchain() { return this.#toolchain; }
 
-	executable(name, ...srcs) {
-		const exec = new CppExecutable(this, { name });
-
-		for (const src of srcs) {
-			exec.add_src(src);
-		}
-
-		return exec;
-	}
-
-	library(name, version, ...srcs) {
-		if (!isLibrootName(name)) {
-			throw new Error(`Invalid cpp libroot name ${name}`);
-		}
-
-		const parsedVersion = semver.valid(version);
-		if (!parsedVersion) {
-			throw new Error(`Invalid version '${version}'`);
-		}
-
-		const lib = new CppLibrary(this, {
-			name,
-			version: parsedVersion
-		});
-
-		for (const src of srcs) {
-			lib.add_src(src);
-		}
-
-		return lib;
+	compile(args) {
+		return new Compilation(this, args);
 	}
 
 	require(name, version) {

@@ -1,7 +1,138 @@
 const { StaticPath } = require('../lib/pathTargets');
-const { CppObjectGroup } = require('./objectGroup');
 const { InstallLibroot } = require('./libroot');
+const semver = require('semver');
 
+class Library {
+	#stub() {
+		throw new Error(`${this.constructor.name}: not implemented`);
+	}
+
+	// (string) reverse domain notation of the library
+	name() { this.#stub(); }
+
+	// (string) semver version of library
+	version() { this.#stub(); }
+
+	// minimum version of c++ the library can be compiled against
+	// (one of 98, 3, 11, 14, 17, 20)
+	cppVersion() { this.#stub(); }
+
+	// iterable absolute paths to directories needed to include for this
+	// library (not dependencies)
+	// PathTarget[]
+	includes() { this.#stub(); }
+
+	// compiling against library requires these definitions. values have
+	// to be strings. Deps definitions() not included. Defined in order
+	// after dependency definitions
+	// ( { key: string, val: string }[] )
+	definitions() { this.#stub(); }
+
+	// (boolean) is this a header-only library?
+	isHeaderOnly() { this.#stub(); }
+
+	// (PathTarget?) static library if available
+	archive() { this.#stub(); }
+
+	// (PathTarget?) dynamic library if available
+	dynamic() { this.#stub(); }
+
+	// iterable dependencies that also must be included / linked
+	// (Library[])
+	deps() { this.#stub(); }
+}
+
+function majorVersion(lib) {
+	const v = lib.version();
+	return v ? v.split('.')[0] : '';
+}
+
+function isNewer(a, b) {
+	return semver.gt(a.version(), b.version());
+}
+
+function libKey(lib) {
+	return `${lib.name()}/${majorVersion(lib)}`;
+}
+
+class DepTree {
+	#root;
+
+	// libKey -> newest minor version lib
+	#libs;
+
+	// libKey -depends on-> libKey[]
+	#deps;
+
+	// libKey -is depended on by-> libKey[]
+	#backDeps;
+
+	constructor(lib) {
+		const key = libKey(lib);
+		this.#root = key;
+		this.#libs = {};
+		this.#deps = {};
+		this.#backDeps = {};
+		this.#recurse(key, lib);
+		this.#backRecurse(key);
+	}
+
+	// add dependencies of lib to tree
+	#recurse(key, lib) {
+		if (key in this.#libs && !isNewer(lib, this.#libs[key])) {
+			return;
+		}
+
+		this.#libs[key] = lib;
+		this.#deps[key] = [];
+		this.#backDeps[key] = [];
+
+		for (const dep of lib.deps()) {
+			const depKey = libKey(dep);
+			this.#deps[key].push(depKey);
+			this.#recurse(depKey, dep);
+		}
+	}
+
+	#backRecurse(key) {
+		for (const depKey of this.#deps[key]) {
+			this.#backDeps[depKey].push(key);
+			this.#backRecurse(depKey);
+		}
+	}
+
+	backwards() {
+		const guard = {};
+		return this.#backwardsIt(this.#root, guard);
+	}
+
+	*#backwardsIt(key, guard) {
+		// need to list out everything that depends on lib before it
+		for (const refKey of this.#backDeps[key]) {
+			if (refKey in guard) { continue; }
+			for (const l of this.#backwardsIt(refKey, guard)) {
+				yield l;
+			}
+		}
+
+		// list out this lib
+		yield this.#libs[key];
+		guard[key] = true;
+
+		// list out all dependencies
+		for (const depKey of this.#deps[key]) {
+			if (depKey in guard) {
+				throw new Error(`${key} was listed after dependency ${depKey}`); 
+			}
+
+			for (const l of this.#backwardsIt(depKey, guard)) {
+				yield l;
+			}
+		}
+	}
+}
+
+/*
 class CppLibrary extends StaticPath {
 	#name;
 	#version;
@@ -116,5 +247,6 @@ class CppLibrary extends StaticPath {
 		return this.#cpp.toolchain().archive(args);
 	}
 }
+*/
 
-module.exports = { CppLibrary };
+module.exports = { Library, DepTree };

@@ -9,12 +9,13 @@ const cpp = new CppSystem({sys,
 	cppVersion: 20
 });
 
-const hello = cpp.executable('hello',
-	'hello.cpp',
-);
+const hello = cpp.compile({
+	name: 'hello',
+	src: [ 'hello.cpp' ]
+});
 
 const foolib = foo(cpp.sub('foo'));
 
 hello.link(foolib);
 
-task('default', sys.rule(hello));
+task('default', sys.rule(hello.executable()));

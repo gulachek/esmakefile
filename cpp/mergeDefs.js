@@ -1,12 +1,10 @@
 function mergeDefs(defs, newDefs) {
-	for (const key in newDefs) {
-		if (!newDefs.hasOwnProperty(key)) { continue; }
-
-		if (defs.hasOwnProperty(key)) {
+	for (const [key, val] of newDefs) {
+		if (defs.has(key)) {
 			throw new Error(`${key} is already defined`);
 		}
 
-		defs[key] = newDefs[key];
+		defs.set(key, val);
 	}
 
 	return defs;

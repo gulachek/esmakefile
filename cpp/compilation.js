@@ -3,22 +3,24 @@ const { Target } = require('../lib/target');
 const { Library, DepTree } = require('./library');
 const { InstallLibroot } = require('./libroot');
 const { StaticPath } = require('../lib/pathTargets');
+const { mergeDefs } = require('./mergeDefs');
 
 function normalizeDefines(defs) {
-	const apiDefs = {};
-	const implementation = {};
+	const apiDefs = new Map();
+	const implementation = new Map();
 
 	for (const key in defs) {
 		const val = defs[key];
 		if (['string', 'boolean', 'number'].indexOf(typeof val) !== -1) {
 			const strVal = val.toString();
-			apiDefs[key] = implementation[key] = strVal;
+			apiDefs.set(key, strVal);
+			implementation.set(key, strVal);
 		} else if (typeof val === 'object') {
 			if (val.implementation) {
-				implementation[key] = val.implementation.toString();
+				implementation.set(key, val.implementation.toString());
 			}
 			if (val.interface) {
-				apiDefs[key] = val.interface.toString();
+				apiDefs.set(key, val.interface.toString());
 			}
 		}
 	}
@@ -46,8 +48,8 @@ class Compilation extends Library {
 		this.#objects = [];
 		this.#includes = [];
 		this.#libs = [];
-		this.#interfaceDefs = {};
-		this.#implDefs = {};
+		this.#interfaceDefs = new Map();
+		this.#implDefs = new Map();
 
 		const srcs = args.src || [];
 		for (const src of srcs) {
@@ -57,8 +59,8 @@ class Compilation extends Library {
 
 	define(defs) {
 		const { apiDefs, implementation } = normalizeDefines(defs);
-		Object.assign(this.#interfaceDefs, apiDefs);
-		Object.assign(this.#implDefs, implementation);
+		mergeDefs(this.#interfaceDefs, apiDefs);
+		mergeDefs(this.#implDefs, implementation);
 
 		for (const o of this.#objects) {
 			o.define(this.#implDefs);

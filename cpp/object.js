@@ -21,7 +21,7 @@ class CppObject extends StaticPath {
 		this.#includes = [];
 		this.#libs = [];
 		this.#cpp = cpp;
-		this.#defs = {};
+		this.#defs = new Map();
 
 		this.#depfile = new CppDepfile(cpp, {
 			path: sys.cache(src.path(), {
@@ -32,7 +32,7 @@ class CppObject extends StaticPath {
 	}
 
 	define(defs) {
-		Object.assign(this.#defs, defs);
+		mergeDefs(this.#defs, defs);
 	}
 
 	include(dir) {
@@ -75,11 +75,11 @@ class CppObject extends StaticPath {
 			args.includes.push(i.abs());
 		}
 
-		const defs = {};
+		const defs = new Map();
 		if (this.sys().isDebugBuild()) {
-			defs.DEBUG = 1;
+			defs.set('DEBUG', 1);
 		} else {
-			defs.NDEBUG = 1;
+			defs.set('NDEBUG', 1);
 		}
 
 		for (const lib of this.#libs) {

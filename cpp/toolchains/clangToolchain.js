@@ -36,10 +36,9 @@ class ClangToolchain extends Toolchain {
 			args.push(i);
 		}
 
-		for (const key in opts.definitions) {
-			if (!opts.definitions.hasOwnProperty(key)) { continue; }
+		for (const [key, val] of opts.definitions) {
 			args.push('-D');
-			args.push(`${key}=${opts.definitions[key]}`);
+			args.push(`${key}=${val}`);
 		}
 
 		return spawn('c++', args, { stdio: 'inherit' });

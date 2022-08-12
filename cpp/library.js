@@ -63,17 +63,12 @@ class DepTree {
 	// libKey -depends on-> libKey[]
 	#deps;
 
-	// libKey -is depended on by-> libKey[]
-	#backDeps;
-
 	constructor(lib) {
 		const key = libKey(lib);
 		this.#root = key;
 		this.#libs = {};
 		this.#deps = {};
-		this.#backDeps = {};
 		this.#recurse(key, lib);
-		this.#backRecurse(key);
 	}
 
 	// add dependencies of lib to tree
@@ -84,7 +79,6 @@ class DepTree {
 
 		this.#libs[key] = lib;
 		this.#deps[key] = [];
-		this.#backDeps[key] = [];
 
 		for (const dep of lib.deps()) {
 			const depKey = libKey(dep);
@@ -93,41 +87,32 @@ class DepTree {
 		}
 	}
 
-	#backRecurse(key) {
+	*#forwardIt(key, guard) {
 		for (const depKey of this.#deps[key]) {
-			this.#backDeps[depKey].push(key);
-			this.#backRecurse(depKey);
+			if (!guard[depKey]) {
+				for (const l of this.#forwardIt(depKey, guard)) {
+					yield l;
+				}
+			}
 		}
+
+		if (guard[key]) {
+			throw new Error(`Circular dependency detected for ${key}`);
+		}
+
+		yield this.#libs[key];
+		guard[key] = 1;
+	}
+
+	forwards() {
+		const guard = {};
+		return this.#forwardIt(this.#root, guard);
 	}
 
 	backwards() {
-		const guard = {};
-		return this.#backwardsIt(this.#root, guard);
-	}
-
-	*#backwardsIt(key, guard) {
-		// need to list out everything that depends on lib before it
-		for (const refKey of this.#backDeps[key]) {
-			if (refKey in guard) { continue; }
-			for (const l of this.#backwardsIt(refKey, guard)) {
-				yield l;
-			}
-		}
-
-		// list out this lib
-		yield this.#libs[key];
-		guard[key] = true;
-
-		// list out all dependencies
-		for (const depKey of this.#deps[key]) {
-			if (depKey in guard) {
-				throw new Error(`${key} was listed after dependency ${depKey}`); 
-			}
-
-			for (const l of this.#backwardsIt(depKey, guard)) {
-				yield l;
-			}
-		}
+		const a = [...this.forwards()];
+		a.reverse();
+		return a;
 	}
 }
 

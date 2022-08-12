@@ -190,13 +190,20 @@ class Compilation extends Library {
 	// =============================
 
 	executable() {
+		const name = this.name();
+		const ext = this.#cpp.toolchain().executableExt;
+		const out = ext ? `${name}.${ext}` : name;
+		return this.#image('executable', out);
+	}
+
+	#image(imageType, output) {
 		if (this.isHeaderOnly()) {
-			throw new Error('Cannot make an executable with no sources');
+			throw new Error('Cannot make image with no sources');
 		}
 
 		const that = this;
 
-		class ExeImpl extends StaticPath {
+		class ImageImpl extends StaticPath {
 			#archives;
 
 			get archives() {
@@ -216,12 +223,9 @@ class Compilation extends Library {
 			}
 
 			constructor() {
-				const name = that.name();
 				const cpp = that.#cpp;
 				const sys = cpp.sys();
-				const ext = cpp.toolchain().executableExt;
-				const out = ext ? `${name}.${ext}` : name;
-				super(sys, sys.dest(out));
+				super(sys, sys.dest(output));
 			}
 
 			deps() {
@@ -229,7 +233,7 @@ class Compilation extends Library {
 			}
 
 			build(cb) {
-				console.log(`linking executable ${this.path()}`);
+				console.log(`linking ${this.path()}`);
 
 				const args = {
 					gulpCallback: cb,
@@ -237,7 +241,7 @@ class Compilation extends Library {
 					isDebug: this.sys().isDebugBuild(),
 					objects: [...that.#objects.map(o => o.abs())],
 					libraries: [],
-					type: 'executable'
+					type: imageType
 				};
 
 				for (const ar of this.archives) {
@@ -248,7 +252,7 @@ class Compilation extends Library {
 			}
 		}
 
-		return new ExeImpl();
+		return new ImageImpl();
 	}
 }
 

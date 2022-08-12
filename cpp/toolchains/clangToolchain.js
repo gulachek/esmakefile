@@ -53,11 +53,37 @@ class ClangToolchain extends Toolchain {
 		return spawn('libtool', args, { stdio: 'inherit' });
 	}
 
-	linkExecutable(opts) {
-		const args = [
+	link(opts) {
+		let type;
+		switch (opts.type) {
+			case 'executable':
+				type = '-execute';
+				break;
+			default:
+				throw new Error(`Image type not handled: ${opts.type}`);
+				break;
+		}
+
+		const linkArgs = [
+			'-Wl',
+			type,
 			'-o', opts.outputPath,
 			...opts.objects
 		];
+
+		for (const lib of opts.libraries) {
+			switch (lib.type) {
+				case 'static':
+					linkArgs.push('-load_hidden');
+					linkArgs.push(lib.path);
+					break;
+				default:
+					throw new Error(`library type not handled: ${lib.type}`);
+					break;
+			}
+		}
+
+		const args = [linkArgs.join(',')];
 		return spawn('c++', args, { stdio: 'inherit' });
 	}
 

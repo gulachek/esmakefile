@@ -235,17 +235,16 @@ class Compilation extends Library {
 					gulpCallback: cb,
 					outputPath: this.abs(),
 					isDebug: this.sys().isDebugBuild(),
-					objects: []
+					objects: [...that.#objects.map(o => o.abs())],
+					libraries: [],
+					type: 'executable'
 				};
 
-				for (const obj of that.#objects) {
-					args.objects.push(obj.abs());
-				}
 				for (const ar of this.archives) {
-					args.objects.push(ar.abs());
+					args.libraries.push({ path: ar.abs(), type: 'static' });
 				}
 
-				return that.#cpp.toolchain().linkExecutable(args);
+				return that.#cpp.toolchain().link(args);
 			}
 		}
 

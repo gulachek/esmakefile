@@ -33,14 +33,17 @@ class Toolchain {
 	}
 
 	/*
-	 * Link objects and libraries into executable
+	 * Link objects and libraries into image
 	 * gulpCallback: Function (gulp task completion callback)
 	 * outputPath: string (path to generated executable)
-	 * objects: string[] (paths to object files and libraries)
+	 * objects: string[] (paths to object files for image)
 	 * isDebug: boolean (debug vs release build)
+	 * libraries: { path, type: 'static'|'dynamic' }[] (libraries)
+	 * type: 'executable'|'dynamicLibrary' (type of image)
+	 *
 	 */
-	linkExecutable(args) {
-		this.#stub('linkExecutable');
+	link(args) {
+		this.#stub('link');
 	}
 
 	/*

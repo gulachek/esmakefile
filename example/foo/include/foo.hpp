@@ -1,7 +1,7 @@
 #ifndef FOO_HPP
 #define FOO_HPP
 
-int foo();
-void bar();
+int FOO_API foo();
+void FOO_API bar();
 
 #endif

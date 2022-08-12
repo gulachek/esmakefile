@@ -12,6 +12,10 @@ function foo(cpp) {
 		FOO_DEFINE: {
 			implementation: 'implementation',
 			interface: 'interface'
+		},
+		FOO_API: {
+			implementation: 'EXPORT',
+			interface: 'IMPORT'
 		}
 	});
 

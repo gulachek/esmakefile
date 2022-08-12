@@ -60,6 +60,7 @@ class CppObject extends StaticPath {
 
 	build(cb) {
 		console.log(`compiling ${this.path()}`);
+		const toolchain = this.#cpp.toolchain();
 
 		const args = {
 			gulpCallback: cb,
@@ -82,6 +83,9 @@ class CppObject extends StaticPath {
 			defs.set('NDEBUG', 1);
 		}
 
+		defs.set('IMPORT', toolchain.importDef);
+		defs.set('EXPORT', toolchain.exportDef);
+
 		for (const lib of this.#libs) {
 			for (const i of lib.includes()) {
 				args.includes.push(i.abs());
@@ -93,7 +97,7 @@ class CppObject extends StaticPath {
 		mergeDefs(defs, this.#defs);
 		args.definitions = defs;
 
-		return this.#cpp.toolchain().compile(args);
+		return toolchain.compile(args);
 	}
 }
 

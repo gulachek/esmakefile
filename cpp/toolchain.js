@@ -6,6 +6,9 @@ class Toolchain {
 	get objectExt() { return 'o'; }
 	get archiveExt() { return 'a'; }
 	get executableExt() { return ''; }
+	get dynamicLibExt() { return 'so'; }
+	get importDef() { return '__attribute__((visibility("hidden")))'; }
+	get exportDef() { return '__attribute__((visibility("default")))'; }
 
 	/*
 	 * Compile a c++ source file to an object file
@@ -39,7 +42,7 @@ class Toolchain {
 	 * objects: string[] (paths to object files for image)
 	 * isDebug: boolean (debug vs release build)
 	 * libraries: { path, type: 'static'|'dynamic' }[] (libraries)
-	 * type: 'executable'|'dynamicLibrary' (type of image)
+	 * type: 'executable'|'dynamicLib' (type of image)
 	 *
 	 */
 	link(args) {

@@ -3,6 +3,8 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 
 class ClangToolchain extends Toolchain {
+	get dynamicLibExt() { return 'dylib'; }
+
 	compile(opts) {
 		const args = [
 			'-fvisibility=hidden',
@@ -59,6 +61,9 @@ class ClangToolchain extends Toolchain {
 			case 'executable':
 				type = '-execute';
 				break;
+			case 'dynamicLib':
+				type = '-dylib';
+				break;
 			default:
 				throw new Error(`Image type not handled: ${opts.type}`);
 				break;
@@ -75,6 +80,9 @@ class ClangToolchain extends Toolchain {
 			switch (lib.type) {
 				case 'static':
 					linkArgs.push('-load_hidden');
+					linkArgs.push(lib.path);
+					break;
+				case 'dynamic':
 					linkArgs.push(lib.path);
 					break;
 				default:

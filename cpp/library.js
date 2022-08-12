@@ -34,7 +34,7 @@ class Library {
 	archive() { this.#stub(); }
 
 	// (PathTarget?) dynamic library if available
-	dynamic() { this.#stub(); }
+	image() { this.#stub(); }
 
 	// iterable dependencies that also must be included / linked
 	// (Library[])

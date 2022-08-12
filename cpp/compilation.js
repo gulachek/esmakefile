@@ -38,6 +38,7 @@ class Compilation extends Library {
 	#implDefs;
 	#libs;
 	#cpp;
+	#dynamicLibs;
 
 	constructor(cpp, args) {
 		super();
@@ -48,6 +49,7 @@ class Compilation extends Library {
 		this.#objects = [];
 		this.#includes = [];
 		this.#libs = [];
+		this.#dynamicLibs = {};
 		this.#interfaceDefs = new Map();
 		this.#implDefs = new Map();
 
@@ -73,6 +75,15 @@ class Compilation extends Library {
 		}
 
 		this.#libs.push(lib);
+	}
+
+	linkDynamic(lib) {
+		for (const o of this.#objects) {
+			o.link(lib);
+		}
+
+		this.#libs.push(lib);
+		this.#dynamicLibs[lib] = 1;
 	}
 
 	add_src(src) {
@@ -185,6 +196,16 @@ class Compilation extends Library {
 
 		return new ArchiveImpl();
 	}
+
+	image() {
+		const nameUnder = this.name().replaceAll('.', '_');
+		const version = this.version();
+		const versionPiece = version ? `${version}.` : '';
+		const ext = this.#cpp.toolchain().dynamicLibExt;
+		const fname = `lib${nameUnder}.${versionPiece}${ext}`;
+		return this.#image('dynamicLib', fname);
+	}
+
 	// =============================
 	// (END) Library Implementation
 	// =============================
@@ -204,22 +225,37 @@ class Compilation extends Library {
 		const that = this;
 
 		class ImageImpl extends StaticPath {
-			#archives;
+			#libPaths;
+			#libTypes;
 
-			get archives() {
-				if (this.#archives) { return this.#archives; }
+			libs() {
+				if (this.#libPaths) {
+					return {
+						paths: this.#libPaths,
+						types: this.#libTypes
+					};
+				}
 
 				const tree = new DepTree(that);
-				this.#archives = [];
-				for (const lib of tree.backwards()) {
-					if (lib === that) { continue; }
-					const ar = lib.archive();
-					if (ar) {
-						this.#archives.push(ar);
+				this.#libPaths = [];
+				this.#libTypes = [];
+				const libs = [...tree.backwards()];
+				libs.shift(); // drop self
+				for (const lib of libs) {
+					if (that.#dynamicLibs[lib]) {
+						this.#libPaths.push(lib.image());
+						this.#libTypes.push('dynamic');
+					}
+					else {
+						this.#libPaths.push(lib.archive());
+						this.#libTypes.push('static');
 					}
 				}
 
-				return this.#archives;
+				return {
+					paths: this.#libPaths,
+					types: this.#libTypes
+				};
 			}
 
 			constructor() {
@@ -229,7 +265,8 @@ class Compilation extends Library {
 			}
 
 			deps() {
-				return [...that.#objects, ...this.archives];
+				const {paths} = this.libs();
+				return [...that.#objects, ...paths];
 			}
 
 			build(cb) {
@@ -244,8 +281,9 @@ class Compilation extends Library {
 					type: imageType
 				};
 
-				for (const ar of this.archives) {
-					args.libraries.push({ path: ar.abs(), type: 'static' });
+				const { paths, types } = this.libs();
+				for (let i = 0; i < paths.length; ++i) {
+					args.libraries.push({ path: paths[i].abs(), type: types[i] });
 				}
 
 				return that.#cpp.toolchain().link(args);

@@ -39,6 +39,10 @@ class Library {
 	// iterable dependencies that also must be included / linked
 	// (Library[])
 	deps() { this.#stub(); }
+
+	// how does this library link to dependency 'lib'
+	// ('static'|'dynamic'|'header')
+	linkTypeOf(lib) { this.#stub(); }
 }
 
 function majorVersion(lib) {
@@ -54,36 +58,89 @@ function libKey(lib) {
 	return `${lib.name()}/${majorVersion(lib)}`;
 }
 
+function *linkedLibrariesOf(lib) {
+	const tree = new DepTree(lib, { mode: 'link' });
+	const deps = [...tree.backwards()];
+	deps.shift(); // drop self
+
+	for (const dep of deps) {
+		const linkType = tree.linkTypeOf(dep);
+		switch (tree.linkTypeOf(dep)) {
+			case 'static':
+				yield { obj: dep.archive(), linkType };
+				break;
+			case 'dynamic':
+				yield { obj: dep.image(), linkType };
+				break;
+			case 'header':
+				break;
+			default:
+				throw new Error(`Unhandled link type ${linkType}`);
+				break;
+		}
+	}
+}
+
+function *includesOf(lib) {
+	const tree = new DepTree(lib, { mode: 'compile' });
+	const deps = [...tree.forwards()];
+
+	for (const dep of deps) {
+		yield { includes: dep.includes(), defs: dep.definitions() };
+	}
+}
+
 class DepTree {
 	#root;
+
+	// compile or link mode
+	#mode; 
 
 	// libKey -> newest minor version lib
 	#libs;
 
+	// libKey -> link type
+	#linkTypes;
+
 	// libKey -depends on-> libKey[]
 	#deps;
 
-	constructor(lib) {
+	constructor(lib, opts) {
 		const key = libKey(lib);
 		this.#root = key;
 		this.#libs = {};
+		this.#linkTypes = {};
 		this.#deps = {};
-		this.#recurse(key, lib);
+		this.#mode = opts.mode;
+		this.#recurse(key, lib, 'static');
+	}
+
+	#shouldRecurse(linkType) {
+		return this.#mode === 'compile' || linkType !== 'dynamic';
 	}
 
 	// add dependencies of lib to tree
-	#recurse(key, lib) {
-		if (key in this.#libs && !isNewer(lib, this.#libs[key])) {
-			return;
+	#recurse(key, lib, linkType) {
+		if (key in this.#libs) {
+			if (this.#linkTypes[key] !== linkType) {
+				throw new Error(`Library ${lib} cannot be linked as both ${linkType} and ${this.linkTypes[key]}`);
+			}
+
+			if (!isNewer(lib, this.#libs[key])) {
+				return;
+			}
 		}
 
 		this.#libs[key] = lib;
+		this.#linkTypes[key] = linkType;
 		this.#deps[key] = [];
 
-		for (const dep of lib.deps()) {
-			const depKey = libKey(dep);
-			this.#deps[key].push(depKey);
-			this.#recurse(depKey, dep);
+		if (this.#shouldRecurse(linkType)) {
+			for (const dep of lib.deps()) {
+				const depKey = libKey(dep);
+				this.#deps[key].push(depKey);
+				this.#recurse(depKey, dep, lib.linkTypeOf(dep));
+			}
 		}
 	}
 
@@ -114,123 +171,11 @@ class DepTree {
 		a.reverse();
 		return a;
 	}
-}
 
-/*
-class CppLibrary extends StaticPath {
-	#name;
-	#version;
-	#objects;
-	#includes;
-	#libs;
-	#cpp;
-
-	constructor(cpp, args) {
-		const sys = cpp.sys();
-		const nameUnder = args.name.replaceAll('.', '_');
-		const fname = `lib${nameUnder}.${args.version}.${cpp.toolchain().archiveExt}`;
-		super(sys, sys.dest(fname));
-		this.#name = args.name;
-		this.#version = args.version;
-		this.#cpp = cpp;
-		this.#objects = new CppObjectGroup(cpp);
-		this.#includes = [];
-		this.#libs = [];
-	}
-
-	name() { return this.#name; }
-	version() { return this.#version; }
-	cppVersion() { return this.#cpp.cppVersion(); }
-
-	#headerOnly() { return this.#objects.length < 1; }
-
-	libroot() {
-		return new InstallLibroot(this.#cpp, {
-			name: this.#name,
-			version: this.#version,
-			includes: this.#includes,
-			binaries: this.#headerOnly() ? [] : [this],
-			deps: this.#libs
-		});
-	}
-
-	add_src(src) {
-		this.#objects.add_src(src);
-	}
-
-	link(lib) {
-		this.#libs.push(lib);
-		this.#objects.link(lib);
-	}
-
-	include(dir) {
-		const dirpath = this.sys().src(dir);
-
-		this.#includes.push(dirpath);
-		this.#objects.include(dirpath);
-	}
-
-	define(defs) {
-		this.#objects.define(defs);
-	}
-
-	includes() {
-		const incs = [...this.#includes];
-
-		for (const lib of this.#libs) {
-			for (const inc of lib.includes()) {
-				incs.push(inc);
-			}
-		}
-
-		return incs;
-	}
-
-	binaries() {
-		const bins = [];
-
-		if (!this.#headerOnly()) {
-			bins.push(this);
-		}
-
-		for (const lib of this.#libs) {
-			for (const bin of lib.binaries()) {
-				bins.push(bin);
-			}
-		}
-
-		return bins;
-	}
-
-	definitions() {
-		// ERROR: does not include dependencies right now
-		return this.#objects.interfaceDefs();
-	}
-
-	deps() {
-		return this.#objects;
-	}
-
-	build(cb) {
-		if (this.#headerOnly()) {
-			return Promise.resolve();
-		}
-
-		console.log(`archiving ${this.path()}`);
-
-		const args = {
-			gulpCallback: cb,
-			outputPath: this.abs(),
-			objects: []
-		};
-
-		for (const obj of this.#objects) {
-			args.objects.push(obj.abs());
-		}
-
-		return this.#cpp.toolchain().archive(args);
+	linkTypeOf(lib) {
+		const key = libKey(lib);
+		return this.#linkTypes[key];
 	}
 }
-*/
 
-module.exports = { Library, DepTree };
+module.exports = { Library, linkedLibrariesOf, includesOf };

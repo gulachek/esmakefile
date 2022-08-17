@@ -1,6 +1,6 @@
 const { CppObject } = require('./object');
 const { Target } = require('../lib/target');
-const { Library, DepTree } = require('./library');
+const { Library, linkedLibrariesOf } = require('./library');
 const { InstallLibroot } = require('./libroot');
 const { StaticPath } = require('../lib/pathTargets');
 const { mergeDefs } = require('./mergeDefs');
@@ -38,7 +38,7 @@ class Compilation extends Library {
 	#implDefs;
 	#libs;
 	#cpp;
-	#dynamicLibs;
+	#linkTypes;
 
 	constructor(cpp, args) {
 		super();
@@ -49,7 +49,7 @@ class Compilation extends Library {
 		this.#objects = [];
 		this.#includes = [];
 		this.#libs = [];
-		this.#dynamicLibs = {};
+		this.#linkTypes = {};
 		this.#interfaceDefs = new Map();
 		this.#implDefs = new Map();
 
@@ -69,21 +69,31 @@ class Compilation extends Library {
 		}
 	}
 
-	link(lib) {
+	link(lib, opts) {
+		const type = opts.type;
+
+		if (this.#linkTypes[lib.name()]) {
+			throw new Error(`Cannot link ${lib} twice`);
+		}
+
+		if (type === 'header' && !lib.isHeaderOnly()) {
+			throw new Error(`Cannot link non-header-only library ${lib} as header-only`);
+		}
+
+		if (type === 'static' && !lib.archive()) {
+			throw new Error(`Cannot statically link library ${lib} without archive`);
+		}
+
+		if (type === 'dynamic' && !lib.image()) {
+			throw new Error(`Cannot dynamically link library ${lib} without image`);
+		}
+
 		for (const o of this.#objects) {
 			o.link(lib);
 		}
 
 		this.#libs.push(lib);
-	}
-
-	linkDynamic(lib) {
-		for (const o of this.#objects) {
-			o.link(lib);
-		}
-
-		this.#libs.push(lib);
-		this.#dynamicLibs[lib] = 1;
+		this.#linkTypes[lib.name()] = type;
 	}
 
 	add_src(src) {
@@ -153,6 +163,15 @@ class Compilation extends Library {
 
 	deps() {
 		return this.#libs;
+	}
+
+	linkTypeOf(dep) {
+		const name = dep.name();
+		if (!(this.#linkTypes[name])) {
+			throw new Error(`No defined link type for ${dep}`);
+		}
+
+		return this.#linkTypes[name];
 	}
 
 	archive() {
@@ -225,37 +244,14 @@ class Compilation extends Library {
 		const that = this;
 
 		class ImageImpl extends StaticPath {
-			#libPaths;
-			#libTypes;
+			#libs;
 
 			libs() {
-				if (this.#libPaths) {
-					return {
-						paths: this.#libPaths,
-						types: this.#libTypes
-					};
+				if (!this.#libs) {
+					this.#libs = [...linkedLibrariesOf(that)];
 				}
 
-				const tree = new DepTree(that);
-				this.#libPaths = [];
-				this.#libTypes = [];
-				const libs = [...tree.backwards()];
-				libs.shift(); // drop self
-				for (const lib of libs) {
-					if (that.#dynamicLibs[lib]) {
-						this.#libPaths.push(lib.image());
-						this.#libTypes.push('dynamic');
-					}
-					else {
-						this.#libPaths.push(lib.archive());
-						this.#libTypes.push('static');
-					}
-				}
-
-				return {
-					paths: this.#libPaths,
-					types: this.#libTypes
-				};
+				return this.#libs;
 			}
 
 			constructor() {
@@ -265,8 +261,8 @@ class Compilation extends Library {
 			}
 
 			deps() {
-				const {paths} = this.libs();
-				return [...that.#objects, ...paths];
+				const objs = this.libs().map(l => l.obj);
+				return [...that.#objects, ...objs];
 			}
 
 			build(cb) {
@@ -281,9 +277,8 @@ class Compilation extends Library {
 					type: imageType
 				};
 
-				const { paths, types } = this.libs();
-				for (let i = 0; i < paths.length; ++i) {
-					args.libraries.push({ path: paths[i].abs(), type: types[i] });
+				for (const { obj, linkType } of this.libs()) {
+					args.libraries.push({ path: obj.abs(), type: linkType });
 				}
 
 				return that.#cpp.toolchain().link(args);

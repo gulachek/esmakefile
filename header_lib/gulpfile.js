@@ -17,7 +17,7 @@ const hello = cpp.compile({
 
 const foolib = foo(cpp.sub('foo'));
 
-hello.link(foolib);
+hello.link(foolib, { type: 'header' });
 
 task('default', sys.rule(hello.executable()));
 

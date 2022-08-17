@@ -1,6 +1,7 @@
 const { StaticPath } = require('../lib/pathTargets');
 const { CppDepfile } = require('./depfile');
 const { mergeDefs } = require('./mergeDefs');
+const { includesOf } = require('./library');
 
 class CppObject extends StaticPath {
 	#src;
@@ -87,11 +88,13 @@ class CppObject extends StaticPath {
 		defs.set('EXPORT', toolchain.exportDef);
 
 		for (const lib of this.#libs) {
-			for (const i of lib.includes()) {
-				args.includes.push(i.abs());
-			}
+			for (const obj of includesOf(lib)) {
+				for (const i of obj.includes) {
+					args.includes.push(i.abs());
+				}
 
-			mergeDefs(defs, lib.definitions());
+				mergeDefs(defs, obj.defs);
+			}
 		}
 
 		mergeDefs(defs, this.#defs);

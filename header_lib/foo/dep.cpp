@@ -1,1 +1,3 @@
-int bar() { return 3; }
+#include "dep.hpp"
+
+int dep() { return 3; }

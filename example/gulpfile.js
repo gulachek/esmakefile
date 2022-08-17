@@ -16,6 +16,8 @@ const hello = cpp.compile({
 
 const foolib = foo(cpp.sub('foo'));
 
-hello.linkDynamic(foolib);
+hello.link(foolib, {
+	type: 'dynamic'
+});
 
 task('default', sys.rule(hello.executable()));

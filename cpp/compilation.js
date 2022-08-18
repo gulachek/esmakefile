@@ -124,14 +124,7 @@ class Compilation extends Library {
 	}
 
 	libroot() {
-		return new InstallLibroot(this.#cpp, {
-			name: this.#name,
-			version: this.#version,
-			includes: this.#includes,
-			binaries: this.isHeaderOnly() ? [] : [this.archive()],
-			deps: this.#libs,
-			defs: this.#interfaceDefs
-		});
+		return new InstallLibroot(this.#cpp, this);
 	}
 
 	// =============================

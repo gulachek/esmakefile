@@ -70,7 +70,7 @@ class HelloTarget extends Target {
 			src: ['hello.cpp'],
 		});
 
-		hello.link(foo);
+		hello.link(foo, { type: 'dynamic' });
 
 		return sys.rule(hello.executable())(cb);
 	}

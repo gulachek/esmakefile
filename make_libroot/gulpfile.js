@@ -18,8 +18,11 @@ const lib = cpp.compile({
 	src: ['foo.cpp']
 });
 
-lib.link(boost.log);
+lib.link(boost.log, { type: 'static' });
 lib.include("include");
+lib.define({
+	FOO_API: { implementation: 'EXPORT', interface: 'IMPORT' }
+});
 
 const libroot = lib.libroot();
 
@@ -34,7 +37,7 @@ const postInstall = (cb) => {
 		src: ['hello.cpp']
 	});
 
-	hello.link(foo);
+	hello.link(foo, { type: 'dynamic' });
 
 	const rule = sys.rule(hello.executable());
 	return rule(cb);

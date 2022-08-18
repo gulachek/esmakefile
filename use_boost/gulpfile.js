@@ -16,14 +16,18 @@ const foo = cpp.compile({
 	src: ['src/foo.cpp']
 });
 
+foo.define({
+	FOO_API: { interface: 'IMPORT', implementation: 'EXPORT' }
+});
+
 foo.include('include');
-foo.link(boost.log);
+foo.link(boost.log, { type: 'static' });
 
 const hello = cpp.compile({
 	name: 'hello',
 	src: ['src/hello.cpp']
 });
 
-hello.link(foo);
+hello.link(foo, { type: 'dynamic' });
 
 task('default', series(sys.rule(hello.executable())));

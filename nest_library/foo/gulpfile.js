@@ -17,7 +17,8 @@ foo.include('include');
 
 foo.define({
 	FOO_PRIVATE: { implementation: '"private"' },
-	FOO_PUBLIC: '"public"'
+	FOO_PUBLIC: '"public"',
+	FOO_API: { implementation: 'EXPORT', interface: 'IMPORT' }
 });
 
 task('install', (cb) => {

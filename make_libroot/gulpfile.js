@@ -9,7 +9,7 @@ const cpp = new CppSystem({
 });
 
 const boost = {
-	log: cpp.require('org.boost.log', '1.78.0')
+	log: cpp.require('org.boost.log', '1.74.0')
 };
 
 const lib = cpp.compile({

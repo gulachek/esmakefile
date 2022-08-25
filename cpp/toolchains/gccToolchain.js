@@ -3,9 +3,13 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 
 class GccToolchain extends Toolchain {
+	get importDef() { return '__attribute__((visibility("default")))'; }
+	get exportDef() { return '__attribute__((visibility("default")))'; }
+
 	compile(opts) {
 		const args = [
 			'-fvisibility=hidden',
+			'-fPIC',
 			'-Wall',
 			'-MD', '-MF', opts.depfilePath,
 			'-o', opts.outputPath,
@@ -54,11 +58,30 @@ class GccToolchain extends Toolchain {
 		return spawn('ar', args, { stdio: 'inherit' });
 	}
 
-	linkExecutable(opts) {
-		const args = [
-			'-o', opts.outputPath,
-			...opts.objects
-		];
+	link(opts) {
+		const args = [];
+		switch (opts.type) {
+			case 'executable':
+				break;
+			case 'dynamicLib':
+				args.push('-shared');
+				break;
+			default:
+				throw new Error(`Image type not handled: ${opts.type}`);
+				break;
+		}
+
+		args.push('-Wl,--exclude-libs,ALL');
+		args.push('-o');
+		args.push(opts.outputPath);
+		for (const o of opts.objects) {
+			args.push(o);
+		}
+
+		for (const lib of opts.libraries) {
+			args.push(lib.path);
+		}
+
 		return spawn('g++', args, { stdio: 'inherit' });
 	}
 
@@ -96,5 +119,5 @@ class GccToolchain extends Toolchain {
 }
 
 module.exports = {
-    GccToolchain
+	GccToolchain
 };

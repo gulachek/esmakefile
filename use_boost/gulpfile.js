@@ -21,7 +21,7 @@ foo.define({
 });
 
 foo.include('include');
-foo.link(boost.log, { type: 'static' });
+foo.link(boost.log, { type: 'dynamic' });
 
 const hello = cpp.compile({
 	name: 'hello',

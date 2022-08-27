@@ -1,9 +1,9 @@
 const { CppObject } = require('./object');
-const { Target } = require('../lib/target');
 const { Library, linkedLibrariesOf } = require('./library');
 const { InstallLibroot } = require('./libroot');
 const { StaticPath } = require('../lib/pathTargets');
 const { mergeDefs } = require('./mergeDefs');
+const { includesOf } = require('./library');
 
 function normalizeDefines(defs) {
 	const apiDefs = new Map();
@@ -32,21 +32,23 @@ class Compilation extends Library {
 	#name;
 	#version;
 
-	#objects;
+	#srcs;
 	#includes;
 	#interfaceDefs;
 	#implDefs;
 	#libs;
 	#cpp;
 	#linkTypes;
+	#apiDef;
 
 	constructor(cpp, args) {
 		super();
 		this.#name = args.name;
 		this.#version = args.version;
+		this.#apiDef = args.apiDef;
 
 		this.#cpp = cpp;
-		this.#objects = [];
+		this.#srcs = [];
 		this.#includes = [];
 		this.#libs = [];
 		this.#linkTypes = {};
@@ -63,10 +65,6 @@ class Compilation extends Library {
 		const { apiDefs, implementation } = normalizeDefines(defs);
 		mergeDefs(this.#interfaceDefs, apiDefs);
 		mergeDefs(this.#implDefs, implementation);
-
-		for (const o of this.#objects) {
-			o.define(this.#implDefs);
-		}
 	}
 
 	link(lib, opts) {
@@ -88,8 +86,15 @@ class Compilation extends Library {
 			throw new Error(`Cannot dynamically link library ${lib} without image`);
 		}
 
-		for (const o of this.#objects) {
-			o.link(lib);
+		const order = [98, 3, 11, 14, 17, 20];
+		const libIndex = order.indexOf(lib.cppVersion());
+
+		if (libIndex === -1) {
+			throw new Error(`'${lib.name()}' has an invalid c++ version ${lib.cppVersion()}`);
+		}
+
+		if (order.indexOf(this.#cpp.cppVersion()) < libIndex) {
+			throw new Error(`'${lib.name()}' uses a newer version of c++ than ${this.name()}`);
 		}
 
 		this.#libs.push(lib);
@@ -97,35 +102,60 @@ class Compilation extends Library {
 	}
 
 	add_src(src) {
-		const o = new CppObject(this.#cpp, {
-			src: src
-		});
-
-		for (const i of this.#includes) {
-			o.include(i);
-		}
-
-		for (const lib of this.#libs) {
-			o.link(lib);
-		}
-
-		o.define(this.#implDefs);
-		this.#objects.push(o);
+		this.#srcs.push(src);
 	}
 
 	include(dir) {
 		const dirpath = this.#cpp.sys().src(dir);
-
-		for (const o of this.#objects) {
-			o.include(dirpath);
-		}
-
 		this.#includes.push(dirpath);
 	}
 
 	libroot() {
 		return new InstallLibroot(this.#cpp, this);
 	}
+
+	copyObjects(args) {
+		const toolchain = this.#cpp.toolchain();
+
+		const defs = new Map();
+		if (this.#cpp.sys().isDebugBuild()) {
+			defs.set('DEBUG', 1);
+		} else {
+			defs.set('NDEBUG', 1);
+		}
+
+		defs.set('IMPORT', toolchain.importDef);
+		defs.set('EXPORT', toolchain.exportDef);
+
+		const includes = [...this.#includes];
+
+		for (const lib of this.#libs) {
+			for (const obj of includesOf(lib)) {
+				for (const i of obj.includes) {
+					includes.push(i);
+				}
+
+				mergeDefs(defs, obj.defs);
+			}
+		}
+
+		mergeDefs(defs, this.#implDefs);
+		if (this.#apiDef) {
+			mergeDefs(defs, [[this.#apiDef, args.useExport ? 'EXPORT' : '']]);
+        }
+
+		const objs = [];
+
+		for (const src of this.#srcs) {
+			const obj = new CppObject(this.#cpp, {
+				src, includes, defs
+			});
+
+			objs.push(obj);
+		}
+
+		return objs;
+    }
 
 	// =============================
 	// Library Implementation
@@ -146,12 +176,18 @@ class Compilation extends Library {
 		return this.#includes;
 	}
 
-	definitions() {
-		return this.#interfaceDefs;
+	definitions(args) {
+		const defs = new Map(this.#interfaceDefs);
+
+		if (this.#apiDef) {
+			mergeDefs(defs, [[this.#apiDef, args.linkType === 'dynamic' ? 'IMPORT' : '']]);
+		}
+
+		return defs;
 	}
 
 	isHeaderOnly() {
-		return this.#objects.length < 1;
+		return this.#srcs.length < 1;
 	}
 
 	deps() {
@@ -175,6 +211,8 @@ class Compilation extends Library {
 		const that = this;
 
 		class ArchiveImpl extends StaticPath {
+			#objects;
+
 			constructor() {
 				const sys = that.#cpp.sys();
 				const nameUnder = that.name().replaceAll('.', '_');
@@ -183,10 +221,11 @@ class Compilation extends Library {
 				const ext = that.#cpp.toolchain().archiveExt;
 				const fname = `lib${nameUnder}.${versionPiece}${ext}`;
 				super(sys, sys.dest(fname));
+				this.#objects = that.copyObjects({ useExport: false });
 			}
 
 			deps() {
-				return that.#objects;
+				return this.#objects;
 			}
 
 			build(cb) {
@@ -195,12 +234,8 @@ class Compilation extends Library {
 				const args = {
 					gulpCallback: cb,
 					outputPath: this.abs(),
-					objects: []
+					objects: this.#objects.map(o => o.abs())
 				};
-
-				for (const obj of that.#objects) {
-					args.objects.push(obj.abs());
-				}
 
 				return that.#cpp.toolchain().archive(args);
 			}
@@ -238,6 +273,7 @@ class Compilation extends Library {
 
 		class ImageImpl extends StaticPath {
 			#libs;
+			#objects;
 
 			libs() {
 				if (!this.#libs) {
@@ -251,11 +287,12 @@ class Compilation extends Library {
 				const cpp = that.#cpp;
 				const sys = cpp.sys();
 				super(sys, sys.dest(output));
+				this.#objects = that.copyObjects({ useExport: imageType === 'dynamicLib' });
 			}
 
 			deps() {
-				const objs = this.libs().map(l => l.obj);
-				return [...that.#objects, ...objs];
+				const libObjs = this.libs().map(l => l.obj);
+				return [...this.#objects, ...libObjs];
 			}
 
 			build(cb) {
@@ -265,7 +302,7 @@ class Compilation extends Library {
 					gulpCallback: cb,
 					outputPath: this.abs(),
 					isDebug: this.sys().isDebugBuild(),
-					objects: [...that.#objects.map(o => o.abs())],
+					objects: [...this.#objects.map(o => o.abs())],
 					libraries: [],
 					type: imageType
 				};

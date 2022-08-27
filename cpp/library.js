@@ -1,4 +1,3 @@
-const { StaticPath } = require('../lib/pathTargets');
 const semver = require('semver');
 
 class Library {
@@ -24,8 +23,10 @@ class Library {
 	// compiling against library requires these definitions. values have
 	// to be strings. Deps definitions() not included. Defined in order
 	// after dependency definitions
+	// args:
+	// linkType: 'static'|'dynamic'|'header'
 	// ( { key: string, val: string }[] )
-	definitions() { this.#stub(); }
+	definitions(args) { this.#stub(); }
 
 	// (boolean) is this a header-only library?
 	isHeaderOnly() { this.#stub(); }
@@ -86,7 +87,7 @@ function *includesOf(lib) {
 	const deps = [...tree.forwards()];
 
 	for (const dep of deps) {
-		yield { includes: dep.includes(), defs: dep.definitions() };
+		yield { includes: dep.includes(), defs: dep.definitions(tree.linkTypeOf(dep) || 'static') }; // TODO: 'static' is WRONG. temp workaround
 	}
 }
 

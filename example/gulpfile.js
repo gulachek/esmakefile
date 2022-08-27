@@ -16,8 +16,6 @@ const hello = cpp.compile({
 
 const foolib = foo(cpp.sub('foo'));
 
-hello.link(foolib, {
-	type: 'static'
-});
+hello.link(foolib.archive());
 
 task('default', sys.rule(hello.executable()));

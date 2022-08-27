@@ -11,6 +11,9 @@ class Library {
 	// (string) semver version of library
 	version() { this.#stub(); }
 
+	// (string) type of library 'static' | 'dynamic' | 'header'
+	type() { this.#stub(); }
+
 	// minimum version of c++ the library can be compiled against
 	// (one of 98, 3, 11, 14, 17, 20)
 	cppVersion() { this.#stub(); }
@@ -23,27 +26,18 @@ class Library {
 	// compiling against library requires these definitions. values have
 	// to be strings. Deps definitions() not included. Defined in order
 	// after dependency definitions
-	// args:
-	// linkType: 'static'|'dynamic'|'header'
 	// ( { key: string, val: string }[] )
-	definitions(args) { this.#stub(); }
+	definitions() { this.#stub(); }
 
 	// (boolean) is this a header-only library?
 	isHeaderOnly() { this.#stub(); }
 
 	// (PathTarget?) static library if available
-	archive() { this.#stub(); }
-
-	// (PathTarget?) dynamic library if available
-	image() { this.#stub(); }
+	binary() { this.#stub(); }
 
 	// iterable dependencies that also must be included / linked
 	// (Library[])
 	deps() { this.#stub(); }
-
-	// how does this library link to dependency 'lib'
-	// ('static'|'dynamic'|'header')
-	linkTypeOf(lib) { this.#stub(); }
 }
 
 function majorVersion(lib) {
@@ -59,25 +53,22 @@ function libKey(lib) {
 	return `${lib.name()}/${majorVersion(lib)}`;
 }
 
+function isLinked(lib) {
+	return lib.type() === 'dynamic';
+}
+
+function isHeaderOnly(lib) {
+	return lib.type() === 'header';
+}
+
 function *linkedLibrariesOf(lib) {
 	const tree = new DepTree(lib, { mode: 'link' });
 	const deps = [...tree.backwards()];
 	deps.shift(); // drop self
 
 	for (const dep of deps) {
-		const linkType = tree.linkTypeOf(dep);
-		switch (tree.linkTypeOf(dep)) {
-			case 'static':
-				yield { obj: dep.archive(), linkType };
-				break;
-			case 'dynamic':
-				yield { obj: dep.image(), linkType };
-				break;
-			case 'header':
-				break;
-			default:
-				throw new Error(`Unhandled link type ${linkType}`);
-				break;
+		if (!isHeaderOnly(lib)) {
+			yield dep;
 		}
 	}
 }
@@ -87,7 +78,7 @@ function *includesOf(lib) {
 	const deps = [...tree.forwards()];
 
 	for (const dep of deps) {
-		yield { includes: dep.includes(), defs: dep.definitions(tree.linkTypeOf(dep) || 'static') }; // TODO: 'static' is WRONG. temp workaround
+		yield { includes: dep.includes(), defs: dep.definitions() };
 	}
 }
 
@@ -100,9 +91,6 @@ class DepTree {
 	// libKey -> newest minor version lib
 	#libs;
 
-	// libKey -> link type
-	#linkTypes;
-
 	// libKey -depends on-> libKey[]
 	#deps;
 
@@ -110,37 +98,37 @@ class DepTree {
 		const key = libKey(lib);
 		this.#root = key;
 		this.#libs = {};
-		this.#linkTypes = {};
 		this.#deps = {};
 		this.#mode = opts.mode;
-		this.#recurse(key, lib, 'static');
+		this.#recurse(key, lib);
 	}
 
-	#shouldRecurse(linkType) {
-		return this.#mode === 'compile' || linkType !== 'dynamic';
+	#shouldRecurse(lib) {
+		return this.#mode === 'compile' || !isLinked(lib);
 	}
 
 	// add dependencies of lib to tree
-	#recurse(key, lib, linkType) {
+	#recurse(key, lib) {
 		if (key in this.#libs) {
-			if (this.#linkTypes[key] !== linkType) {
-				throw new Error(`Library ${lib} cannot be linked as both ${linkType} and ${this.linkTypes[key]}`);
+			const existing = this.#libs[key];
+
+			if (lib.type() !== existing.type()) {
+				throw new Error(`Library ${lib} cannot be linked as both ${lib.type()} and ${existing.type()}`);
 			}
 
-			if (!isNewer(lib, this.#libs[key])) {
+			if (!isNewer(lib, existing)) {
 				return;
 			}
 		}
 
 		this.#libs[key] = lib;
-		this.#linkTypes[key] = linkType;
 		this.#deps[key] = [];
 
-		if (this.#shouldRecurse(linkType)) {
+		if (key === this.#root || this.#shouldRecurse(lib)) {
 			for (const dep of lib.deps()) {
 				const depKey = libKey(dep);
 				this.#deps[key].push(depKey);
-				this.#recurse(depKey, dep, lib.linkTypeOf(dep));
+				this.#recurse(depKey, dep);
 			}
 		}
 	}
@@ -171,11 +159,6 @@ class DepTree {
 		const a = [...this.forwards()];
 		a.reverse();
 		return a;
-	}
-
-	linkTypeOf(lib) {
-		const key = libKey(lib);
-		return this.#linkTypes[key];
 	}
 }
 

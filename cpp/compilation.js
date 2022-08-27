@@ -1,9 +1,10 @@
 const { CppObject } = require('./object');
-const { Library, linkedLibrariesOf } = require('./library');
 const { InstallLibroot } = require('./libroot');
 const { StaticPath } = require('../lib/pathTargets');
 const { mergeDefs } = require('./mergeDefs');
 const { includesOf } = require('./library');
+const { Archive } = require('./archive');
+const { Image } = require('./image');
 
 function normalizeDefines(defs) {
 	const apiDefs = new Map();
@@ -28,7 +29,7 @@ function normalizeDefines(defs) {
 	return { apiDefs, implementation };
 }
 
-class Compilation extends Library {
+class Compilation {
 	#name;
 	#version;
 
@@ -42,7 +43,6 @@ class Compilation extends Library {
 	#apiDef;
 
 	constructor(cpp, args) {
-		super();
 		this.#name = args.name;
 		this.#version = args.version;
 		this.#apiDef = args.apiDef;
@@ -67,25 +67,7 @@ class Compilation extends Library {
 		mergeDefs(this.#implDefs, implementation);
 	}
 
-	link(lib, opts) {
-		const type = opts.type;
-
-		if (this.#linkTypes[lib.name()]) {
-			throw new Error(`Cannot link ${lib} twice`);
-		}
-
-		if (type === 'header' && !lib.isHeaderOnly()) {
-			throw new Error(`Cannot link non-header-only library ${lib} as header-only`);
-		}
-
-		if (type === 'static' && !lib.archive()) {
-			throw new Error(`Cannot statically link library ${lib} without archive`);
-		}
-
-		if (type === 'dynamic' && !lib.image()) {
-			throw new Error(`Cannot dynamically link library ${lib} without image`);
-		}
-
+	link(lib) {
 		const order = [98, 3, 11, 14, 17, 20];
 		const libIndex = order.indexOf(lib.cppVersion());
 
@@ -98,7 +80,6 @@ class Compilation extends Library {
 		}
 
 		this.#libs.push(lib);
-		this.#linkTypes[lib.name()] = type;
 	}
 
 	add_src(src) {
@@ -140,9 +121,11 @@ class Compilation extends Library {
 		}
 
 		mergeDefs(defs, this.#implDefs);
-		if (this.#apiDef) {
-			mergeDefs(defs, [[this.#apiDef, args.useExport ? 'EXPORT' : '']]);
-        }
+
+		if (args.define) {
+			const { implementation } = normalizeDefines(args.define);
+			mergeDefs(defs, implementation);
+		}
 
 		const objs = [];
 
@@ -205,43 +188,24 @@ class Compilation extends Library {
 
 	archive() {
 		if (this.isHeaderOnly()) {
-			return null;
+			throw new Error('Library has no sources');
 		}
 
-		const that = this;
-
-		class ArchiveImpl extends StaticPath {
-			#objects;
-
-			constructor() {
-				const sys = that.#cpp.sys();
-				const nameUnder = that.name().replaceAll('.', '_');
-				const version = that.version();
-				const versionPiece = version ? `${version}.` : '';
-				const ext = that.#cpp.toolchain().archiveExt;
-				const fname = `lib${nameUnder}.${versionPiece}${ext}`;
-				super(sys, sys.dest(fname));
-				this.#objects = that.copyObjects({ useExport: false });
-			}
-
-			deps() {
-				return this.#objects;
-			}
-
-			build(cb) {
-				console.log(`archiving ${this.path()}`);
-
-				const args = {
-					gulpCallback: cb,
-					outputPath: this.abs(),
-					objects: this.#objects.map(o => o.abs())
-				};
-
-				return that.#cpp.toolchain().archive(args);
-			}
+		if (!this.#apiDef) {
+			throw new Error('Library should define an apiDef');
 		}
 
-		return new ArchiveImpl();
+		const apiDefs = new Map(this.#interfaceDefs);
+		mergeDefs(apiDefs, [[this.#apiDef, '']]);
+
+		return new Archive(this.#cpp, {
+			objects: this.copyObjects({ define: { [this.#apiDef]: '' } }),
+			name: this.#name,
+			version: this.#version,
+			includes: [...this.#includes],
+			defs: apiDefs,
+			libs: [...this.#libs]
+		});
 	}
 
 	image() {
@@ -253,69 +217,38 @@ class Compilation extends Library {
 		return this.#image('dynamicLib', fname);
 	}
 
-	// =============================
-	// (END) Library Implementation
-	// =============================
-
 	executable() {
 		const name = this.name();
 		const ext = this.#cpp.toolchain().executableExt;
 		const out = ext ? `${name}.${ext}` : name;
-		return this.#image('executable', out);
+		return this.#image('executable', out).binary();
 	}
 
 	#image(imageType, output) {
 		if (this.isHeaderOnly()) {
-			throw new Error('Cannot make image with no sources');
+			throw new Error('Library has no sources');
 		}
 
-		const that = this;
-
-		class ImageImpl extends StaticPath {
-			#libs;
-			#objects;
-
-			libs() {
-				if (!this.#libs) {
-					this.#libs = [...linkedLibrariesOf(that)];
-				}
-
-				return this.#libs;
-			}
-
-			constructor() {
-				const cpp = that.#cpp;
-				const sys = cpp.sys();
-				super(sys, sys.dest(output));
-				this.#objects = that.copyObjects({ useExport: imageType === 'dynamicLib' });
-			}
-
-			deps() {
-				const libObjs = this.libs().map(l => l.obj);
-				return [...this.#objects, ...libObjs];
-			}
-
-			build(cb) {
-				console.log(`linking ${this.path()}`);
-
-				const args = {
-					gulpCallback: cb,
-					outputPath: this.abs(),
-					isDebug: this.sys().isDebugBuild(),
-					objects: [...this.#objects.map(o => o.abs())],
-					libraries: [],
-					type: imageType
-				};
-
-				for (const { obj, linkType } of this.libs()) {
-					args.libraries.push({ path: obj.abs(), type: linkType });
-				}
-
-				return that.#cpp.toolchain().link(args);
-			}
+		if (imageType === 'dynamicLib' && !this.#apiDef) {
+			throw new Error('Library should define an apiDef');
 		}
 
-		return new ImageImpl();
+		const apiDefs = new Map(this.#interfaceDefs);
+
+		if (this.#apiDef) {
+			mergeDefs(apiDefs, [[this.#apiDef, 'IMPORT']]);
+		}
+
+		return new Image(this.#cpp, {
+			objects: this.copyObjects({ define: { [this.#apiDef]: 'EXPORT' } }),
+			imageType: imageType,
+			filename: output,
+			name: this.#name,
+			version: this.#version,
+			includes: [...this.#includes],
+			defs: apiDefs,
+			libs: [...this.#libs]
+		});
 	}
 }
 

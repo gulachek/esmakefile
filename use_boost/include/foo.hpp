@@ -3,6 +3,6 @@
 
 #include <boost/log/trivial.hpp>
 
-void foo(const char *str);
+FOO_API void foo(const char *str);
 
 #endif

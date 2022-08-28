@@ -2,7 +2,8 @@ function foo(cpp) {
 	const lib = cpp.compile({
 		name: 'com.example.foo',
 		version: '0.1.0',
-		src: [ 'src/foo.cpp' ]
+		src: ['src/foo.cpp'],
+		apiDef: 'FOO_API'
 	});
 
 	lib.include('include');
@@ -14,10 +15,6 @@ function foo(cpp) {
 			interface: 'interface'
 		}
 	});
-
-	// make sure we don't require install paths to be defined
-	// simply to reference this
-	const libroot = lib.libroot();
 
 	return lib;
 }

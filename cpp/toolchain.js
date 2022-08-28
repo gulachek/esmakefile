@@ -6,6 +6,10 @@ class Toolchain {
 	get objectExt() { return 'o'; }
 	get archiveExt() { return 'a'; }
 	get executableExt() { return ''; }
+	get dynamicLibExt() { return 'so'; }
+	get importDef() { return '__attribute__((visibility("hidden")))'; }
+	get exportDef() { return '__attribute__((visibility("default")))'; }
+	get dynamicLibraryIsLinked() { return true; }
 
 	/*
 	 * Compile a c++ source file to an object file
@@ -33,14 +37,17 @@ class Toolchain {
 	}
 
 	/*
-	 * Link objects and libraries into executable
+	 * Link objects and libraries into image
 	 * gulpCallback: Function (gulp task completion callback)
 	 * outputPath: string (path to generated executable)
-	 * objects: string[] (paths to object files and libraries)
+	 * objects: string[] (paths to object files for image)
 	 * isDebug: boolean (debug vs release build)
+	 * libraries: { path, type: 'static'|'dynamic' }[] (libraries)
+	 * type: 'executable'|'dynamicLib' (type of image)
+	 *
 	 */
-	linkExecutable(args) {
-		this.#stub('linkExecutable');
+	link(args) {
+		this.#stub('link');
 	}
 
 	/*

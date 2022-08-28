@@ -1,4 +1,3 @@
-const { StaticPath } = require('../lib/pathTargets');
 const semver = require('semver');
 
 class Library {
@@ -11,6 +10,9 @@ class Library {
 
 	// (string) semver version of library
 	version() { this.#stub(); }
+
+	// (string) type of library 'static' | 'dynamic' | 'header'
+	type() { this.#stub(); }
 
 	// minimum version of c++ the library can be compiled against
 	// (one of 98, 3, 11, 14, 17, 20)
@@ -31,10 +33,7 @@ class Library {
 	isHeaderOnly() { this.#stub(); }
 
 	// (PathTarget?) static library if available
-	archive() { this.#stub(); }
-
-	// (PathTarget?) dynamic library if available
-	dynamic() { this.#stub(); }
+	binary() { this.#stub(); }
 
 	// iterable dependencies that also must be included / linked
 	// (Library[])
@@ -54,8 +53,41 @@ function libKey(lib) {
 	return `${lib.name()}/${majorVersion(lib)}`;
 }
 
+function isLinked(lib, toolchain) {
+	return lib.type() === 'dynamic' && toolchain.dynamicLibraryIsLinked;
+}
+
+function isHeaderOnly(lib) {
+	return lib.type() === 'header';
+}
+
+function *linkedLibrariesOf(lib, cpp) {
+	const tree = new DepTree(lib, { mode: 'link', cpp });
+	const deps = [...tree.backwards()];
+	deps.shift(); // drop self
+
+	for (const dep of deps) {
+		if (!isHeaderOnly(dep)) {
+			yield dep;
+		}
+	}
+}
+
+function *includesOf(lib, cpp) {
+	const tree = new DepTree(lib, { mode: 'compile', cpp });
+	const deps = [...tree.forwards()];
+
+	for (const dep of deps) {
+		yield { includes: dep.includes(), defs: dep.definitions() };
+	}
+}
+
 class DepTree {
 	#root;
+	#cpp;
+
+	// compile or link mode
+	#mode; 
 
 	// libKey -> newest minor version lib
 	#libs;
@@ -63,189 +95,73 @@ class DepTree {
 	// libKey -depends on-> libKey[]
 	#deps;
 
-	// libKey -is depended on by-> libKey[]
-	#backDeps;
-
-	constructor(lib) {
+	constructor(lib, opts) {
 		const key = libKey(lib);
 		this.#root = key;
 		this.#libs = {};
 		this.#deps = {};
-		this.#backDeps = {};
+		this.#mode = opts.mode;
+		this.#cpp = opts.cpp;
 		this.#recurse(key, lib);
-		this.#backRecurse(key);
+	}
+
+	#shouldRecurse(lib) {
+		return this.#mode === 'compile' || !isLinked(lib, this.#cpp.toolchain());
 	}
 
 	// add dependencies of lib to tree
 	#recurse(key, lib) {
-		if (key in this.#libs && !isNewer(lib, this.#libs[key])) {
-			return;
+		if (key in this.#libs) {
+			const existing = this.#libs[key];
+
+			if (lib.type() !== existing.type()) {
+				throw new Error(`Library ${lib} cannot be linked as both ${lib.type()} and ${existing.type()}`);
+			}
+
+			if (!isNewer(lib, existing)) {
+				return;
+			}
 		}
 
 		this.#libs[key] = lib;
 		this.#deps[key] = [];
-		this.#backDeps[key] = [];
 
-		for (const dep of lib.deps()) {
-			const depKey = libKey(dep);
-			this.#deps[key].push(depKey);
-			this.#recurse(depKey, dep);
+		if (key === this.#root || this.#shouldRecurse(lib)) {
+			for (const dep of lib.deps()) {
+				const depKey = libKey(dep);
+				this.#deps[key].push(depKey);
+				this.#recurse(depKey, dep);
+			}
 		}
 	}
 
-	#backRecurse(key) {
+	*#forwardIt(key, guard) {
 		for (const depKey of this.#deps[key]) {
-			this.#backDeps[depKey].push(key);
-			this.#backRecurse(depKey);
+			if (!guard[depKey]) {
+				for (const l of this.#forwardIt(depKey, guard)) {
+					yield l;
+				}
+			}
 		}
+
+		if (guard[key]) {
+			throw new Error(`Circular dependency detected for ${key}`);
+		}
+
+		yield this.#libs[key];
+		guard[key] = 1;
+	}
+
+	forwards() {
+		const guard = {};
+		return this.#forwardIt(this.#root, guard);
 	}
 
 	backwards() {
-		const guard = {};
-		return this.#backwardsIt(this.#root, guard);
-	}
-
-	*#backwardsIt(key, guard) {
-		// need to list out everything that depends on lib before it
-		for (const refKey of this.#backDeps[key]) {
-			if (refKey in guard) { continue; }
-			for (const l of this.#backwardsIt(refKey, guard)) {
-				yield l;
-			}
-		}
-
-		// list out this lib
-		yield this.#libs[key];
-		guard[key] = true;
-
-		// list out all dependencies
-		for (const depKey of this.#deps[key]) {
-			if (depKey in guard) {
-				throw new Error(`${key} was listed after dependency ${depKey}`); 
-			}
-
-			for (const l of this.#backwardsIt(depKey, guard)) {
-				yield l;
-			}
-		}
+		const a = [...this.forwards()];
+		a.reverse();
+		return a;
 	}
 }
 
-/*
-class CppLibrary extends StaticPath {
-	#name;
-	#version;
-	#objects;
-	#includes;
-	#libs;
-	#cpp;
-
-	constructor(cpp, args) {
-		const sys = cpp.sys();
-		const nameUnder = args.name.replaceAll('.', '_');
-		const fname = `lib${nameUnder}.${args.version}.${cpp.toolchain().archiveExt}`;
-		super(sys, sys.dest(fname));
-		this.#name = args.name;
-		this.#version = args.version;
-		this.#cpp = cpp;
-		this.#objects = new CppObjectGroup(cpp);
-		this.#includes = [];
-		this.#libs = [];
-	}
-
-	name() { return this.#name; }
-	version() { return this.#version; }
-	cppVersion() { return this.#cpp.cppVersion(); }
-
-	#headerOnly() { return this.#objects.length < 1; }
-
-	libroot() {
-		return new InstallLibroot(this.#cpp, {
-			name: this.#name,
-			version: this.#version,
-			includes: this.#includes,
-			binaries: this.#headerOnly() ? [] : [this],
-			deps: this.#libs
-		});
-	}
-
-	add_src(src) {
-		this.#objects.add_src(src);
-	}
-
-	link(lib) {
-		this.#libs.push(lib);
-		this.#objects.link(lib);
-	}
-
-	include(dir) {
-		const dirpath = this.sys().src(dir);
-
-		this.#includes.push(dirpath);
-		this.#objects.include(dirpath);
-	}
-
-	define(defs) {
-		this.#objects.define(defs);
-	}
-
-	includes() {
-		const incs = [...this.#includes];
-
-		for (const lib of this.#libs) {
-			for (const inc of lib.includes()) {
-				incs.push(inc);
-			}
-		}
-
-		return incs;
-	}
-
-	binaries() {
-		const bins = [];
-
-		if (!this.#headerOnly()) {
-			bins.push(this);
-		}
-
-		for (const lib of this.#libs) {
-			for (const bin of lib.binaries()) {
-				bins.push(bin);
-			}
-		}
-
-		return bins;
-	}
-
-	definitions() {
-		// ERROR: does not include dependencies right now
-		return this.#objects.interfaceDefs();
-	}
-
-	deps() {
-		return this.#objects;
-	}
-
-	build(cb) {
-		if (this.#headerOnly()) {
-			return Promise.resolve();
-		}
-
-		console.log(`archiving ${this.path()}`);
-
-		const args = {
-			gulpCallback: cb,
-			outputPath: this.abs(),
-			objects: []
-		};
-
-		for (const obj of this.#objects) {
-			args.objects.push(obj.abs());
-		}
-
-		return this.#cpp.toolchain().archive(args);
-	}
-}
-*/
-
-module.exports = { Library, DepTree };
+module.exports = { Library, linkedLibrariesOf, includesOf };

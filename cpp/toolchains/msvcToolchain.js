@@ -8,6 +8,10 @@ class MsvcToolchain extends Toolchain {
     get objectExt() { return 'obj'; }
     get archiveExt() { return 'lib'; }
     get executableExt() { return 'exe'; }
+    get dynamicLibExt() { return 'lib'; }
+    get importDef() { return '__declspec(dllimport)'; }
+    get exportDef() { return '__declspec(dllexport)'; }
+    get dynamicLibraryIsLinked() { return false; }
 
     async compile(opts) {
         const out = path.parse(opts.outputPath);
@@ -96,15 +100,33 @@ class MsvcToolchain extends Toolchain {
         });
     }
 
-    linkExecutable(opts) {
+    link(opts) {
+        // we pass dll to linker but link to lib. kind of gross
+        const outputPath = opts.outputPath.replace(/lib$/i, 'dll');
+
         const args = [
             '/nologo',
-            `/OUT:${opts.outputPath}`,
+            `/OUT:${outputPath}`,
             ...opts.objects
         ];
 
+        switch (opts.type) {
+            case 'executable':
+                break;
+            case 'dynamicLib':
+                args.push('/DLL');
+                break;
+            default:
+                throw new Error(`Unknown image type ${opts.type}`);
+                break;
+        }
+
         if (opts.isDebug) {
             args.push('/DEBUG');
+        }
+
+        for (const lib of opts.libraries) {
+            args.push(lib.path);
         }
         
         return spawn('link', args, {

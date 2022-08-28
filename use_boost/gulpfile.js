@@ -8,11 +8,12 @@ const cpp = new CppSystem({sys,
 });
 
 const boost = {};
-boost.log = cpp.require('org.boost.log', '1.74.0');
+boost.log = cpp.require('org.boost.log', '1.74.0', 'dynamic');
 
 const foo = cpp.compile({
 	name: 'com.example.foo',
 	version: '0.1.0',
+	apiDef: 'FOO_API',
 	src: ['src/foo.cpp']
 });
 
@@ -24,6 +25,6 @@ const hello = cpp.compile({
 	src: ['src/hello.cpp']
 });
 
-hello.link(foo);
+hello.link(foo.image());
 
 task('default', series(sys.rule(hello.executable())));

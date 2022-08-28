@@ -161,6 +161,26 @@ class LibrootConfig {
 	cppVersion() { return this.#cppVersion; }
 }
 
+function searchLibroot(paths, name, version, type) {
+	if (!isLibrootName(name)) {
+		throw new Error(`Invalid cpp libroot name ${name}`);
+	}
+
+	for (const root of paths) {
+		const dir = path.resolve(root, name);
+		if (fs.existsSync(dir)) {
+			const versions = fs.readdirSync(dir);
+			const latest = semver.minSatisfying(versions, `^${version}`);
+			if (latest) {
+				console.log(`Found ${name} (${latest})`);
+				return path.join(dir, latest);
+			}
+		}
+	}
+
+	throw new Error(`${name} (${version}) not found in CPP_LIBROOT_PATH`);
+}
+
 class CppLibrootImport extends Library {
 	#dir;
 	#name;
@@ -182,10 +202,6 @@ class CppLibrootImport extends Library {
 		this.#version = version;
 		this.#type = type;
 
-		if (!isLibrootName(name)) {
-			throw new Error(`Invalid cpp libroot name ${name}`);
-		}
-
 		const librootPath = process.env.CPP_LIBROOT_PATH;
 
 		if (!librootPath) {
@@ -193,21 +209,7 @@ class CppLibrootImport extends Library {
 		}
 
 		const paths = librootPath.split(':');
-		for (const root of paths) {
-			const dir = path.resolve(root, name);
-			if (fs.existsSync(dir)) {
-				const versions = fs.readdirSync(dir);
-				const latest = semver.minSatisfying(versions, `^${version}`);
-				if (latest) {
-					console.log(`Found ${name} (${latest})`);
-					this.#dir = path.join(dir, latest);
-				}
-			}
-		}
-
-		if (!this.#dir) {
-			throw new Error(`${name} (${version}) not found in CPP_LIBROOT_PATH`);
-		}
+		this.#dir = searchLibroot(paths, name, version, type);
 
 		const buildType = sys.isDebugBuild() ? 'debug' : 'release';
 		const f = `${this.#type}_${buildType}.json`;

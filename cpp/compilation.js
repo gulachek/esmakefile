@@ -2,7 +2,7 @@ const { CppObject } = require('./object');
 const { InstallLibroot } = require('./libroot');
 const { StaticPath } = require('../lib/pathTargets');
 const { mergeDefs } = require('./mergeDefs');
-const { includesOf } = require('./library');
+const { includesOf, majorVersion } = require('./library');
 const { Archive } = require('./archive');
 const { Image } = require('./image');
 const { HeaderLibrary } = require('./headerLibrary');
@@ -181,17 +181,20 @@ class Compilation {
 
 	image() {
 		const nameUnder = this.name().replaceAll('.', '_');
-		const version = this.version();
-		const versionPiece = version ? `${version}.` : '';
+		const version = majorVersion(this);
+		const debug = this.#cpp.sys().isDebugBuild() ? '.debug' : '';
 		const ext = this.#cpp.toolchain().dynamicLibExt;
-		const fname = `lib${nameUnder}.${versionPiece}${ext}`;
+		const fname = `lib${nameUnder}.${version}${debug}.${ext}`;
 		return this.#image('dynamicLib', fname);
 	}
 
 	executable() {
 		const name = this.name();
+		const version = majorVersion(this);
+		const debug = this.#cpp.sys().isDebugBuild() ? '.debug' : '';
 		const ext = this.#cpp.toolchain().executableExt;
-		const out = ext ? `${name}.${ext}` : name;
+		const extPiece = ext ? `.${ext}` : '';
+		const out = `${name}${version}${debug}${extPiece}`;
 		return this.#image('executable', out).binary();
 	}
 

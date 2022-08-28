@@ -1,4 +1,4 @@
-const { Library } = require('./library');
+const { Library, majorVersion } = require('./library');
 const { StaticPath } = require('../lib/pathTargets');
 
 class Archive extends Library {
@@ -60,10 +60,10 @@ class Archive extends Library {
 			constructor() {
 				const sys = that.#cpp.sys();
 				const nameUnder = that.name().replaceAll('.', '_');
-				const version = that.version();
-				const versionPiece = version ? `${version}.` : '';
+				const version = majorVersion(that);
+				const debug = that.#cpp.sys().isDebugBuild() ? '.debug' : '';
 				const ext = that.#cpp.toolchain().archiveExt;
-				const fname = `lib${nameUnder}.${versionPiece}${ext}`;
+				const fname = `lib${nameUnder}.${version}${debug}.${ext}`;
 				super(sys, sys.dest(fname));
 			}
 

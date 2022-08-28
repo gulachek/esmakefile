@@ -164,4 +164,9 @@ class DepTree {
 	}
 }
 
-module.exports = { Library, linkedLibrariesOf, includesOf };
+module.exports = {
+	Library,
+	linkedLibrariesOf,
+	includesOf,
+	majorVersion
+};

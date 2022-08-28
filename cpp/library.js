@@ -53,10 +53,6 @@ function libKey(lib) {
 	return `${lib.name()}/${majorVersion(lib)}`;
 }
 
-function isLinked(lib, toolchain) {
-	return lib.type() === 'dynamic' && toolchain.dynamicLibraryIsLinked;
-}
-
 function isHeaderOnly(lib) {
 	return lib.type() === 'header';
 }
@@ -105,10 +101,6 @@ class DepTree {
 		this.#recurse(key, lib);
 	}
 
-	#shouldRecurse(lib) {
-		return this.#mode === 'compile' || !isLinked(lib, this.#cpp.toolchain());
-	}
-
 	// add dependencies of lib to tree
 	#recurse(key, lib) {
 		if (key in this.#libs) {
@@ -126,12 +118,10 @@ class DepTree {
 		this.#libs[key] = lib;
 		this.#deps[key] = [];
 
-		if (key === this.#root || this.#shouldRecurse(lib)) {
-			for (const dep of lib.deps()) {
-				const depKey = libKey(dep);
-				this.#deps[key].push(depKey);
-				this.#recurse(depKey, dep);
-			}
+		for (const dep of lib.deps()) {
+			const depKey = libKey(dep);
+			this.#deps[key].push(depKey);
+			this.#recurse(depKey, dep);
 		}
 	}
 

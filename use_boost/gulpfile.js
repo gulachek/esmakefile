@@ -8,7 +8,7 @@ const cpp = new CppSystem({sys,
 });
 
 const boost = {};
-boost.log = cpp.require('org.boost.log', '1.74.0', 'static');
+boost.log = cpp.require('org.boost.log', '1.74.0', 'dynamic');
 
 const foo = cpp.compile({
 	name: 'com.example.foo',

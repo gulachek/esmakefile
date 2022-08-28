@@ -5,6 +5,7 @@ const { mergeDefs } = require('./mergeDefs');
 const { includesOf } = require('./library');
 const { Archive } = require('./archive');
 const { Image } = require('./image');
+const { HeaderLibrary } = require('./headerLibrary');
 
 function normalizeDefines(defs) {
 	const apiDefs = new Map();
@@ -140,9 +141,6 @@ class Compilation {
 		return objs;
     }
 
-	// =============================
-	// Library Implementation
-	// =============================
 	name() {
 		return this.#name;
 	}
@@ -155,35 +153,8 @@ class Compilation {
 		return this.#cpp.cppVersion();
 	}
 
-	includes() {
-		return this.#includes;
-	}
-
-	definitions(args) {
-		const defs = new Map(this.#interfaceDefs);
-
-		if (this.#apiDef) {
-			mergeDefs(defs, [[this.#apiDef, args.linkType === 'dynamic' ? 'IMPORT' : '']]);
-		}
-
-		return defs;
-	}
-
 	isHeaderOnly() {
 		return this.#srcs.length < 1;
-	}
-
-	deps() {
-		return this.#libs;
-	}
-
-	linkTypeOf(dep) {
-		const name = dep.name();
-		if (!(this.#linkTypes[name])) {
-			throw new Error(`No defined link type for ${dep}`);
-		}
-
-		return this.#linkTypes[name];
 	}
 
 	archive() {
@@ -243,6 +214,31 @@ class Compilation {
 			objects: this.copyObjects({ define: { [this.#apiDef]: 'EXPORT' } }),
 			imageType: imageType,
 			filename: output,
+			name: this.#name,
+			version: this.#version,
+			includes: [...this.#includes],
+			defs: apiDefs,
+			libs: [...this.#libs]
+		});
+	}
+
+	headers() {
+		if (!this.isHeaderOnly()) {
+			throw new Error('Library is not header only');
+		}
+
+		// makes it smoother to add sources later. Don't need to hunt cpp code
+		if (!this.#apiDef) {
+			throw new Error('Library should define an apiDef');
+		}
+
+		const apiDefs = new Map(this.#interfaceDefs);
+
+		if (this.#apiDef) {
+			mergeDefs(apiDefs, [[this.#apiDef, '']]);
+		}
+
+		return new HeaderLibrary(this.#cpp, {
 			name: this.#name,
 			version: this.#version,
 			includes: [...this.#includes],

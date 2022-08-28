@@ -67,7 +67,7 @@ function *linkedLibrariesOf(lib) {
 	deps.shift(); // drop self
 
 	for (const dep of deps) {
-		if (!isHeaderOnly(lib)) {
+		if (!isHeaderOnly(dep)) {
 			yield dep;
 		}
 	}

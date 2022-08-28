@@ -4,6 +4,7 @@ const { Target } = require('../lib/target');
 const path = require('path');
 const fs = require('fs');
 const { mergeDefs } = require('./mergeDefs');
+const semver = require('semver');
 
 function isLibrootName(name) {
 	return /^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name);
@@ -176,11 +177,38 @@ class CppLibrootImport extends Library {
 		const sys = cpp.sys();
 		this.#cpp = cpp;
 
-		this.#name = args.name;
-		this.#version = args.version;
-		this.#type = args.type;
+		const { name, version, type } = args;
+		this.#name = name;
+		this.#version = version;
+		this.#type = type;
 
-		this.#dir = args.dir;
+		if (!isLibrootName(name)) {
+			throw new Error(`Invalid cpp libroot name ${name}`);
+		}
+
+		const librootPath = process.env.CPP_LIBROOT_PATH;
+
+		if (!librootPath) {
+			throw new Error(`Environment variable CPP_LIBROOT_PATH not defined`);
+		}
+
+		const paths = librootPath.split(':');
+		for (const root of paths) {
+			const dir = path.resolve(root, name);
+			if (fs.existsSync(dir)) {
+				const versions = fs.readdirSync(dir);
+				const latest = semver.minSatisfying(versions, `^${version}`);
+				if (latest) {
+					console.log(`Found ${name} (${latest})`);
+					this.#dir = path.join(dir, latest);
+				}
+			}
+		}
+
+		if (!this.#dir) {
+			throw new Error(`${name} (${version}) not found in CPP_LIBROOT_PATH`);
+		}
+
 		const buildType = sys.isDebugBuild() ? 'debug' : 'release';
 		const f = `${this.#type}_${buildType}.json`;
 
@@ -242,7 +270,6 @@ class CppLibrootImport extends Library {
 }
 
 module.exports = {
-	isLibrootName,
 	InstallLibroot,
 	CppLibrootImport
 };

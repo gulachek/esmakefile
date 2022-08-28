@@ -6,6 +6,8 @@ const fs = require('fs');
 const { mergeDefs } = require('./mergeDefs');
 const semver = require('semver');
 
+const CPP_LIBROOT_VERSION = '0.1.0';
+
 function isLibrootName(name) {
 	return /^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name);
 }
@@ -91,11 +93,13 @@ class LibrootConfig {
 	
 	includes;
 	binary;
+	version;
 
 	constructor(obj) {
 		this.#initLang(obj.language);
 		this.#initDeps(obj.deps);
 		this.#initDefs(obj.definitions);
+		this.#initVersion(obj.version);
 
 		this.includes = obj.includes || [];
 		this.binary = obj.binary;
@@ -148,6 +152,18 @@ class LibrootConfig {
 		mergeDefs(this.#defs, defs || []);
 	}
 
+	#initVersion(version) {
+		if (!version) {
+			throw new Error('Missing "version" property');
+		}
+
+		if (!semver.valid(version)) {
+			throw new Error('Invalid semver "version" property');
+		}
+
+		this.version = version;
+	}
+
 	*deps() {
 		for (const nm in this.#deps) {
 			yield [nm, this.#deps[nm]];
@@ -161,19 +177,46 @@ class LibrootConfig {
 	cppVersion() { return this.#cppVersion; }
 }
 
-function searchLibroot(paths, name, version, type) {
+function searchLibroot(paths, name, version, type, isDebug) {
 	if (!isLibrootName(name)) {
 		throw new Error(`Invalid cpp libroot name ${name}`);
 	}
 
+	const major = semver.major(version).toString();
+	const buildType = isDebug ? 'debug' : 'release';
+	const f = `${type}_${buildType}.json`;
+
 	for (const root of paths) {
-		const dir = path.resolve(root, name);
-		if (fs.existsSync(dir)) {
-			const versions = fs.readdirSync(dir);
-			const latest = semver.minSatisfying(versions, `^${version}`);
-			if (latest) {
-				console.log(`Found ${name} (${latest})`);
-				return path.join(dir, latest);
+		const p = path.resolve(root, name, major, f);
+		if (fs.existsSync(p)) {
+			let json;
+			try {
+				json = JSON.parse(fs.readFileSync(p, { encoding: 'utf8' }));
+			} catch (e) {
+				e.message = `Error parsing ${p}: ${e.message}`;
+				throw e;
+			}
+
+			if (!json.librootVersion) {
+				throw new Error(`${p}: no "librootVersion" property`);
+			}
+
+			if (!semver.satisfies(CPP_LIBROOT_VERSION, `^${json.librootVersion}`)) {
+				console.log(`Skipping ${p}: librootVersion=${json.librootVersion} incompatible with build system's version ${CPP_LIBROOT_VERSION}`);
+				continue;
+			}
+
+			let config;
+			try {
+				config = new LibrootConfig(json);
+			} catch (e) {
+				e.message = `Error in ${p}: ${e.message}`;
+				throw e;
+			}
+
+			if (semver.satisfies(config.version, `^${version}`)) {
+				console.log(`Found ${name} (${config.version})`);
+				return config;
 			}
 		}
 	}
@@ -182,9 +225,7 @@ function searchLibroot(paths, name, version, type) {
 }
 
 class CppLibrootImport extends Library {
-	#dir;
 	#name;
-	#version;
 	#config;
 	#binaries;
 	#includes;
@@ -199,7 +240,6 @@ class CppLibrootImport extends Library {
 
 		const { name, version, type } = args;
 		this.#name = name;
-		this.#version = version;
 		this.#type = type;
 
 		const librootPath = process.env.CPP_LIBROOT_PATH;
@@ -209,26 +249,15 @@ class CppLibrootImport extends Library {
 		}
 
 		const paths = librootPath.split(':');
-		this.#dir = searchLibroot(paths, name, version, type);
 
-		const buildType = sys.isDebugBuild() ? 'debug' : 'release';
-		const f = `${this.#type}_${buildType}.json`;
-
-		const p = path.resolve(this.#dir, f);
-		try {
-			this.#config = new LibrootConfig(JSON.parse(fs.readFileSync(
-				p, { encoding: 'utf8' }
-			)));
-		} catch (e) {
-			e.message = `Error parsing ${p}: ${e.message}`;
-			throw e;
-		}
+		this.#config =
+			searchLibroot(paths, name, version, type, sys.isDebugBuild());
 
 		this.#searchDeps();
 	}
 
 	name() { return this.#name; }
-	version() { return this.#version; }
+	version() { return this.#config.version; }
 	type() { return this.#type; }
 	cppVersion() { return this.#config.cppVersion(); }
 	definitions() { return this.#config.definitions(); }
@@ -238,7 +267,7 @@ class CppLibrootImport extends Library {
 	}
 
 	toString() {
-		return `${this.constructor.name}{${this.#name} (${this.#version})}`;
+		return `${this.constructor.name}{${this.#name} (${this.version()})}`;
 	}
 
 	#searchDeps()

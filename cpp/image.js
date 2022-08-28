@@ -65,7 +65,7 @@ class Image extends Library {
 
 			libs() {
 				if (!this.#libs) {
-					this.#libs = [...linkedLibrariesOf(that)];
+					this.#libs = [...linkedLibrariesOf(that, that.#cpp)];
 				}
 
 				return this.#libs;

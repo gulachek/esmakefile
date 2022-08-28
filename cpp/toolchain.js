@@ -9,6 +9,7 @@ class Toolchain {
 	get dynamicLibExt() { return 'so'; }
 	get importDef() { return '__attribute__((visibility("hidden")))'; }
 	get exportDef() { return '__attribute__((visibility("default")))'; }
+	get dynamicLibraryIsLinked() { return true; }
 
 	/*
 	 * Compile a c++ source file to an object file

@@ -53,16 +53,16 @@ function libKey(lib) {
 	return `${lib.name()}/${majorVersion(lib)}`;
 }
 
-function isLinked(lib) {
-	return lib.type() === 'dynamic';
+function isLinked(lib, toolchain) {
+	return lib.type() === 'dynamic' && toolchain.dynamicLibraryIsLinked;
 }
 
 function isHeaderOnly(lib) {
 	return lib.type() === 'header';
 }
 
-function *linkedLibrariesOf(lib) {
-	const tree = new DepTree(lib, { mode: 'link' });
+function *linkedLibrariesOf(lib, cpp) {
+	const tree = new DepTree(lib, { mode: 'link', cpp });
 	const deps = [...tree.backwards()];
 	deps.shift(); // drop self
 
@@ -73,8 +73,8 @@ function *linkedLibrariesOf(lib) {
 	}
 }
 
-function *includesOf(lib) {
-	const tree = new DepTree(lib, { mode: 'compile' });
+function *includesOf(lib, cpp) {
+	const tree = new DepTree(lib, { mode: 'compile', cpp });
 	const deps = [...tree.forwards()];
 
 	for (const dep of deps) {
@@ -84,6 +84,7 @@ function *includesOf(lib) {
 
 class DepTree {
 	#root;
+	#cpp;
 
 	// compile or link mode
 	#mode; 
@@ -100,11 +101,12 @@ class DepTree {
 		this.#libs = {};
 		this.#deps = {};
 		this.#mode = opts.mode;
+		this.#cpp = opts.cpp;
 		this.#recurse(key, lib);
 	}
 
 	#shouldRecurse(lib) {
-		return this.#mode === 'compile' || !isLinked(lib);
+		return this.#mode === 'compile' || !isLinked(lib, this.#cpp.toolchain());
 	}
 
 	// add dependencies of lib to tree

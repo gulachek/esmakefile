@@ -11,6 +11,7 @@ class MsvcToolchain extends Toolchain {
     get dynamicLibExt() { return 'lib'; }
     get importDef() { return '__declspec(dllimport)'; }
     get exportDef() { return '__declspec(dllexport)'; }
+    get dynamicLibraryIsLinked() { return false; }
 
     async compile(opts) {
         const out = path.parse(opts.outputPath);
@@ -105,7 +106,6 @@ class MsvcToolchain extends Toolchain {
 
         const args = [
             '/nologo',
-            '/MANIFEST',
             `/OUT:${outputPath}`,
             ...opts.objects
         ];

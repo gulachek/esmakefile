@@ -45,7 +45,7 @@ class CppSystem {
 		return new Compilation(this, args);
 	}
 
-	require(name, version) {
+	require(name, version, type) {
 		if (!isLibrootName(name)) {
 			throw new Error(`Invalid cpp libroot name ${name}`);
 		}
@@ -67,6 +67,7 @@ class CppSystem {
 					return new CppLibrootImport(this, {
 						name,
 						version,
+						type,
 						dir: path.join(dir, latest)
 					});
 				}

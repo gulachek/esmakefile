@@ -89,8 +89,7 @@ class LibrootConfig {
 	#defs;
 	
 	includes;
-	archive;
-	image;
+	binary;
 
 	constructor(obj) {
 		this.#initLang(obj.language);
@@ -98,8 +97,7 @@ class LibrootConfig {
 		this.#initDefs(obj.definitions);
 
 		this.includes = obj.includes || [];
-		this.archive = obj.archive;
-		this.image = obj.image;
+		this.binary = obj.binary;
 	}
 
 	#initLang(lang) {
@@ -171,7 +169,7 @@ class CppLibrootImport extends Library {
 	#includes;
 	#deps;
 	#cpp;
-	#linkTypes;
+	#type;
 
 	constructor(cpp, args) {
 		super();
@@ -180,10 +178,13 @@ class CppLibrootImport extends Library {
 
 		this.#name = args.name;
 		this.#version = args.version;
-		this.#dir = args.dir;
-		const f = sys.isDebugBuild() ? 'debug.json' : 'release.json';
-		const p = path.resolve(this.#dir, f);
+		this.#type = args.type;
 
+		this.#dir = args.dir;
+		const buildType = sys.isDebugBuild() ? 'debug' : 'release';
+		const f = `${this.#type}_${buildType}.json`;
+
+		const p = path.resolve(this.#dir, f);
 		try {
 			this.#config = new LibrootConfig(JSON.parse(fs.readFileSync(
 				p, { encoding: 'utf8' }
@@ -198,15 +199,12 @@ class CppLibrootImport extends Library {
 
 	name() { return this.#name; }
 	version() { return this.#version; }
+	type() { return this.#type; }
 	cppVersion() { return this.#config.cppVersion(); }
 	definitions() { return this.#config.definitions(); }
 
 	deps() {
 		return this.#deps;
-	}
-
-	linkTypeOf(dep) {
-		return this.#linkTypes[dep.name()];
 	}
 
 	toString() {
@@ -216,21 +214,14 @@ class CppLibrootImport extends Library {
 	#searchDeps()
 	{
 		this.#deps = [];
-		this.#linkTypes = {};
 		for (const [name, link] of this.#config.deps()) {
-			this.#deps.push(this.#cpp.require(name, link.version));
-			this.#linkTypes[name] = link.type;
+			this.#deps.push(this.#cpp.require(name, link.version, link.type));
 		}
 	}
 
-	archive() {
-		const archive = this.#config.archive;
-		return archive && this.#cpp.sys().ext(archive);
-	}
-
-	image() {
-		const image = this.#config.image;
-		return image && this.#cpp.sys().ext(image);
+	binary() {
+		const binary = this.#config.binary;
+		return binary && this.#cpp.sys().ext(binary);
 	}
 
 	includes() {

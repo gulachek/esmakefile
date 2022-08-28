@@ -8,26 +8,23 @@ const cpp = new CppSystem({sys,
 });
 
 const boost = {};
-boost.log = cpp.require('org.boost.log', '1.74.0');
+boost.log = cpp.require('org.boost.log', '1.74.0', 'dynamic');
 
 const foo = cpp.compile({
 	name: 'com.example.foo',
 	version: '0.1.0',
+	apiDef: 'FOO_API',
 	src: ['src/foo.cpp']
 });
 
-foo.define({
-	FOO_API: { interface: 'IMPORT', implementation: 'EXPORT' }
-});
-
 foo.include('include');
-foo.link(boost.log, { type: 'dynamic' });
+foo.link(boost.log);
 
 const hello = cpp.compile({
 	name: 'hello',
 	src: ['src/hello.cpp']
 });
 
-hello.link(foo, { type: 'dynamic' });
+hello.link(foo.image());
 
 task('default', series(sys.rule(hello.executable())));

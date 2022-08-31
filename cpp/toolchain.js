@@ -7,7 +7,7 @@ class Toolchain {
 	get archiveExt() { return 'a'; }
 	get executableExt() { return ''; }
 	get dynamicLibExt() { return 'so'; }
-	get importDef() { return '__attribute__((visibility("hidden")))'; }
+	get importDef() { return ''; }
 	get exportDef() { return '__attribute__((visibility("default")))'; }
 	get dynamicLibraryIsLinked() { return true; }
 

@@ -26,5 +26,5 @@ hello.link(foolib.archive());
 if (target === 'build') {
 	sys.build(hello.executable());
 } else if (target === 'pack') {
-	sys.build(cpp.packLibrary(foolib.archive()));
+	sys.build(cpp.pack(foolib.archive()));
 }

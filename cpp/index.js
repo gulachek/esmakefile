@@ -49,14 +49,14 @@ class CppSystem {
 	}
 
 	/*
-	 * Package compilation as a library in a build directory
+	 * Package library in a build directory
 	 *
 	 * dir/<libroot>.json
 	 * dir/<binary>
 	 * dir/<include>
 	 */
-	packLibrary(compilation) {
-		return new LibrootPackage(this, compilation);
+	pack(lib) {
+		return new LibrootPackage(this, lib);
 	}
 }
 

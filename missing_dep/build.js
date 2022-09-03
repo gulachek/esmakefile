@@ -1,4 +1,3 @@
-const { task } = require('gulp');
 const { BuildSystem } = require('gulpachek');
 const { CppSystem } = require('gulpachek/cpp');
 
@@ -13,4 +12,4 @@ const exec = cpp.compile({
 	src: ['does_not_exist.cpp']
 });
 
-task('default', sys.rule(exec.executable()));
+sys.build(exec.executable());

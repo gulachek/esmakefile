@@ -10,8 +10,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "async-done": "^2.0.0",
     "fancy-log": "^2.0.0",
-    "gulp": "^4.0.2"
+    "semver": "^7.3.7"
   },
   "devDependencies": {
     "jasmine": "^4.1.0"

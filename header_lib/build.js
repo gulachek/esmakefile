@@ -1,4 +1,3 @@
-const { task } = require('gulp');
 const { BuildSystem } = require('gulpachek');
 const { CppSystem } = require('gulpachek/cpp');
 
@@ -33,4 +32,4 @@ const hello = cpp.compile({
 
 hello.link(foo.headers());
 
-task('default', sys.rule(hello.executable()));
+sys.build(hello.executable());

@@ -241,7 +241,8 @@ class LibrootTarget extends StaticPath {
 		const { lib, dir } = args;
 		const sys = cpp.sys();
 		const name = librootMetaName(sys, lib);
-		super(sys, dir.join(name));
+		const major = semver.major(lib.version()).toString();
+		super(sys, dir.join(lib.name(), major, name));
 		this.#cpp = cpp;
 		this.#lib = lib;
 	}

@@ -1,10 +1,15 @@
-const { task } = require('gulp');
 const { BuildSystem } = require('gulpachek');
 const { CppSystem } = require('gulpachek/cpp');
 
+const [node, script, target] = process.argv;
+
+if (!target) {
+	console.log(`Usage: ${script} <target>`);
+}
+
 const { foo } = require('./foo');
 
-const sys = new BuildSystem(__dirname);
+const sys = new BuildSystem();
 const cpp = new CppSystem({sys,
 	cppVersion: 20
 });
@@ -18,5 +23,8 @@ const foolib = foo(cpp.sub('foo'));
 
 hello.link(foolib.archive());
 
-task('default', sys.rule(hello.executable()));
-task('pack', sys.rule(cpp.packLibrary(foolib.archive())));
+if (target === 'build') {
+	sys.build(hello.executable());
+} else if (target === 'pack') {
+	sys.build(cpp.packLibrary(foolib.archive()));
+}

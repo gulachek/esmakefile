@@ -8,81 +8,14 @@ const semver = require('semver');
 
 const CPP_LIBROOT_VERSION = '0.1.0';
 
-function isLibrootName(name) {
-	return /^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name);
+function librootMetaName(sys, lib) {
+	const buildType = sys.isDebugBuild() ? 'debug' : 'release';
+	const linkType = lib.type();
+	return `${linkType}_${buildType}.json`;
 }
 
-class InstallLibroot extends StaticPath {
-	#cpp;
-	#lib;
-	#includes;
-	#deps;
-	#depLibroots;
-	#defs;
-	#binaries;
-
-	constructor(cpp, lib) {
-		const name = lib.name();
-		const version = lib.version();
-		const sys = cpp.sys();
-		const fname = sys.isDebugBuild() ? 'debug' : 'release';
-		super(sys, sys.install(`cpplibroot/${name}/${version}/${fname}.json`));
-
-		this.#cpp = cpp;
-		this.#lib = lib;
-
-		this.#includes = [];
-		for (const inc of lib.includes()) {
-			this.#includes.push(copyDir(this.sys(), inc, sys.install('include')));
-		}
-
-		this.#binaries = [];
-		if (lib.archive()) { this.#binaries.push(lib.archive()); }
-		if (lib.image()) { this.#binaries.push(lib.image()); }
-
-		this.#depLibroots = [];
-		const deps = [...lib.deps()];
-		for (const dep of deps) {
-			if (typeof dep.libroot === 'function') {
-				this.#depLibroots.push(dep.libroot());
-			}
-		}
-
-		this.#defs = [];
-		for (const kv of lib.definitions()) {
-			this.#defs.push(kv);
-		}
-
-		this.#deps = deps;
-	}
-
-	build(cb) {
-		const obj = {};
-		obj.language = `c++${this.#cpp.cppVersion()}`;
-		obj.includes = this.#includes.map(i => i.abs());
-		const archive = this.#lib.archive();
-		const image = this.#lib.image();
-		if (archive) { obj.archive = archive.abs(); }
-		if (image) { obj.image = image.abs(); }
-		obj.definitions = this.#defs;
-		obj.deps = {};
-		for (const dep of this.#deps) {
-			obj.deps[dep.name()] = {
-				version: dep.version(),
-				linkType: this.#lib.linkTypeOf(dep)
-			}
-		}
-
-		fs.writeFile(this.abs(), JSON.stringify(obj), cb);
-	}
-
-	deps() {
-		return [
-			...this.#includes,
-			...this.#binaries,
-			...this.#depLibroots
-		];
-	}
+function isLibrootName(name) {
+	return /^[a-z][a-z0-9-]+(\.[a-z][a-z0-9-]+)+$/.test(name);
 }
 
 class LibrootConfig {
@@ -300,7 +233,110 @@ class CppLibrootImport extends Library {
 	}
 }
 
+class LibrootTarget extends StaticPath {
+	#cpp;
+	#lib;
+
+	constructor(cpp, args) {
+		const { lib, dir } = args;
+		const sys = cpp.sys();
+		const name = librootMetaName(sys, lib);
+		super(sys, dir.join(name));
+		this.#cpp = cpp;
+		this.#lib = lib;
+	}
+
+	build(cb) {
+		const {
+			GULPACHEK_TARGET_INCLUDE_DIR,
+			GULPACHEK_TARGET_LIB_DIR,
+			GULPACHEK_TARGET_PLATFORM
+		} = process.env;
+
+		if (!GULPACHEK_TARGET_LIB_DIR) {
+			throw new Error('GULPACHEK_TARGET_LIB_DIR not defined');
+		}
+
+		if (!GULPACHEK_TARGET_INCLUDE_DIR) {
+			throw new Error('GULPACHEK_TARGET_INCLUDE_DIR not defined');
+		}
+
+		let pathMod;
+		switch (GULPACHEK_TARGET_PLATFORM) {
+			case 'posix':
+				pathMod = path.posix;
+				break;
+			case 'win32':
+				pathMod = path.win32;
+				break;
+			default:
+				throw new Error(`Unknown GULPACHEK_TARGET_PLATFORM '${GULPACHEK_TARGET_PLATFORM}'`);
+				break;
+		}
+
+		const obj = {};
+		obj.librootVersion = CPP_LIBROOT_VERSION;
+		obj.language = `c++${this.#cpp.cppVersion()}`;
+		obj.version = this.#lib.version();
+		obj.includes = [ GULPACHEK_TARGET_INCLUDE_DIR ];
+
+		const basename = path.basename(this.#lib.binary().abs());
+		obj.binary = pathMod.join(GULPACHEK_TARGET_LIB_DIR, basename);
+		obj.definitions = [...this.#lib.definitions()];
+		obj.deps = {};
+		for (const dep of this.#lib.deps()) {
+			obj.deps[dep.name()] = {
+				version: dep.version(),
+				type: dep.type()
+			}
+		}
+
+		fs.writeFile(this.abs(), JSON.stringify(obj), cb);
+	}
+}
+
+class LibrootPackage extends Target {
+	#cpp;
+	#lib;
+	#binary;
+	#libroot;
+	#includes;
+
+	constructor(cpp, lib) {
+		const name = lib.name();
+		const version = lib.version();
+		const nameUnder = name.replaceAll('.', '_');
+		const sys = cpp.sys();
+		const dir = sys.dest(`${nameUnder}.${version}`);
+		super(sys, dir);
+
+		this.#cpp = cpp;
+		this.#lib = lib;
+
+		this.#includes = [];
+		for (const inc of lib.includes()) {
+			this.#includes.push(copyDir(sys, inc, dir.join('include')));
+		}
+
+		this.#libroot = new LibrootTarget(cpp, {
+			lib,
+			dir
+		});
+
+		this.#binary = copyFile(sys, lib.binary(), dir);
+	}
+
+	build() {
+		console.log(`packing ${this.#binary.path()}`);
+		return Promise.resolve();
+	}
+
+	deps() {
+		return [this.#libroot, this.#binary, ...this.#includes];
+	}
+}
+
 module.exports = {
-	InstallLibroot,
+	LibrootPackage,
 	CppLibrootImport
 };

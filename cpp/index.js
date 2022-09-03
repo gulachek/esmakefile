@@ -8,7 +8,7 @@ const { Compilation } = require('./compilation');
 
 const { StaticPath } = require('../lib/pathTargets');
 const { Target } = require('../lib/target');
-const { CppLibrootImport } = require('./libroot');
+const { CppLibrootImport, LibrootPackage } = require('./libroot');
 
 class CppSystem {
 	#sys;
@@ -46,6 +46,17 @@ class CppSystem {
 
 	require(name, version, type) {
 		return new CppLibrootImport(this, { name, version, type });
+	}
+
+	/*
+	 * Package compilation as a library in a build directory
+	 *
+	 * dir/<libroot>.json
+	 * dir/<binary>
+	 * dir/<include>
+	 */
+	packLibrary(compilation) {
+		return new LibrootPackage(this, compilation);
 	}
 }
 

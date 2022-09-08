@@ -1,5 +1,4 @@
 const { CppObject } = require('./object');
-const { InstallLibroot } = require('./libroot');
 const { StaticPath } = require('../lib/pathTargets');
 const { mergeDefs } = require('./mergeDefs');
 const { includesOf, majorVersion } = require('./library');
@@ -62,6 +61,18 @@ class Compilation {
 		}
 	}
 
+	toLibrary(opts) {
+		if (this.isHeaderOnly()) {
+			return this.headers();
+		}
+
+		if (opts.isStaticLink) {
+			return this.archive();
+		} else {
+			return this.image();
+		}
+	}
+
 	define(defs) {
 		const { apiDefs, implementation } = normalizeDefines(defs);
 		mergeDefs(this.#interfaceDefs, apiDefs);
@@ -69,6 +80,8 @@ class Compilation {
 	}
 
 	link(lib) {
+		lib = this.#cpp.toLibrary(lib);
+
 		const order = [98, 3, 11, 14, 17, 20];
 		const libIndex = order.indexOf(lib.cppVersion());
 
@@ -90,10 +103,6 @@ class Compilation {
 	include(dir) {
 		const dirpath = this.#cpp.sys().src(dir);
 		this.#includes.push(dirpath);
-	}
-
-	libroot() {
-		return new InstallLibroot(this.#cpp, this);
 	}
 
 	copyObjects(args) {

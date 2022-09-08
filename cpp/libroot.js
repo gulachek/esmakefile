@@ -8,9 +8,9 @@ const semver = require('semver');
 
 const CPP_LIBROOT_VERSION = '0.1.0';
 
-function librootMetaName(sys, lib) {
-	const buildType = sys.isDebugBuild() ? 'debug' : 'release';
-	const linkType = lib.type();
+function librootMetaName(cpp) {
+	const buildType = cpp.sys().isDebugBuild() ? 'debug' : 'release';
+	const linkType = cpp.linkType();
 	return `${linkType}_${buildType}.json`;
 }
 
@@ -236,53 +236,65 @@ class CppLibrootImport extends Library {
 class LibrootTarget extends StaticPath {
 	#cpp;
 	#lib;
+	#platform;
+	#includeDir;
+	#libDir;
 
 	constructor(cpp, args) {
-		const { lib, dir } = args;
+		const { lib, dir, target } = args;
 		const sys = cpp.sys();
-		const name = librootMetaName(sys, lib);
+		const name = librootMetaName(cpp);
 		const major = semver.major(lib.version()).toString();
 		super(sys, dir.join(lib.name(), major, name));
 		this.#cpp = cpp;
 		this.#lib = lib;
+
+		if (!target) {
+			throw new Error('target not specified');
+		}
+
+		this.#parsePlatform(target.platform);
+
+		this.#includeDir = target.includeDir;
+		if (!target.includeDir) {
+			throw new Error('target.includeDir not specified');
+		}
+
+		this.#libDir = target.libDir;
+		if (!target.libDir) {
+			throw new Error('target.libDir not specified');
+		}
+	}
+
+	#parsePlatform(platform) {
+		switch (platform) {
+			case 'posix':
+			case 'win32':
+				this.#platform = platform;
+				break;
+			default:
+				throw new Error(`Unknown target.platform '${platform}'`);
+				break;
+		}
 	}
 
 	build(cb) {
-		const {
-			GULPACHEK_TARGET_INCLUDE_DIR,
-			GULPACHEK_TARGET_LIB_DIR,
-			GULPACHEK_TARGET_PLATFORM
-		} = process.env;
+		console.log(`generating ${this.path()}`);
 
-		if (!GULPACHEK_TARGET_LIB_DIR) {
-			throw new Error('GULPACHEK_TARGET_LIB_DIR not defined');
-		}
-
-		if (!GULPACHEK_TARGET_INCLUDE_DIR) {
-			throw new Error('GULPACHEK_TARGET_INCLUDE_DIR not defined');
-		}
-
-		let pathMod;
-		switch (GULPACHEK_TARGET_PLATFORM) {
-			case 'posix':
-				pathMod = path.posix;
-				break;
-			case 'win32':
-				pathMod = path.win32;
-				break;
-			default:
-				throw new Error(`Unknown GULPACHEK_TARGET_PLATFORM '${GULPACHEK_TARGET_PLATFORM}'`);
-				break;
-		}
+		const pathMod = path[this.#platform];
 
 		const obj = {};
 		obj.librootVersion = CPP_LIBROOT_VERSION;
 		obj.language = `c++${this.#cpp.cppVersion()}`;
 		obj.version = this.#lib.version();
-		obj.includes = [ GULPACHEK_TARGET_INCLUDE_DIR ];
+		obj.includes = [ this.#includeDir ];
 
-		const basename = path.basename(this.#lib.binary().abs());
-		obj.binary = pathMod.join(GULPACHEK_TARGET_LIB_DIR, basename);
+		const binary = this.#lib.binary();
+		if (binary) {
+			const basename = path.basename(this.#lib.binary().abs());
+			obj.binary = pathMod.join(this.#libDir, basename);
+		}
+
 		obj.definitions = [...this.#lib.definitions()];
 		obj.deps = {};
 		for (const dep of this.#lib.deps()) {
@@ -303,7 +315,8 @@ class LibrootPackage extends Target {
 	#libroot;
 	#includes;
 
-	constructor(cpp, lib) {
+	constructor(cpp, lib, args) {
+		lib = cpp.toLibrary(lib);
 		const name = lib.name();
 		const version = lib.version();
 		const nameUnder = name.replaceAll('.', '_');
@@ -321,19 +334,24 @@ class LibrootPackage extends Target {
 
 		this.#libroot = new LibrootTarget(cpp, {
 			lib,
-			dir
+			dir,
+			target: args.target
 		});
 
-		this.#binary = copyFile(sys, lib.binary(), dir);
+		const binary = lib.binary();
+		if (binary) {
+			this.#binary = copyFile(sys, binary, dir);
+		}
 	}
 
 	build() {
-		console.log(`packing ${this.#binary.path()}`);
 		return Promise.resolve();
 	}
 
 	deps() {
-		return [this.#libroot, this.#binary, ...this.#includes];
+		const deps = [this.#libroot, ...this.#includes];
+		this.#binary && deps.push(this.#binary);
+		return deps;
 	}
 }
 

@@ -23,13 +23,13 @@ const lib = cpp.compile({
 });
 
 lib.include('include');
-lib.link(dep.image());
+lib.link(dep);
 
 const hello = cpp.compile({
 	name: 'hello',
 	src: [ 'hello.cpp' ]
 });
 
-hello.link(lib.image());
+hello.link(lib);
 
 sys.build(hello.executable());

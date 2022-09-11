@@ -311,7 +311,7 @@ class LibrootTarget extends StaticPath {
 class LibrootPackage extends Target {
 	#cpp;
 	#lib;
-	#binary;
+	#binaryFiles;
 	#libroot;
 	#includes;
 
@@ -338,9 +338,18 @@ class LibrootPackage extends Target {
 			target: args.target
 		});
 
+		const libDir = dir.join('lib');
+
+		this.#binaryFiles = [];
 		const binary = lib.binary();
 		if (binary) {
-			this.#binary = copyFile(sys, binary, dir);
+			this.#binaryFiles.push(copyFile(sys, binary, libDir));
+
+			const helpers = this.#cpp.toolchain().binaryPackHelpers(lib);
+
+			for (const bFile of helpers) {
+				this.#binaryFiles.push(copyFile(sys, bFile, libDir));
+            }
 		}
 	}
 
@@ -349,9 +358,7 @@ class LibrootPackage extends Target {
 	}
 
 	deps() {
-		const deps = [this.#libroot, ...this.#includes];
-		this.#binary && deps.push(this.#binary);
-		return deps;
+		return [this.#libroot, ...this.#includes, ...this.#binaryFiles];
 	}
 }
 

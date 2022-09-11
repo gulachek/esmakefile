@@ -3,12 +3,13 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { LineReader } = require('./lineReader');
+const { StaticPath } = require('../../lib/pathTargets');
 
 class MsvcToolchain extends Toolchain {
     get objectExt() { return 'obj'; }
     get archiveExt() { return 'lib'; }
     get executableExt() { return 'exe'; }
-    get dynamicLibExt() { return 'lib'; }
+    get dynamicLibExt() { return 'dynamic.lib'; }
     get importDef() { return '__declspec(dllimport)'; }
     get exportDef() { return '__declspec(dllexport)'; }
     get dynamicLibraryIsLinked() { return false; }
@@ -144,6 +145,39 @@ class MsvcToolchain extends Toolchain {
         }
 
         return;
+    }
+
+    binaryPackHelpers(lib) {
+        const type = lib.type();
+        const binary = lib.binary();
+        const sys = binary.sys();
+        const isDebug = sys.isDebugBuild();
+
+        if (type === 'static') {
+            return [];
+        } else if (type === 'dynamic') {
+            const helpers = [];
+            helpers.push(new GeneratedHelper(binary, 'dll'));
+            isDebug && helpers.push(new GeneratedHelper(binary, 'pdb'));
+            return helpers;
+        } else {
+            throw new Error(`Unknown library type ${type}`);
+        }
+    }
+}
+
+class GeneratedHelper extends StaticPath {
+    #binary;
+
+    constructor(binary, ext) {
+        const path = binary.path();
+        const generated = path.dir().join(path.basename().replace(/lib$/, ext));
+        super(binary.sys(), generated);
+        this.#binary = binary;
+    }
+
+    deps() {
+        return [this.#binary];
     }
 }
 

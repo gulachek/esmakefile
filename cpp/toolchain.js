@@ -57,6 +57,14 @@ class Toolchain {
 	depfileEntries(path) {
 		this.#stub('depfileEntries');
 	}
+
+	/*
+	 * Helper files for binary to package (iterable path targets)
+	 * lib: Library
+	 */
+	binaryPackHelpers(lib) {
+		return [];
+    }
 }
 
 module.exports = {

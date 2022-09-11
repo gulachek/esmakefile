@@ -1,6 +1,5 @@
 const { Command } = require('commander');
 const { CppBuildCommand } = require('gulpachek/cpp');
-const { foo } = require('./foo');
 const { spawn } = require('child_process');
 
 const program = new Command();
@@ -10,6 +9,27 @@ const cppBuild = new CppBuildCommand({
 	cppVersion: 20
 });
 
+function foo(cpp) {
+	const lib = cpp.compile({
+		name: 'com.example.foo',
+		version: '0.1.0',
+		src: ['src/foo.cpp'],
+		apiDef: 'FOO_API'
+	});
+
+	lib.include('include');
+
+	lib.define({
+		FOO_DEFAULT_DEFINE: 'default',
+		FOO_DEFINE: {
+			implementation: 'implementation',
+			interface: 'interface'
+		}
+	});
+
+	return lib;
+}
+
 function build(args) {
 	const { cpp } = args;
 	
@@ -18,7 +38,7 @@ function build(args) {
 		src: [ 'hello.cpp' ]
 	});
 
-	const foolib = foo(cpp.sub('foo'));
+	const foolib = foo(cpp);
 
 	hello.link(foolib);
 
@@ -32,7 +52,7 @@ cppBuild.build((args) => {
 cppBuild.pack((args) => {
 	const { cpp } = args;
 
-	return foo(cpp.sub('foo'));
+	return foo(cpp);
 });
 
 const test = program.command('test')

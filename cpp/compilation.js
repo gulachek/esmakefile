@@ -120,14 +120,12 @@ class Compilation {
 
 		const includes = [...this.#includes];
 
-		for (const lib of this.#libs) {
-			for (const obj of includesOf(lib, this.#cpp)) {
-				for (const i of obj.includes) {
-					includes.push(i);
-				}
-
-				mergeDefs(defs, obj.defs);
+		for (const obj of includesOf(this.#libs, this.#cpp)) {
+			for (const i of obj.includes) {
+				includes.push(i);
 			}
+
+			mergeDefs(defs, obj.defs);
 		}
 
 		mergeDefs(defs, this.#implDefs);

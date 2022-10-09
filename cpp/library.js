@@ -58,7 +58,8 @@ function isHeaderOnly(lib) {
 }
 
 function *linkedLibrariesOf(lib, cpp) {
-	const tree = new DepTree(lib, { mode: 'link', cpp });
+	const tree = new DepTree({ mode: 'link', cpp });
+	tree.add(lib);
 	const deps = [...tree.backwards()];
 	deps.shift(); // drop self
 
@@ -69,8 +70,13 @@ function *linkedLibrariesOf(lib, cpp) {
 	}
 }
 
-function *includesOf(lib, cpp) {
-	const tree = new DepTree(lib, { mode: 'compile', cpp });
+function *includesOf(libOrLibs, cpp) {
+	const tree = new DepTree({ mode: 'compile', cpp });
+	const libs = libOrLibs instanceof Library ? [libOrLibs] : libOrLibs;
+	for (const lib of libs) {
+		tree.add(lib);
+	}
+
 	const deps = [...tree.forwards()];
 
 	for (const dep of deps) {
@@ -91,14 +97,23 @@ class DepTree {
 	// libKey -depends on-> libKey[]
 	#deps;
 
-	constructor(lib, opts) {
-		const key = libKey(lib);
-		this.#root = key;
+	constructor(opts) {
+		this.#root = '<root>';
 		this.#libs = {};
 		this.#deps = {};
+		this.#deps[this.#root] = [];
 		this.#mode = opts.mode;
 		this.#cpp = opts.cpp;
-		this.#recurse(key, lib);
+	}
+
+	add(lib) {
+		this.#addDependency(this.#root, lib);
+	}
+
+	#addDependency(key, depLib) {
+		const depKey = libKey(depLib);
+		this.#deps[key].push(depKey);
+		this.#recurse(depKey, depLib);
 	}
 
 	// add dependencies of lib to tree
@@ -119,16 +134,14 @@ class DepTree {
 		this.#deps[key] = [];
 
 		for (const dep of lib.deps()) {
-			const depKey = libKey(dep);
-			this.#deps[key].push(depKey);
-			this.#recurse(depKey, dep);
+			this.#addDependency(key, dep);
 		}
 	}
 
-	*#forwardIt(key, guard) {
+	*#forwardIt(key, guard, skipYield) {
 		for (const depKey of this.#deps[key]) {
 			if (!guard[depKey]) {
-				for (const l of this.#forwardIt(depKey, guard)) {
+				for (const l of this.#forwardIt(depKey, guard, false)) {
 					yield l;
 				}
 			}
@@ -138,13 +151,13 @@ class DepTree {
 			throw new Error(`Circular dependency detected for ${key}`);
 		}
 
-		yield this.#libs[key];
+		if (!skipYield) yield this.#libs[key];
 		guard[key] = 1;
 	}
 
 	forwards() {
 		const guard = {};
-		return this.#forwardIt(this.#root, guard);
+		return this.#forwardIt(this.#root, guard, true);
 	}
 
 	backwards() {

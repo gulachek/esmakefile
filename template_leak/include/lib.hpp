@@ -6,7 +6,7 @@
 LIB_API int foo();
 
 template <int N>
-LIB_API int add_bar()
+int add_bar()
 {
 	return N + bar();
 }

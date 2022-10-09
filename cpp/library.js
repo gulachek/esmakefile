@@ -11,7 +11,7 @@ class Library {
 	// (string) semver version of library
 	version() { this.#stub(); }
 
-	// (string) type of library 'static' | 'dynamic' | 'header'
+	// (string) type of library 'static' | 'dynamic'
 	type() { this.#stub(); }
 
 	// minimum version of c++ the library can be compiled against
@@ -54,7 +54,7 @@ function libKey(lib) {
 }
 
 function isHeaderOnly(lib) {
-	return lib.type() === 'header';
+	return !lib.binary();
 }
 
 function *linkedLibrariesOf(lib, cpp) {

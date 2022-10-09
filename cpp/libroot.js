@@ -48,20 +48,21 @@ class LibrootConfig {
 			throw new Error(`Invalid "language": ${lang}`);
 		}
 
-		const cppVersion = parseInt(match[1], 10);
+		const cppVersion = match[1];
 		switch (cppVersion) {
-			case 98:
-			case 11:
-			case 14:
-			case 17:
-			case 20:
+			case '98':
+			case '03':
+			case '11':
+			case '14':
+			case '17':
+			case '20':
 				break;
 			default:
 				throw new Error(`Invalid c++ version: ${cppVersion}`);
 				break;
 		}
 
-		this.#cppVersion = cppVersion;
+		this.#cppVersion = parseInt(cppVersion);
 		this.#lang = lang;
 	}
 

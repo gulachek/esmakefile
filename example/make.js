@@ -9,6 +9,10 @@ const cppBuild = new CppBuildCommand({
 	cppVersion: 20
 });
 
+cppBuild.on('configure', (cmd) => {
+	cmd.option('--with-foo <foo>', 'test option');
+});
+
 function foo(cpp) {
 	const lib = cpp.compile({
 		name: 'com.example.foo',

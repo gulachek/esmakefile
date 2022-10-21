@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { EventEmitter } = require('events');
 
 const { findToolchain } = require('./findToolchain');
 const { Compilation } = require('./compilation');
@@ -79,15 +80,20 @@ class CppSystem {
 	}
 }
 
-class CppBuildCommand
+class CppBuildCommand extends EventEmitter
 {
 	#program;
 	#cppVersion;
 
 	constructor(args) {
+		super();
 		const { program, cppVersion } = args;
 		this.#program = program;
 		this.#cppVersion = cppVersion;
+	}
+
+	#command(name) {
+		return this.#program.command(name);
 	}
 
 	#configure(args) {
@@ -103,7 +109,7 @@ class CppBuildCommand
 	}
 
 	configure(command, fTarget) {
-		return command
+		const cmd = command
 		.option('--release', 'release build (default debug)')
 		.option('--static-link', 'static linkage (default dynamic)')
 		.action((opts) => {
@@ -116,16 +122,19 @@ class CppBuildCommand
 
 			return sys.build(target);
 		});
+
+		this.emit('configure', cmd);
+		return cmd;
 	}
 
 	build(fTarget) {
-		const command = this.#program.command('build')
+		const command = this.#command('build')
 		.description('build binaries');
 		return this.configure(command, fTarget);
 	}
 
 	pack(fLib) {
-		this.#program.command('pack')
+		const cmd = this.#command('pack')
 		.requiredOption('--target-platform <platform>', 'posix or win32')
 		.requiredOption('--target-include-dir <include>', 'where to install headers on target system')
 		.requiredOption('--target-lib-dir <lib>', 'where to install libraries on target system')
@@ -137,7 +146,7 @@ class CppBuildCommand
 				for (const isStaticLink of tf) {
 					const { sys, cpp } = this.#configure({ isDebug, isStaticLink });
 
-					const lib = cpp.toLibrary(fLib({ sys, cpp }));
+					const lib = cpp.toLibrary(fLib({ sys, cpp, opts }));
 
 					await sys.build(cpp.pack(lib, { target: {
 						platform: opts.targetPlatform,
@@ -147,6 +156,9 @@ class CppBuildCommand
 				}
 			}
 		});
+
+		this.emit('configure', cmd);
+		return cmd;
 	}
 }
 

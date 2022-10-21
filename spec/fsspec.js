@@ -94,14 +94,6 @@ describe('FileSystem', () => {
 		expect(abs).toEqual('/resolved/src/build/my/path');
 	});
 
-	it('dest makes a new dir', () => {
-		fs.dest('my/path');
-		expect(fsMod.mkdirSync).toHaveBeenCalledWith(
-			'/resolved/src/build/my',
-			{ recursive: true }
-		);
-	});
-
 	it('makes a cache path from a build path', () => {
 		const b = fs.dest('my/path.ext');
 		const p = fs.cache(b, {
@@ -109,15 +101,6 @@ describe('FileSystem', () => {
 		});
 		const abs = fs.abs(p);
 		expect(abs).toEqual('/resolved/src/build/my/__com.gulachek.test__/path.ext');
-	});
-
-	it('makes a directory for a cache path', () => {
-		const b = fs.dest('my/path.ext');
-		const p = fs.cache(b, {
-			namespace: 'com.gulachek.test'
-		});
-		const abs = fs.abs(p);
-		expect(fsMod.mkdirSync).toHaveBeenCalledWith('/resolved/src/build/my/__com.gulachek.test__', { recursive: true });
 	});
 
 	it('adds an extension in cache path', () => {

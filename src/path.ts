@@ -28,6 +28,11 @@ export interface IHasPath
 
 export type PathLike = string | Path | IHasPath;
 
+function getComponents(str: string): string[]
+{
+	return str.split(path.sep).filter(p => !!p);
+}
+
 export class Path
 {
 	#components: string[] = [];
@@ -50,7 +55,7 @@ export class Path
 		}
 		else if (typeof pathLike === 'string')
 		{
-			const components = pathLike.split(path.sep).filter(p => !!p);
+			const components = getComponents(pathLike);
 			const relativeType = opts.isWritable ? PathType.build : PathType.src;
 			const type = path.isAbsolute(pathLike) ?
 				PathType.external : relativeType;
@@ -93,6 +98,40 @@ export class Path
 	get writable(): boolean
 	{
 		return this.#type === PathType.build;
+	}
+
+	get dir(): Path
+	{
+		const components = [...this.components];
+		components.pop();
+		return new Path(components, this.type);
+	}
+
+	get basename(): string
+	{
+		if (this.components.length)
+			return this.components[this.components.length - 1];
+
+		return '';
+	}
+
+	get extname(): string
+	{
+		return path.extname(this.basename);
+	}
+
+	join(...pieces: string[]): Path
+	{
+		const components = [...this.components];
+		for (const p of pieces)
+		{
+			for (const c of getComponents(p))
+			{
+				components.push(c);
+			}
+		}
+
+		return new Path(components, this.type);
 	}
 
 	gen(args: IDerivedPathOpts): Path

@@ -1,11 +1,14 @@
 require('jasmine-core');
 
-import { Target, BuildSystem, Path } from '../index';
+import { Target, BuildSystem } from '../buildSystem';
+import { Path } from '../path';
+
 import * as path from 'path';
 
 class MyTarget extends Target
 {
-	called: boolean = false;
+	static counter: number = 0;
+	count: number = -1;
 
 	constructor(sys: BuildSystem)
 	{
@@ -14,12 +17,21 @@ class MyTarget extends Target
 
 	build()
 	{
-		this.called = true;
+		this.count = MyTarget.counter++;
 		return Promise.resolve();
+	}
+
+	mtime()
+	{
+		return this.count >= 0 ? new Date(this.count) : null;
 	}
 }
 
 describe('BuildSystem', () => {
+	beforeEach(() => {
+		MyTarget.counter = 0;
+	});
+
 	it('puts the source directory to the running script"s dir', () => {
 		const b = new BuildSystem();
 		const self = require.main.path;
@@ -74,7 +86,7 @@ describe('BuildSystem', () => {
 
 		await b.build(t);
 
-		expect(t.called).toBeTruthy();
+		expect(t.mtime).toBeTruthy();
 	});
 
 	it('continues waiting if target is promise resolution', async () => {
@@ -83,6 +95,19 @@ describe('BuildSystem', () => {
 
 		await b.build(Promise.resolve(t));
 
-		expect(t.called).toBeTruthy();
+		expect(t.mtime).toBeTruthy();
+	});
+
+	it('waits for dependency to be built', async () => {
+		const b = new BuildSystem();
+		const t = new MyTarget(b);
+		const dep = new MyTarget(b);
+
+		t.dependsOn(dep);
+
+		await b.build(t);
+
+		expect(dep.mtime).toBeTruthy();
+		expect(t.count).toBeGreaterThan(dep.count);
 	});
 });

@@ -1,3 +1,5 @@
 src
+build
 node_modules
 jasmine.json
+spec

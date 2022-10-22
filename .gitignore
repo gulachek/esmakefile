@@ -1,6 +1,8 @@
 node_modules
 libroot
 build
+dist
+types
 install
 *.swp
 .vscode

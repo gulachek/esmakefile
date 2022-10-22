@@ -94,4 +94,64 @@ describe('Path', () => {
 			expect(p.components[2]).toEqual('world.js.tst');
 		});
 	});
+
+	describe('dir', () => {
+		it('returns equal path when root', () => {
+			const p = new Path([], PathType.build);
+			expect(p.dir.components).toEqual(p.components);
+		});
+
+		it('has same type', () => {
+			const p = new Path([], PathType.build);
+			expect(p.dir.type).toEqual(PathType.build);
+		});
+
+		it('loses tail component when non root', () => {
+			const p = new Path(['hello', 'world'], PathType.build);
+			expect(p.dir.components).toEqual(['hello']);
+		});
+	});
+
+	describe('basename', () => {
+		it('is the last component', () => {
+			const p = new Path(['dir', 'file.txt'], PathType.src);
+			expect(p.basename).toEqual('file.txt');
+		});
+
+		it('is empty if root', () => {
+			const p = new Path([], PathType.src);
+			expect(p.basename).toEqual('');
+		});
+	});
+
+	describe('extname', () => {
+		it('includes the period to the end of the basename', () => {
+			const p = Path.from('hello/world.txt');
+			expect(p.extname).toEqual('.txt');
+		});
+
+		it('does not include a prior extension', () => {
+			const p = Path.from('hello/world.prior.txt');
+			expect(p.extname).toEqual('.txt');
+		});
+
+		it('is empty if no period', () => {
+			const p = Path.from('hello/world');
+			expect(p.extname).toEqual('');
+		});
+	});
+
+	describe('join', () => {
+		it('has same type as src', () => {
+			const p = Path.dest('hello/world');
+			const j = p.join('file.txt');
+			expect(j.type).toEqual(PathType.build);
+		});
+
+		it('adds each piece to components', () => {
+			const p = Path.dest('hello/world');
+			const j = p.join('//hello/sub', 'file.txt');
+			expect(j.components).toEqual(['hello', 'world', 'hello', 'sub', 'file.txt']);
+		});
+	});
 });

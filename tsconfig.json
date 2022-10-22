@@ -1,0 +1,14 @@
+{
+	"include": ["src/**/*.ts"],
+	"compilerOptions": {
+		"target": "es6",
+		"module": "CommonJS",
+		"moduleResolution": "node",
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"outDir": "dist",
+		"declaration": true,
+		"declarationDir": "types",
+		"noImplicitAny": true
+	}
+}

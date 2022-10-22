@@ -1,21 +1,24 @@
 {
   "name": "gulpachek",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.1.0",
+  "description": "Make and gulp inspired build system",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jasmine --config=jasmine.json"
   },
   "keywords": [],
-  "author": "",
+  "author": "Nicholas Gulachek",
   "license": "ISC",
   "dependencies": {
+    "@types/node": "^18.11.3",
     "async-done": "^2.0.0",
     "commander": "^9.4.0",
     "fancy-log": "^2.0.0",
     "semver": "^7.3.7"
   },
   "devDependencies": {
-    "jasmine": "^4.1.0"
+    "@types/jasmine": "^4.3.0",
+    "jasmine": "^4.1.0",
+    "typescript": "^4.8.4"
   }
 }

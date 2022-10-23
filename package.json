@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Make and gulp inspired build system",
   "main": "dist/index.js",
+	"types": "types/index.d.ts",
   "scripts": {
     "test": "jasmine --config=jasmine.json"
   },

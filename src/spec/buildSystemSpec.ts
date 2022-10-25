@@ -1,7 +1,7 @@
 require('jasmine-core');
 
 import { Target, BuildSystem } from '../buildSystem';
-import { Path } from '../path';
+import { Path, PathLike } from '../path';
 
 import * as path from 'path';
 
@@ -10,14 +10,14 @@ class MyTarget extends Target
 	static counter: number = 0;
 	count: number = -1;
 
-	constructor(sys: BuildSystem)
+	constructor(sys: BuildSystem, p?: PathLike)
 	{
-		super(sys);
+		super(sys, p);
 	}
 
 	build()
 	{
-		this.count = MyTarget.counter++;
+		this.count = ++MyTarget.counter;
 		return Promise.resolve();
 	}
 
@@ -109,5 +109,31 @@ describe('BuildSystem', () => {
 
 		expect(dep.mtime).toBeTruthy();
 		expect(t.count).toBeGreaterThan(dep.count);
+	});
+
+	it('only builds targets once', async () => {
+		const b = new BuildSystem();
+		const t = new MyTarget(b);
+		const dep = new MyTarget(b);
+
+		t.dependsOn(dep, dep);
+
+		await b.build(t);
+
+		expect(dep.count).toEqual(1);
+	});
+
+	it('simultaneous builds of same path are ignored', async () => {
+		const b = new BuildSystem();
+		const t = new MyTarget(b);
+		const dep1 = new MyTarget(b, 'dep');
+		const dep2 = new MyTarget(b, 'dep');
+
+		t.dependsOn(dep1, dep2);
+
+		await b.build(t);
+
+		expect(dep1.count).toEqual(1);
+		expect(dep2.count).toEqual(-1);
 	});
 });

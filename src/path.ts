@@ -35,13 +35,13 @@ function getComponents(str: string): string[]
 
 export class Path
 {
-	#components: string[] = [];
-	#type: PathType = PathType.external;
+	private _components: string[] = [];
+	private _type: PathType = PathType.external;
 
 	constructor(components: string[], type: PathType)
 	{
-		this.#components = components;
-		this.#type = type;
+		this._components = components;
+		this._type = type;
 	}
 
 	static from(pathLike: PathLike, rawOpts?: IPathOpts): Path
@@ -82,22 +82,22 @@ export class Path
 
 	toString(): string
 	{
-		return path.join(`@${this.#type}`, ...this.#components);
+		return path.join(`@${this._type}`, ...this._components);
 	}
 
 	get components(): string[]
 	{
-		return this.#components;
+		return this._components;
 	}
 
 	get type(): PathType
 	{
-		return this.#type;
+		return this._type;
 	}
 
 	get writable(): boolean
 	{
-		return this.#type === PathType.build;
+		return this._type === PathType.build;
 	}
 
 	get dir(): Path
@@ -143,7 +143,7 @@ export class Path
 
 		const components = [...this.components];
 
-		if (this.#type === PathType.src) {
+		if (this._type === PathType.src) {
 			components.unshift('__src__');
 		}
 

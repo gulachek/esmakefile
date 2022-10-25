@@ -9,6 +9,7 @@
 		"outDir": "dist",
 		"declaration": true,
 		"declarationDir": "types",
+		"sourceMap": true,
 		"noImplicitAny": true
 	}
 }

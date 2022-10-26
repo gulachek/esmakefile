@@ -1,4 +1,5 @@
-import { Target, BuildSystem, ErrorFirstCallback } from './buildSystem';
+import { BuildSystem } from './buildSystem';
+import { ErrorFirstCallback, Target } from './target';
 import { Path, PathLike } from './path';
 
 import * as fs from 'fs';

@@ -1,6 +1,7 @@
 require('jasmine-core');
 
-import { Target, BuildSystem } from '../buildSystem';
+import { BuildSystem } from '../buildSystem';
+import { Target } from '../target';
 import { Path, PathLike } from '../path';
 
 import * as path from 'path';

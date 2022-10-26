@@ -1,5 +1,5 @@
-
 export { Path, PathLike } from './path';
-export { Target, BuildSystem, ErrorFirstCallback } from './buildSystem';
+export { BuildSystem } from './buildSystem';
+export { Target, ErrorFirstCallback } from './target';
 export { writeFile } from './write';
 export { copyFile, copyDir } from './copy';

@@ -139,6 +139,11 @@ export class Target
 		if (!fs.existsSync(abs)) { return null; }
 		return fs.statSync(abs).mtime;
 	}
+
+	build(): Promise<void>
+	{
+		return this._sys.build(this);
+	}
 }
 
 export type ErrorFirstCallback = (err?: Error, ...rest: any[]) => any;

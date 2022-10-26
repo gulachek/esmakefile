@@ -106,7 +106,7 @@ describe('BuildSystem', () => {
 
 		t.dependsOn(dep);
 
-		await b.build(t);
+		await t.build();
 
 		expect(dep.mtime).toBeTruthy();
 		expect(t.count).toBeGreaterThan(dep.count);
@@ -119,7 +119,7 @@ describe('BuildSystem', () => {
 
 		t.dependsOn(dep, dep);
 
-		await b.build(t);
+		await t.build();
 
 		expect(dep.count).toEqual(1);
 	});
@@ -132,7 +132,7 @@ describe('BuildSystem', () => {
 
 		t.dependsOn(dep1, dep2);
 
-		await b.build(t);
+		await t.build();
 
 		expect(dep1.count).toEqual(1);
 		expect(dep2.count).toEqual(-1);

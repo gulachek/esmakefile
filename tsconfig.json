@@ -10,6 +10,7 @@
 		"declaration": true,
 		"declarationDir": "types",
 		"sourceMap": true,
-		"noImplicitAny": true
+		"noImplicitAny": true,
+		"noImplicitOverride": true
 	}
 }

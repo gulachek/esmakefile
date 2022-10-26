@@ -172,9 +172,18 @@ export class BuildSystem
 		});
 	}
 
-	async #buildTargetMutex(t: Target, trace: ITrace): Promise<void>
+	#getDeps(t: Target): Target[]
 	{
 		const deps = Target.getDeps(t).map(t => this.#toTarget(t));
+
+		// inject more dependencies here
+
+		return deps;
+	}
+
+	async #buildTargetMutex(t: Target, trace: ITrace): Promise<void>
+	{
+		const deps = this.#getDeps(t);
 
 		if (this._showLog)
 		{
@@ -240,7 +249,7 @@ export class BuildSystem
 				if (this._showLog)
 					this.#log(trace, `building ${t} because ${buildReason}`);
 
-				await this.#recursiveAsyncDone(Target.invokeBuild.bind(Target, t), trace);
+				await this.#recursiveAsyncDone(Target.runTask.bind(Target, t), trace);
 			} catch (err) {
 				err.message += `\nBuilding ${t}`;
 				throw err;

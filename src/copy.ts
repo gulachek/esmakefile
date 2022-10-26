@@ -21,12 +21,12 @@ class CopyFile extends Target
 		this.#from = from;
 	}
 
-	deps()
+	override deps()
 	{
 		return this.#from;
 	}
 
-	build(cb: ErrorFirstCallback)
+	override task(cb: ErrorFirstCallback)
 	{
 		return fs.copyFile(this.#from.abs, this.abs, cb);
 	}
@@ -47,12 +47,12 @@ class CopyDir extends Target
 		this.#from = from;
 	}
 
-	deps()
+	override deps()
 	{
 		return this.#from;
 	}
 
-	build()
+	override task()
 	{
 		if (os.platform() === 'win32') {
 			return spawn('xcopy', ['/EIQHY', this.#from.abs, this.abs]);

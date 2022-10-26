@@ -16,13 +16,13 @@ class MyTarget extends Target
 		super(sys, p);
 	}
 
-	build()
+	override task()
 	{
 		this.count = ++MyTarget.counter;
 		return Promise.resolve();
 	}
 
-	mtime()
+	override mtime()
 	{
 		return this.count >= 0 ? new Date(this.count) : null;
 	}

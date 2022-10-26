@@ -107,12 +107,12 @@ export class Target
 		return deps;
 	}
 
-	build(cb: ErrorFirstCallback): AsyncDoneable | void
+	task(cb: ErrorFirstCallback): AsyncDoneable | void
 	{
 		return Promise.resolve();
 	}
 
-	static invokeBuild(t: Target, cb: ErrorFirstCallback): AsyncDoneable | void
+	static runTask(t: Target, cb: ErrorFirstCallback): AsyncDoneable | void
 	{
 		if (t.hasPath && t.path.writable)
 		{
@@ -126,7 +126,7 @@ export class Target
 			}
 		}
 
-		return t.build(cb);
+		return t.task(cb);
 	}
 
 	// Date object of mtime, null means out of date

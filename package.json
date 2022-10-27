@@ -1,6 +1,6 @@
 {
   "name": "gulpachek",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Make and gulp inspired build system",
   "main": "dist/index.js",
 	"types": "types/index.d.ts",

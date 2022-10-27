@@ -3,8 +3,9 @@ import {
 	PathLike
 } from './path';	
 
-import * as fs from 'fs';
-import { ChildProcess } from 'child_process';
+import * as fs from 'node:fs';
+import { ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 export interface IToTarget
 {
@@ -109,7 +110,23 @@ export class Target
 	{
 		return Promise.resolve();
 	}
+
+	protected params(): ITargetParamValue
+	{
+		return null;
+	}
 	// ---------------------------
+
+	static hashParams(t: Target): Buffer | null
+	{
+		const params = t.params();
+		if (params === null)
+			return null;
+
+		const hash = createHash('md5');
+		hash.update(JSON.stringify(params));
+		return hash.digest();
+	}
 
 	static getDeps(t: Target): TargetLike[]
 	{
@@ -179,3 +196,12 @@ export function isAsyncDoneable(obj: any): obj is AsyncDoneable
 
 	return false;
 }
+
+type IJsonValue = string |
+	number |
+	boolean |
+	null |
+	IJsonValue[] |
+	{ [key: string | symbol]: IJsonValue };
+
+export type ITargetParamValue = IJsonValue;

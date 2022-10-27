@@ -15,7 +15,7 @@ export interface IPathOpts
 export interface IDerivedPathOpts
 {
 	// make sure one rule's generation doesn't conflict w/ another's
-	namespace: string;
+	namespace?: string;
 
 	// extension to append
 	ext?: string;
@@ -147,7 +147,8 @@ export class Path
 			components.unshift('__src__');
 		}
 
-		components.splice(components.length - 1, 0, `__${args.namespace}__`);
+		if (args.namespace)
+			components.splice(components.length - 1, 0, `__${args.namespace}__`);
 
 		if (args.ext) {
 			const last = components.length - 1;

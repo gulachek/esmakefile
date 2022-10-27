@@ -15,6 +15,8 @@ import {
 	isAsyncDoneable
 } from './target';
 
+import { ParamsFile } from './paramsFile';
+
 interface ITrace
 {
 	// unique to a target
@@ -192,6 +194,9 @@ export class BuildSystem
 		const deps = Target.getDeps(t).map(t => this.#toTarget(t));
 
 		// inject more dependencies here
+		const hash = Target.hashParams(t);
+		if (hash)
+			deps.push(new ParamsFile(t, hash));
 
 		return deps;
 	}

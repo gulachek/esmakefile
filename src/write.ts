@@ -1,6 +1,7 @@
 import { BuildSystem } from './buildSystem';
 import { ErrorFirstCallback, Target } from './target';
 import { Path, PathLike } from './path';
+import { createHash } from 'node:crypto';
 
 import * as fs from 'fs';
 
@@ -31,6 +32,13 @@ class WriteFile extends Target
 		{
 			return fs.writeFile(this.abs, this.#data, cb);
 		}
+	}
+
+	override params()
+	{
+		const hash = createHash('md5');
+		hash.update(this.#data);
+		return hash.digest('hex');
 	}
 }
 

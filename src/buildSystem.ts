@@ -35,7 +35,7 @@ function traceStr(trace: ITrace): string
 		trace = trace.parent;
 	}
 
-	return pieces.join(':');
+	return pieces.join('/');
 }
 
 export interface IBuildSystemOpts
@@ -118,7 +118,7 @@ export class BuildSystem
 
 	#log(trace: ITrace, ...msg: any[])
 	{
-		const prefix = `[${this._logLineNumber++}/${traceStr(trace)}]`;
+		const prefix = `[${this._logLineNumber++}:/${traceStr(trace)}]`;
 		console.log(prefix, ...msg);
 	}
 
@@ -146,14 +146,29 @@ export class BuildSystem
 		return new Promise((resolve, reject) => {
 			const { id, step, parent } = trace;
 			const nextStep = { id, parent, step: step + 1 };
+			const prevStep = { id, parent, step: step - 1 };
 
 			const wrapCb = (err: Error, result?: AsyncWork | undefined) => {
-				if (err) reject(err);
-				else resolve(this.#recursiveAsyncDone(result, nextStep));
+				if (err)
+				{
+					if (this._showLog)
+						this.#log(trace, `encountered error ${err}`);
+
+					reject(err);
+				}
+				else
+				{
+					if (result && this._showLog)
+						this.#log(trace, `continuing in step ${traceStr(nextStep)} with ${result}`);
+					resolve(this.#recursiveAsyncDone(result, nextStep));
+				}
 			};
 
 			// Break recursion
 			if (!work) {
+				if (this._showLog)
+					this.#log(prevStep, `work complete`);
+
 				return resolve();
 			}
 
@@ -168,7 +183,7 @@ export class BuildSystem
 			}
 
 			// TargetLike
-			return resolve(this.#buildTarget(work, nextStep));
+			return resolve(this.#buildTarget(work, trace));
 		});
 	}
 
@@ -235,7 +250,7 @@ export class BuildSystem
 						if (depDate !== date)
 							comparison = `${depDate} > ${date}`;
 						else
-							comparison = `${depTime} > ${time}`;
+							comparison = `${depTime} >= ${time}`;
 					}
 
 					buildReason = `${dep}.mtime is newer (${comparison})`;
@@ -327,7 +342,11 @@ export class BuildSystem
 
 	build(work: AsyncWork): Promise<void>
 	{
-		return this.#recursiveAsyncDone(work, { id: 0, step: 0, parent: null });
+		const trace: ITrace = { id: 0, step: 0, parent: null };
+		if (this._showLog)
+			this.#log(trace, `initiating build for ${work}`);
+
+		return this.#recursiveAsyncDone(work, trace);
 	}
 }
 

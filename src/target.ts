@@ -75,16 +75,41 @@ export class Target
 		return this.sys.abs(this.path);
 	}
 
-	deps(): Iterable<TargetLike> | TargetLike | null
-	{
-		return null;
-	}
-
 	dependsOn(...ts: TargetLike[]): void
 	{
 		for (const t of ts)
 			this._explicitDeps.push(t);
 	}
+
+	build(): Promise<void>
+	{
+		return this._sys.build(this);
+	}
+
+	// ---------------------------
+	// Override these if you want
+	// ---------------------------
+	protected deps(): Iterable<TargetLike> | TargetLike | null
+	{
+		return null;
+	}
+
+	// Date object of mtime, null means out of date
+	protected mtime(): Date | null
+	{
+		if (!this.hasPath)
+			return null;
+
+		const abs = this.abs;
+		if (!fs.existsSync(abs)) { return null; }
+		return fs.statSync(abs).mtime;
+	}
+
+	protected recipe(cb: ErrorFirstCallback): AsyncDoneable | void
+	{
+		return Promise.resolve();
+	}
+	// ---------------------------
 
 	static getDeps(t: Target): TargetLike[]
 	{
@@ -107,9 +132,9 @@ export class Target
 		return deps;
 	}
 
-	recipe(cb: ErrorFirstCallback): AsyncDoneable | void
+	static mtime(t: Target): Date | null
 	{
-		return Promise.resolve();
+		return t.mtime();
 	}
 
 	static makeRecipe(t: Target, cb: ErrorFirstCallback): AsyncDoneable | void
@@ -127,22 +152,6 @@ export class Target
 		}
 
 		return t.recipe(cb);
-	}
-
-	// Date object of mtime, null means out of date
-	mtime(): Date | null
-	{
-		if (!this.hasPath)
-			return null;
-
-		const abs = this.abs;
-		if (!fs.existsSync(abs)) { return null; }
-		return fs.statSync(abs).mtime;
-	}
-
-	build(): Promise<void>
-	{
-		return this._sys.build(this);
 	}
 }
 
@@ -170,4 +179,3 @@ export function isAsyncDoneable(obj: any): obj is AsyncDoneable
 
 	return false;
 }
-

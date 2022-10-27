@@ -224,14 +224,14 @@ export class BuildSystem
 				this.#log(trace, `done evaluating deps for ${t}`);
 		}
 
-		const selfMtime = t.mtime();
+		const selfMtime = Target.mtime(t);
 		let buildReason: string | null = selfMtime ? null : 'mtime is null';
 
 		if (!buildReason)
 		{
 			for (const dep of deps)
 			{
-				const mtime = dep.mtime();
+				const mtime = Target.mtime(dep);
 				if (!mtime)
 				{
 					buildReason = `${dep}.mtime is null`;

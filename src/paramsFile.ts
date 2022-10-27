@@ -1,4 +1,5 @@
 import { Target, ErrorFirstCallback } from './target';
+import { Path } from './path';
 
 import * as fs from 'fs';
 
@@ -7,11 +8,11 @@ export class ParamsFile extends Target
 {
 	#hash: Buffer;
 
-	constructor(t: Target, hash: Buffer)
+	constructor(t: Target, basename: string, hash: Buffer)
 	{
-		super(t.sys, t.path.gen({
-			ext: '_params.hash_'
-		}));
+		const path = new Path(['__params__', ...t.path.components, basename], t.path.type);
+
+		super(t.sys, path);
 
 		this.#hash = hash;
 	}

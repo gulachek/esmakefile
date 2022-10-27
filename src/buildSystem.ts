@@ -16,6 +16,7 @@ import {
 } from './target';
 
 import { ParamsFile } from './paramsFile';
+import { createHash } from 'node:crypto';
 
 interface ITrace
 {
@@ -193,10 +194,24 @@ export class BuildSystem
 	{
 		const deps = Target.getDeps(t).map(t => this.#toTarget(t));
 
-		// inject more dependencies here
-		const hash = Target.hashParams(t);
-		if (hash)
-			deps.push(new ParamsFile(t, hash));
+		if (t.hasPath && t.path.writable)
+		{
+			const depsHash = createHash('md5');
+			for (const dep of deps)
+			{
+				if (dep.hasPath)
+					depsHash.update(dep.path.toString());
+			}
+
+			if (deps.length)
+				deps.push(new ParamsFile(t, 'deps', depsHash.digest()));
+
+			// inject more dependencies here
+			const hash = Target.hashParams(t);
+			if (hash)
+				deps.push(new ParamsFile(t, 'params', hash));
+
+		}
 
 		return deps;
 	}

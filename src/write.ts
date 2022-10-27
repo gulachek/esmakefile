@@ -21,7 +21,7 @@ class WriteFile extends Target
 		this.#opts = opts;
 	}
 
-	override task(cb: ErrorFirstCallback)
+	override recipe(cb: ErrorFirstCallback)
 	{
 		if (this.#opts)
 		{

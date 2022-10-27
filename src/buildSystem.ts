@@ -264,7 +264,7 @@ export class BuildSystem
 				if (this._showLog)
 					this.#log(trace, `building ${t} because ${buildReason}`);
 
-				await this.#recursiveAsyncDone(Target.runTask.bind(Target, t), trace);
+				await this.#recursiveAsyncDone(Target.makeRecipe.bind(Target, t), trace);
 			} catch (err) {
 				err.message += `\nBuilding ${t}`;
 				throw err;

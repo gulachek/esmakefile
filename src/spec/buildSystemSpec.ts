@@ -16,7 +16,7 @@ class MyTarget extends Target
 		super(sys, p);
 	}
 
-	override task()
+	override recipe()
 	{
 		this.count = ++MyTarget.counter;
 		return Promise.resolve();

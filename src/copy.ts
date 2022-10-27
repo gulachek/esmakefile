@@ -26,7 +26,7 @@ class CopyFile extends Target
 		return this.#from;
 	}
 
-	override task(cb: ErrorFirstCallback)
+	override recipe(cb: ErrorFirstCallback)
 	{
 		return fs.copyFile(this.#from.abs, this.abs, cb);
 	}
@@ -52,7 +52,7 @@ class CopyDir extends Target
 		return this.#from;
 	}
 
-	override task()
+	override recipe()
 	{
 		if (os.platform() === 'win32') {
 			return spawn('xcopy', ['/EIQHY', this.#from.abs, this.abs]);

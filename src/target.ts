@@ -179,6 +179,9 @@ export type AsyncWork = BuildTask | AsyncDoneable | TargetLike;
 
 export function isAsyncDoneable(obj: any): obj is AsyncDoneable
 {
+	if (obj instanceof Target)
+		return false;
+
 	if (typeof obj === 'undefined')
 		return false;
 

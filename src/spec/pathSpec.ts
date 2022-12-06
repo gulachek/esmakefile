@@ -1,6 +1,7 @@
 require('jasmine-core');
 
 import { Path, PathType } from '../path';
+import * as path from 'node:path';
 
 describe('Path', () => {
 	describe('writable', () => {
@@ -22,18 +23,28 @@ describe('Path', () => {
 
 	describe('from', () => {
 		it('makes an external path when absolute', () => {
-			const p = Path.from('/hello/world');
+			const p = Path.from('/hello/world', { pathMod: path.posix });
+			expect(p.type).toEqual(PathType.external);
+		});
+
+		it('makes an external path when absolute win32', () => {
+			const p = Path.from('C:\\hello\\world', { pathMod: path.win32 });
 			expect(p.type).toEqual(PathType.external);
 		});
 
 		it('reuses path if given a path', () => {
-			const p = Path.from('/hello/world');
+			const p = Path.from('/hello/world', { pathMod: path.posix });
 			const p2 = Path.from(p);
 			expect(p2).toBe(p);
 		});
 
 		it('normalizes components', () => {
-			const p = Path.from('/hello///////world//');
+			const p = Path.from('/hello///////world//', { pathMod: path.posix });
+			expect(p.components).toEqual(['hello', 'world']);
+		});
+
+		it('normalizes components win32', () => {
+			const p = Path.from('C:\\hello\\\\\\\\\\world\\', { pathMod: path.win32 });
 			expect(p.components).toEqual(['hello', 'world']);
 		});
 
@@ -58,7 +69,33 @@ describe('Path', () => {
 		});
 
 		it('throws when given path is not writable', () => {
-			expect(() => Path.dest('/hello///////world//')).toThrow();
+			expect(() => Path.dest('/hello///////world//', {
+				pathMod: path.posix
+			})).toThrow();
+		});
+
+		it('splits src paths by "/" instead of path.sep windows', () => {
+			const p = Path.from('src/foo', { pathMod: path.win32 });
+			expect(p.components).toEqual(['src', 'foo']);
+		});
+
+		it('splits build paths by "/" instead of path.sep windows', () => {
+			const p = Path.from('build/foo', {
+				isWritable: true,
+				pathMod: path.win32
+			});
+
+			expect(p.components).toEqual(['build', 'foo']);
+		});
+
+		it('splits ext paths by "\\" instead of path.sep windows', () => {
+			const p = Path.from('C:\\src\\foo', { pathMod: path.win32 });
+			expect(p.components).toEqual(['src', 'foo']);
+		});
+
+		it('splits ext paths by "/" on posix', () => {
+			const p = Path.from('/src/foo', { pathMod: path.posix });
+			expect(p.components).toEqual(['src', 'foo']);
 		});
 	});
 
@@ -73,7 +110,7 @@ describe('Path', () => {
 		const namespace = 'com.example';
 
 		it('throws if given external', () => {
-			const p = Path.from('/hello');
+			const p = Path.from('/hello', { pathMod: path.posix });
 			expect(() => p.gen({ namespace })).toThrow();
 		});
 

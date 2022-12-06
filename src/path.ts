@@ -10,6 +10,7 @@ export enum PathType
 export interface IPathOpts
 {
 	isWritable?: boolean;
+	pathMod?: any; // test the 'node:path' module. don't use as consumer
 }
 
 export interface IDerivedPathOpts
@@ -28,9 +29,9 @@ export interface IHasPath
 
 export type PathLike = string | Path | IHasPath;
 
-function getComponents(str: string): string[]
+function getComponents(str: string, sep: string): string[]
 {
-	return str.split(path.sep).filter(p => !!p);
+	return str.split(sep).filter(p => !!p);
 }
 
 export class Path
@@ -55,12 +56,24 @@ export class Path
 		}
 		else if (typeof pathLike === 'string')
 		{
-			const components = getComponents(pathLike);
-			const relativeType = opts.isWritable ? PathType.build : PathType.src;
-			const type = path.isAbsolute(pathLike) ?
-				PathType.external : relativeType;
+			const pathMod = opts.pathMod || path;
+			if (pathMod.isAbsolute(pathLike))
+			{
+				const parsed = pathMod.parse(pathLike);
+				const withoutRoot = pathLike.substring(parsed.root.length);
 
-			out = new Path(components, type);
+				out = new Path(
+					getComponents(withoutRoot, pathMod.sep),
+					PathType.external
+				);
+			}
+			else
+			{
+				out = new Path(
+					getComponents(pathLike, '/'),
+					opts.isWritable ? PathType.build : PathType.src
+				);
+			}
 		}
 		else
 		{
@@ -75,9 +88,9 @@ export class Path
 		return out;
 	}
 
-	static dest(pathLike: PathLike): Path
+	static dest(pathLike: PathLike, pathMod?: any): Path
 	{
-		return Path.from(pathLike, { isWritable: true });
+		return Path.from(pathLike, { isWritable: true, pathMod });
 	}
 
 	toString(): string
@@ -125,7 +138,7 @@ export class Path
 		const components = [...this.components];
 		for (const p of pieces)
 		{
-			for (const c of getComponents(p))
+			for (const c of getComponents(p, '/'))
 			{
 				components.push(c);
 			}

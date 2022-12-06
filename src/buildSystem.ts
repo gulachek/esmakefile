@@ -75,9 +75,10 @@ export class BuildSystem
 		this._showLog = 'GULPACHEK_DEBUG_LOG' in process.env;
 	}
 
-	abs(tLike: TargetLike): string
+	abs(tLike: TargetLike, pathMod?: any): string
 	{
-		const t = this.#toTarget(tLike);
+		pathMod = pathMod || path;
+		const t = this.#toTarget(tLike, pathMod);
 		const { type, components } = t.path;
 
 		let base;
@@ -98,10 +99,10 @@ export class BuildSystem
 				break;
 		}
 
-		return path.resolve(base, ...components);
+		return pathMod.resolve(base, ...components);
 	}
 
-	#toTarget(t: TargetLike): Target
+	#toTarget(t: TargetLike, pathMod?: any): Target
 	{
 		if (t instanceof Target)
 		{

@@ -4,7 +4,7 @@ import { BuildSystem } from '../buildSystem';
 import { Target } from '../target';
 import { Path, PathLike } from '../path';
 
-import * as path from 'path';
+import * as path from 'node:path';
 
 class MyTarget extends Target
 {
@@ -37,6 +37,23 @@ describe('BuildSystem', () => {
 		const b = new BuildSystem();
 		const self = require.main.path;
 		expect(b.abs('hello/world')).toEqual(path.resolve(self, 'hello/world'));
+	});
+
+	it('puts the source directory to the running script"s dir', () => {
+		const b = new BuildSystem();
+		const self = require.main.path;
+		expect(b.abs('hello/world')).toEqual(path.resolve(self, 'hello/world'));
+	});
+
+	it('roots external paths at / on posix', () => {
+		const b = new BuildSystem();
+		expect(b.abs('/hello/world', path.posix)).toEqual('/hello/world');
+	});
+
+	it('roots external paths at C:\\ on posix', () => {
+		const b = new BuildSystem();
+		expect(b.abs('C:\\hello\\world', path.win32))
+			.toEqual('C:\\hello\\world');
 	});
 
 	it('puts the build directory in the current working dir"s build dir', () => {

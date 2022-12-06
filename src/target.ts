@@ -38,10 +38,10 @@ export class Target
 	private _path: Path | null;
 	private _explicitDeps: TargetLike[] = [];
 
-	constructor(sys: IBuildSystem, p?: PathLike)
+	constructor(sys: IBuildSystem, p?: PathLike, pathMod?: any)
 	{
 		this._sys = sys;
-		this._path = p ? Path.from(p) : null;
+		this._path = p ? Path.from(p, pathMod) : null;
 	}
 
 	toString(): string

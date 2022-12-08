@@ -42,7 +42,7 @@ class SpawnTarget extends Target
 		return p;
 	}
 
-	on(evt: string, handler: (...args: any[]) => void)
+	on(evt: 'spawn', handler: (proc: ChildProcess) => void)
 	{
 		this.evt.on(evt, handler);
 	}

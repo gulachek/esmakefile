@@ -1,4 +1,5 @@
 import { PathLike, Path } from './path';
+import { iterate } from './iterableUtil';
 
 export interface IRecipeBuildArgs {}
 
@@ -20,18 +21,6 @@ export interface IRecipe {
 	 * Generate targets from sources
 	 */
 	buildAsync(args: IRecipeBuildArgs): Promise<boolean>;
-}
-
-function isIterable(obj: any): obj is Iterable<any> {
-	return obj && typeof obj[Symbol.iterator] === 'function';
-}
-
-function* iterate<T>(obj: T | Iterable<T>) {
-	if (isIterable(obj)) {
-		for (const elem of obj) yield elem;
-	} else {
-		yield obj;
-	}
 }
 
 /**

@@ -1,4 +1,4 @@
-set path=,,src/**
+set path=,,src/**,example
 
 " build
 nnoremap <Leader>b :!npm run build<CR>

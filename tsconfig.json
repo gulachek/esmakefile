@@ -1,5 +1,5 @@
 {
-	"include": ["src/**/*.ts"],
+	"include": ["src/**/*.ts", "example/make.js"],
 	"compilerOptions": {
 		"target": "es6",
 		"module": "CommonJS",
@@ -11,6 +11,7 @@
 		"declarationDir": "types",
 		"sourceMap": true,
 		"noImplicitAny": true,
-		"noImplicitOverride": true
+		"noImplicitOverride": true,
+		"checkJs": true
 	}
 }

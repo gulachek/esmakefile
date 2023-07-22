@@ -14,7 +14,7 @@
 	"dependencies": {
 		"@types/node": "^18.11.3",
 		"async-done": "^2.0.0",
-		"commander": "^9.4.0",
+		"commander": "^9.5.0",
 		"fancy-log": "^2.0.0",
 		"semver": "^7.3.7"
 	},

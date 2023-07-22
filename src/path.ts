@@ -1,20 +1,17 @@
 import * as path from 'path';
 
-export enum PathType
-{
+export enum PathType {
 	build = 'build',
 	src = 'src',
-	external = 'external'
+	external = 'external',
 }
 
-export interface IPathOpts
-{
+export interface IPathOpts {
 	isWritable?: boolean;
 	pathMod?: any; // test the 'node:path' module. don't use as consumer
 }
 
-export interface IDerivedPathOpts
-{
+export interface IDerivedPathOpts {
 	// make sure one rule's generation doesn't conflict w/ another's
 	namespace?: string;
 
@@ -22,124 +19,99 @@ export interface IDerivedPathOpts
 	ext?: string;
 }
 
-export interface IHasPath
-{
+export interface IHasPath {
 	path(): PathLike;
 }
 
 export type PathLike = string | Path | IHasPath;
 
-function getComponents(str: string, sep: string): string[]
-{
-	return str.split(sep).filter(p => !!p);
+function getComponents(str: string, sep: string): string[] {
+	return str.split(sep).filter((p) => !!p);
 }
 
-export class Path
-{
+export class Path {
 	private _components: string[] = [];
 	private _type: PathType = PathType.external;
 
-	constructor(components: string[], type: PathType)
-	{
+	constructor(components: string[], type: PathType) {
 		this._components = components;
 		this._type = type;
 	}
 
-	static from(pathLike: PathLike, rawOpts?: IPathOpts): Path
-	{
+	static from(pathLike: PathLike, rawOpts?: IPathOpts): Path {
 		const opts: IPathOpts = rawOpts || {};
 		let out: Path | undefined;
 
-		if (pathLike instanceof Path)
-		{
+		if (pathLike instanceof Path) {
 			out = pathLike;
-		}
-		else if (typeof pathLike === 'string')
-		{
+		} else if (typeof pathLike === 'string') {
 			const pathMod = opts.pathMod || path;
-			if (pathMod.isAbsolute(pathLike))
-			{
+			if (pathMod.isAbsolute(pathLike)) {
 				const parsed = pathMod.parse(pathLike);
 				const withoutRoot = pathLike.substring(parsed.root.length);
 
 				out = new Path(
 					getComponents(withoutRoot, pathMod.sep),
-					PathType.external
+					PathType.external,
 				);
-			}
-			else
-			{
+			} else {
 				out = new Path(
 					getComponents(pathLike, '/'),
-					opts.isWritable ? PathType.build : PathType.src
+					opts.isWritable ? PathType.build : PathType.src,
 				);
 			}
-		}
-		else
-		{
+		} else {
 			return Path.from(pathLike.path(), opts);
 		}
 
-		if (opts.isWritable && !out.writable)
-		{
+		if (opts.isWritable && !out.writable) {
 			throw new Error(`Path is not writable ${pathLike}`);
 		}
 
 		return out;
 	}
 
-	static dest(pathLike: PathLike, pathMod?: any): Path
-	{
+	static dest(pathLike: PathLike, pathMod?: any): Path {
 		return Path.from(pathLike, { isWritable: true, pathMod });
 	}
 
-	toString(): string
-	{
+	toString(): string {
 		return path.join(`@${this._type}`, ...this._components);
 	}
 
-	get components(): string[]
-	{
+	get components(): string[] {
 		return this._components;
 	}
 
-	get type(): PathType
-	{
+	get type(): PathType {
 		return this._type;
 	}
 
-	get writable(): boolean
-	{
+	get writable(): boolean {
 		return this._type === PathType.build;
 	}
 
-	get dir(): Path
-	{
+	get dir(): Path {
 		const components = [...this.components];
 		components.pop();
 		return new Path(components, this.type);
 	}
 
-	get basename(): string
-	{
+	get basename(): string {
 		if (this.components.length)
 			return this.components[this.components.length - 1];
 
 		return '';
 	}
 
-	get extname(): string
-	{
+	get extname(): string {
 		return path.extname(this.basename);
 	}
 
-	join(...pieces: string[]): Path
-	{
+	join(...pieces: string[]): Path {
 		const components = [...this.components];
-		for (const p of pieces)
-		{
-			for (const c of getComponents(p, '/'))
-			{
+		for (const p of pieces) {
+			for (const c of getComponents(p, '/')) {
 				components.push(c);
 			}
 		}
@@ -147,11 +119,11 @@ export class Path
 		return new Path(components, this.type);
 	}
 
-	gen(args: IDerivedPathOpts): Path
-	{
-		if (this.type === PathType.external)
-		{
-			throw new Error(`External paths cannot be used to generate paths: ${this}`);
+	gen(args: IDerivedPathOpts): Path {
+		if (this.type === PathType.external) {
+			throw new Error(
+				`External paths cannot be used to generate paths: ${this}`,
+			);
 		}
 
 		const components = [...this.components];
@@ -171,4 +143,3 @@ export class Path
 		return new Path(components, PathType.build);
 	}
 }
-

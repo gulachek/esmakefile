@@ -1,79 +1,39 @@
-const { Target, Path, BuildSystem } = require('gulpachek');
+const { Path, cli } = require('gulpachek');
 const sass = require('sass');
 const fs = require('node:fs');
-const { program } = require('commander');
 
 // ScssTarget.js
 
-class ScssTarget extends Target {
+/**
+ * @implements require('gulpachek').IRecipe<ScssRecipe>
+ */
+class ScssRecipe {
 	_srcPath;
-	//_depfile;
+	_destPath;
 
-	/**
-	 * @param {BuildSystem} sys
-	 * @param {import('gulpachek').PathLike} src
-	 */
-	constructor(sys, src) {
-		const srcPath = Path.from(src);
-		const components = [...srcPath.components];
-		const last = components.pop();
-		const destPath = Path.dest(last.replace(/\.scss$/, '.css'));
-		super(sys, destPath);
-		this._srcPath = srcPath;
-		//this._depfile = new JsonDepfileTarget(sys, destPath);
+	constructor(src) {
+		this._srcPath = Path.from(src);
+		this._destPath = this._srcPath.gen({ ext: 'css' });
 	}
 
-	/**
-	 * @override
-	 */
-	deps() {
-		return [this._srcPath /*, this._depfile*/];
+	sources() {
+		return this._srcPath;
 	}
 
-	/**
-	 * build target
-	 * @override
-	 * @param {fs.NoParamCallback} cb
-	 */
-	recipe(cb) {
-		try {
-			console.log('sass', this.sys.abs(this._srcPath));
-			const result = sass.compile(this.sys.abs(this._srcPath));
-			fs.writeFile(this.abs, result.css, cb);
+	targets() {
+		return this._destPath;
+	}
 
-			/*
-			const deps = result.loadedUrls
-				.map((url) => url.pathname)
-				.filter((p) => !!p);
-				*/
-
-			//fs.mkdirSync(this.sys.abs(this._depfile.path.dir), { recursive: true });
-			//fs.writeFileSync(this._depfile.abs, JSON.stringify(deps));
-		} catch (ex) {
-			cb(ex);
-		}
+	buildAsync(args) {
+		console.log('sass', args.sources);
+		const result = sass.compile(args.sources);
+		fs.writeFileSync(args.targets, result.css);
+		return Promise.resolve(true);
 	}
 }
 
-/*
-module.exports = {
-	ScssTarget,
-};
-*/
-
 // make.js
 
-const sys = new BuildSystem();
-
-const main = new Target(sys);
-const style = new ScssTarget(sys, 'src/style.scss');
-main.dependsOn(style);
-
-program
-	.command('build', { isDefault: true })
-	.description('Build all targets and exit')
-	.action(() => {
-		main.build();
-	});
-
-program.parse();
+cli((book) => {
+	book.add(new ScssRecipe('src/style.scss'));
+});

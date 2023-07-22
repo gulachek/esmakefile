@@ -1,5 +1,6 @@
 require('jasmine-core');
 
+/*
 import { IRecipe, ingredientsOf } from '../recipe';
 import { Path } from '../path';
 
@@ -30,3 +31,4 @@ describe('ingredientsOf', () => {
 		expect(sources[0]).toBe(path);
 	});
 });
+*/

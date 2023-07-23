@@ -3,7 +3,7 @@ import {
 	RecipePaths,
 	RecipePathGroup,
 	IRecipeBuildArgs,
-} from './recipe';
+} from './Recipe';
 
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';

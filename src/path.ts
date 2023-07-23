@@ -3,98 +3,41 @@ import * as path from 'path';
 export enum PathType {
 	build = 'build',
 	src = 'src',
-	external = 'external',
 }
 
-export interface IPathOpts {
-	isWritable?: boolean;
-	pathMod?: any; // test the 'node:path' module. don't use as consumer
-}
-
-export interface IDerivedPathOpts {
-	// make sure one rule's generation doesn't conflict w/ another's
-	namespace?: string;
-
-	// extension to append
-	ext?: string;
-}
-
-export interface IHasPath {
-	path(): PathLike;
-}
-
-export type PathLike = string | Path | IHasPath;
+export type PathLike = string | Path;
 
 function getComponents(str: string, sep: string): string[] {
 	return str.split(sep).filter((p) => !!p);
 }
 
 export class Path {
-	private _components: string[] = [];
-	private _type: PathType = PathType.external;
+	readonly type: PathType = PathType.src;
+	readonly components: string[] = [];
 
-	constructor(components: string[], type: PathType) {
-		this._components = components;
-		this._type = type;
+	constructor(type: PathType, components: string[]) {
+		this.type = type;
+		this.components = [...components];
 	}
 
-	static from(pathLike: PathLike, rawOpts?: IPathOpts): Path {
-		const opts: IPathOpts = rawOpts || {};
-		let out: Path | undefined;
-
+	static src(pathLike: PathLike): Path {
 		if (pathLike instanceof Path) {
-			out = pathLike;
+			return pathLike;
 		} else if (typeof pathLike === 'string') {
-			const pathMod = opts.pathMod || path;
-			if (pathMod.isAbsolute(pathLike)) {
-				const parsed = pathMod.parse(pathLike);
-				const withoutRoot = pathLike.substring(parsed.root.length);
-
-				out = new Path(
-					getComponents(withoutRoot, pathMod.sep),
-					PathType.external,
-				);
-			} else {
-				out = new Path(
-					getComponents(pathLike, '/'),
-					opts.isWritable ? PathType.build : PathType.src,
-				);
-			}
+			return new Path(PathType.src, getComponents(pathLike, '/'));
 		} else {
-			return Path.from(pathLike.path(), opts);
+			throw new Error(`Invalid path object: ${pathLike}`);
 		}
-
-		if (opts.isWritable && !out.writable) {
-			throw new Error(`Path is not writable ${pathLike}`);
-		}
-
-		return out;
-	}
-
-	static dest(pathLike: PathLike, pathMod?: any): Path {
-		return Path.from(pathLike, { isWritable: true, pathMod });
 	}
 
 	toString(): string {
-		return path.join(`@${this._type}`, ...this._components);
-	}
-
-	get components(): string[] {
-		return this._components;
-	}
-
-	get type(): PathType {
-		return this._type;
-	}
-
-	get writable(): boolean {
-		return this._type === PathType.build;
+		return path.join(`@${this.type}`, ...this.components);
 	}
 
 	get dir(): Path {
 		const components = [...this.components];
 		components.pop();
-		return new Path(components, this.type);
+		return new Path(this.type, components);
 	}
 
 	get basename(): string {
@@ -116,30 +59,46 @@ export class Path {
 			}
 		}
 
-		return new Path(components, this.type);
+		return new Path(this.type, components);
 	}
 
-	gen(args: IDerivedPathOpts): Path {
-		if (this.type === PathType.external) {
-			throw new Error(
-				`External paths cannot be used to generate paths: ${this}`,
-			);
+	get rel(): string {
+		return this.components.join('/');
+	}
+}
+
+export type BuildPathLike = string | BuildPath;
+
+export interface IBuildPathGenOpts {
+	/**
+	 * file extension to replace in given path
+	 */
+	ext?: string;
+}
+
+export class BuildPath extends Path {
+	constructor(components: string[]) {
+		super(PathType.build, components);
+	}
+
+	static from(pathLike: BuildPathLike): BuildPath {
+		if (typeof pathLike === 'string') {
+			return new BuildPath(getComponents(pathLike, '/'));
+		} else if (pathLike instanceof Path) {
+			return pathLike;
+		}
+	}
+
+	static gen(orig: Path, opts?: IBuildPathGenOpts): BuildPath {
+		if (opts) {
+			if (opts.ext) {
+				const parsed = path.posix.parse(orig.rel);
+				parsed.ext = opts.ext;
+				delete parsed.base;
+				return BuildPath.from(path.posix.format(parsed));
+			}
 		}
 
-		const components = [...this.components];
-
-		if (this._type === PathType.src) {
-			components.unshift('__src__');
-		}
-
-		if (args.namespace)
-			components.splice(components.length - 1, 0, `__${args.namespace}__`);
-
-		if (args.ext) {
-			const last = components.length - 1;
-			components[last] += `.${args.ext}`;
-		}
-
-		return new Path(components, PathType.build);
+		return new BuildPath(orig.components);
 	}
 }

@@ -1,4 +1,4 @@
-const { Path, cli } = require('gulpachek');
+const { Path, BuildPath, cli } = require('gulpachek');
 const sass = require('sass');
 const fs = require('node:fs');
 
@@ -12,8 +12,8 @@ class ScssRecipe {
 	_destPath;
 
 	constructor(src) {
-		this._srcPath = Path.from(src);
-		this._destPath = this._srcPath.gen({ ext: 'css' });
+		this._srcPath = Path.src(src);
+		this._destPath = BuildPath.gen(this._srcPath, { ext: '.css' });
 	}
 
 	sources() {

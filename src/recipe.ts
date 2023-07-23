@@ -1,5 +1,4 @@
-import { PathLike, Path } from './path';
-import { iterate } from './iterableUtil';
+import { Path } from './Path';
 
 export type PathOrString = Path | string;
 
@@ -28,7 +27,7 @@ function isPathOrString(paths: RecipePaths): paths is PathOrString {
 }
 
 function mapPath(path: PathOrString, root: string): string {
-	const src = Path.from(path);
+	const src = Path.src(path);
 	const joined = src.components.join('/');
 	return `${root}/${joined}` as string;
 }

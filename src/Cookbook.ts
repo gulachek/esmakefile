@@ -1,17 +1,20 @@
 import {
 	IRecipe,
 	RecipePaths,
-	RecipePathGroup,
+	mapPaths,
+	MappedPaths,
 	IRecipeBuildArgs,
+	iteratePaths,
 } from './Recipe';
 
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { BuildPath, Path, PathType } from './Path';
 
 type TargetInfo = {
 	recipe: IRecipe;
-	sources: RecipePathGroup<RecipePaths>;
-	targets: RecipePathGroup<RecipePaths>;
+	sources: RecipePaths;
+	targets: RecipePaths;
 };
 
 export interface ICookbookOpts {
@@ -40,11 +43,24 @@ export class Cookbook {
 	}
 
 	add(recipe: IRecipe): void {
-		const sources = new RecipePathGroup(this._srcRoot, recipe.sources());
-		const targets = new RecipePathGroup(this._buildRoot, recipe.targets());
+		const sources = recipe.sources();
+		const targets = recipe.targets();
 
-		for (const p of targets.relativePaths()) {
-			this._targets.set(p, {
+		for (const p of iteratePaths(targets)) {
+			let buildPath: BuildPath;
+			if (typeof p === 'string') {
+				buildPath = BuildPath.from(p);
+			} else if (p instanceof Path) {
+				if (p.type !== PathType.build) {
+					throw new Error('Target can only be build paths');
+				}
+
+				buildPath = new BuildPath(p.components);
+			} else {
+				throw new Error(`Unexpected path type ${p}`);
+			}
+
+			this._targets.set(buildPath.rel(), {
 				recipe,
 				sources,
 				targets,
@@ -61,13 +77,16 @@ export class Cookbook {
 		if (!info) throw new Error(`Target ${target} does not exist`);
 
 		const args: IRecipeBuildArgs<IRecipe> = {
-			sources: info.sources.mapped,
-			targets: info.targets.mapped,
+			sources: mapPaths(info.sources, (p) => Path.src(p).abs(this._srcRoot)),
+			targets: mapPaths(info.targets, (p) =>
+				BuildPath.from(p).abs(this._buildRoot),
+			),
 		};
 
-		info.targets.relativePaths().forEach((p) => {
-			mkdirSync(dirname(p), { recursive: true });
-		});
+		for (const p of iteratePaths(info.targets)) {
+			const abs = BuildPath.from(p).abs(this._buildRoot);
+			mkdirSync(dirname(abs), { recursive: true });
+		}
 
 		await info.recipe.buildAsync(args);
 	}

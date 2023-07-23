@@ -62,8 +62,13 @@ export class Path {
 		return new Path(this.type, components);
 	}
 
-	get rel(): string {
+	rel(): string {
 		return this.components.join('/');
+	}
+
+	abs(root: string | { build: string; src: string }): string {
+		root = typeof root === 'string' ? root : root[this.type];
+		return path.resolve(path.join(root, this.rel()));
 	}
 }
 
@@ -92,7 +97,7 @@ export class BuildPath extends Path {
 	static gen(orig: Path, opts?: IBuildPathGenOpts): BuildPath {
 		if (opts) {
 			if (opts.ext) {
-				const parsed = path.posix.parse(orig.rel);
+				const parsed = path.posix.parse(orig.rel());
 				parsed.ext = opts.ext;
 				delete parsed.base;
 				return BuildPath.from(path.posix.format(parsed));

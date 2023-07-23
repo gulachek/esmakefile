@@ -24,17 +24,11 @@ function isPathLike(paths: RecipePaths): paths is PathLike {
 	return typeof paths === 'string' || paths instanceof Path;
 }
 
-function mapPath(path: PathLike, root: string): string {
-	const src = Path.src(path);
-	const joined = src.components.join('/');
-	return `${root}/${joined}` as string;
-}
-
 function isNull(obj: any): obj is null {
 	return obj === null;
 }
 
-function mapPaths<T extends RecipePaths, TValue>(
+export function mapPaths<T extends RecipePaths, TValue>(
 	paths: T,
 	fn: (p: PathLike) => TValue,
 ): MappedPaths<T, TValue> {
@@ -58,12 +52,35 @@ function mapPaths<T extends RecipePaths, TValue>(
 	return obj as MappedPaths<T, TValue>;
 }
 
+export function* iteratePaths<T extends RecipePaths>(
+	paths: T,
+): Generator<PathLike> {
+	if (isNull(paths)) return;
+
+	if (isPathLike(paths)) {
+		yield paths;
+		return;
+	}
+
+	if (Array.isArray(paths)) {
+		for (const p of paths) yield p;
+		return;
+	}
+
+	let key: keyof T;
+	for (key in paths) {
+		yield paths[key] as PathLike;
+	}
+}
+
+/*
 export class RecipePathGroup<T extends RecipePaths> {
 	private paths: T;
 	mapped: MappedPaths<T, string>;
 
-	constructor(root: string, paths: T) {
+	constructor( paths: T) {
 		this.mapped = mapPaths(paths, (p) => mapPath(p, root));
+		this.pathObjs =  
 	}
 
 	relativePaths(): string[] {
@@ -80,6 +97,7 @@ export class RecipePathGroup<T extends RecipePaths> {
 		return out;
 	}
 }
+*/
 
 export interface IRecipeBuildArgs<T extends IRecipe> {
 	sources: MappedPaths<ReturnType<T['sources']>, string>;

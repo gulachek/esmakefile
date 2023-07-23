@@ -1,32 +1,30 @@
-import { Path } from './Path';
-
-export type PathOrString = Path | string;
+import { Path, PathLike } from './Path';
 
 export type RecipePaths =
-	| PathOrString
-	| PathOrString[]
-	| Record<string, PathOrString>
+	| PathLike
+	| PathLike[]
+	| Record<string, PathLike>
 	| null;
 
-export type MappedRecordPaths<T extends Record<string, PathOrString>> = {
-	[P in keyof T]: string;
+export type MappedRecordPaths<T extends Record<string, PathLike>, TValue> = {
+	[P in keyof T]: TValue;
 };
 
-export type MappedPaths<T extends RecipePaths> = T extends null
+export type MappedPaths<T extends RecipePaths, TValue> = T extends null
 	? null
-	: T extends PathOrString
-	? string
-	: T extends PathOrString[]
-	? string[]
-	: T extends Record<string, PathOrString>
-	? MappedRecordPaths<T>
+	: T extends PathLike
+	? TValue
+	: T extends PathLike[]
+	? TValue[]
+	: T extends Record<string, PathLike>
+	? MappedRecordPaths<T, TValue>
 	: never;
 
-function isPathOrString(paths: RecipePaths): paths is PathOrString {
+function isPathLike(paths: RecipePaths): paths is PathLike {
 	return typeof paths === 'string' || paths instanceof Path;
 }
 
-function mapPath(path: PathOrString, root: string): string {
+function mapPath(path: PathLike, root: string): string {
 	const src = Path.src(path);
 	const joined = src.components.join('/');
 	return `${root}/${joined}` as string;
@@ -36,36 +34,36 @@ function isNull(obj: any): obj is null {
 	return obj === null;
 }
 
-function mapPaths<T extends RecipePaths>(
+function mapPaths<T extends RecipePaths, TValue>(
 	paths: T,
-	root: string,
-): MappedPaths<T> {
+	fn: (p: PathLike) => TValue,
+): MappedPaths<T, TValue> {
 	if (isNull(paths)) {
 		return null;
 	}
 
-	if (isPathOrString(paths)) {
-		return mapPath(paths, root) as MappedPaths<T>;
+	if (isPathLike(paths)) {
+		return fn(paths) as MappedPaths<T, TValue>;
 	}
 
 	if (Array.isArray(paths)) {
-		return paths.map((p) => mapPath(p, root)) as MappedPaths<T>;
+		return paths.map((p) => fn(p)) as MappedPaths<T, TValue>;
 	}
 
-	const pathsRecord = paths as Record<string, PathOrString>;
-	const obj: Record<string, string> = {};
+	const pathsRecord = paths as Record<string, PathLike>;
+	const obj: Record<string, TValue> = {};
 	for (const key in pathsRecord) {
-		obj[key] = mapPath(pathsRecord[key], root);
+		obj[key] = fn(pathsRecord[key]);
 	}
-	return obj as MappedPaths<T>;
+	return obj as MappedPaths<T, TValue>;
 }
 
 export class RecipePathGroup<T extends RecipePaths> {
 	private paths: T;
-	mapped: MappedPaths<T>;
+	mapped: MappedPaths<T, string>;
 
 	constructor(root: string, paths: T) {
-		this.mapped = mapPaths(paths, root);
+		this.mapped = mapPaths(paths, (p) => mapPath(p, root));
 	}
 
 	relativePaths(): string[] {
@@ -84,8 +82,8 @@ export class RecipePathGroup<T extends RecipePaths> {
 }
 
 export interface IRecipeBuildArgs<T extends IRecipe> {
-	sources: MappedPaths<ReturnType<T['sources']>>;
-	targets: MappedPaths<ReturnType<T['targets']>>;
+	sources: MappedPaths<ReturnType<T['sources']>, string>;
+	targets: MappedPaths<ReturnType<T['targets']>, string>;
 }
 
 class GenericRecipe {

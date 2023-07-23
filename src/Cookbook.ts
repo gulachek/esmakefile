@@ -6,7 +6,7 @@ import {
 } from './Recipe';
 
 import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 type TargetInfo = {
 	recipe: IRecipe;
@@ -14,14 +14,36 @@ type TargetInfo = {
 	targets: RecipePathGroup<RecipePaths>;
 };
 
+export interface ICookbookOpts {
+	buildRoot?: string;
+	srcRoot?: string;
+}
+
+function mainExecutableDir(): string {
+	return require && require.main && require.main.path;
+}
+
 export class Cookbook {
 	private _targets = new Map<string, TargetInfo>();
+	private _buildRoot: string;
+	private _srcRoot: string;
+
+	constructor(opts?: ICookbookOpts) {
+		opts = opts || {};
+		this._srcRoot = opts.srcRoot || mainExecutableDir();
+
+		if (!this._srcRoot) {
+			throw new Error(`No source root is available.`);
+		}
+
+		this._buildRoot = opts.buildRoot || join(this._srcRoot, 'build');
+	}
 
 	add(recipe: IRecipe): void {
-		const sources = new RecipePathGroup('source', recipe.sources());
-		const targets = new RecipePathGroup('target', recipe.targets());
+		const sources = new RecipePathGroup(this._srcRoot, recipe.sources());
+		const targets = new RecipePathGroup(this._buildRoot, recipe.targets());
 
-		for (const p of targets.paths()) {
+		for (const p of targets.relativePaths()) {
 			this._targets.set(p, {
 				recipe,
 				sources,
@@ -43,7 +65,7 @@ export class Cookbook {
 			targets: info.targets.mapped,
 		};
 
-		info.targets.paths().forEach((p) => {
+		info.targets.relativePaths().forEach((p) => {
 			mkdirSync(dirname(p), { recursive: true });
 		});
 

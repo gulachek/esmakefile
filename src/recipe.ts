@@ -61,16 +61,15 @@ function mapPaths<T extends RecipePaths>(
 }
 
 export class RecipePathGroup<T extends RecipePaths> {
-	private isSrc: boolean;
+	private paths: T;
 	mapped: MappedPaths<T>;
 
-	constructor(type: 'source' | 'target', paths: T) {
-		this.isSrc = type === 'source';
-		this.mapped = mapPaths(paths, this.isSrc ? '.' : './build');
+	constructor(root: string, paths: T) {
+		this.mapped = mapPaths(paths, root);
 	}
 
-	paths(): string[] {
-		if (isNull(this.mapped)) return [];
+	relativePaths(): string[] {
+		if (isNull(this.paths)) return [];
 
 		if (typeof this.mapped === 'string') return [this.mapped];
 

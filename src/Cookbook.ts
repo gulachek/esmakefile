@@ -2,7 +2,7 @@ import { IRecipe, RecipePaths, IRecipeBuildArgs } from './Recipe';
 import { iterateShape, mapShape } from './SimpleShape';
 
 import { mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { BuildPath, Path, PathType, isPathLike } from './Path';
 
 type TargetInfo = {
@@ -16,10 +16,6 @@ export interface ICookbookOpts {
 	srcRoot?: string;
 }
 
-function mainExecutableDir(): string {
-	return require && require.main && require.main.path;
-}
-
 export class Cookbook {
 	private _targets = new Map<string, TargetInfo>();
 	private _buildRoot: string;
@@ -27,7 +23,7 @@ export class Cookbook {
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
-		this._srcRoot = opts.srcRoot || mainExecutableDir();
+		this._srcRoot = opts.srcRoot || resolve('.');
 
 		if (!this._srcRoot) {
 			throw new Error(`No source root is available.`);

@@ -3,11 +3,7 @@ import { iterateShape, mapShape } from './SimpleShape';
 
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { BuildPath, Path, PathType, PathLike } from './Path';
-
-function isPathLike(p: any): p is PathLike {
-	return typeof p === 'string' || p instanceof Path;
-}
+import { BuildPath, Path, PathType, isPathLike } from './Path';
 
 type TargetInfo = {
 	recipe: IRecipe;

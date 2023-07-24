@@ -7,6 +7,10 @@ export enum PathType {
 
 export type PathLike = string | Path;
 
+export function isPathLike(p: any): p is PathLike {
+	return typeof p === 'string' || p instanceof Path;
+}
+
 function getComponents(str: string, sep: string): string[] {
 	return str.split(sep).filter((p) => !!p);
 }

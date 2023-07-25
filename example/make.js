@@ -25,7 +25,7 @@ class ScssRecipe {
 	}
 
 	buildAsync(args) {
-		console.log('sass', args.sources);
+		console.log(`sass ${this._srcPath}`);
 		const result = sass.compile(args.sources);
 		fs.writeFileSync(args.targets, result.css);
 		return Promise.resolve(true);

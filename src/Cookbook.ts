@@ -1,14 +1,14 @@
-import { IRecipe, RecipePaths, IRecipeBuildArgs } from './Recipe';
+import { IRecipe, SourcePaths, TargetPaths, IRecipeBuildArgs } from './Recipe';
 import { iterateShape, mapShape } from './SimpleShape';
 
 import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { BuildPath, Path, PathType, isPathLike } from './Path';
+import { BuildPath, Path, PathType, isPathLike, isBuildPathLike } from './Path';
 
 type TargetInfo = {
 	recipe: IRecipe;
-	sources: RecipePaths;
-	targets: RecipePaths;
+	sources: SourcePaths;
+	targets: TargetPaths;
 };
 
 export interface ICookbookOpts {
@@ -36,7 +36,7 @@ export class Cookbook {
 		const sources = recipe.sources();
 		const targets = recipe.targets();
 
-		for (const p of iterateShape(targets, isPathLike)) {
+		for (const p of iterateShape(targets, isBuildPathLike)) {
 			let buildPath: BuildPath;
 			if (typeof p === 'string') {
 				buildPath = BuildPath.from(p);
@@ -70,12 +70,12 @@ export class Cookbook {
 			sources: mapShape(info.sources, isPathLike, (p) =>
 				Path.src(p).abs(this._srcRoot),
 			),
-			targets: mapShape(info.targets, isPathLike, (p) =>
+			targets: mapShape(info.targets, isBuildPathLike, (p) =>
 				BuildPath.from(p).abs(this._buildRoot),
 			),
 		};
 
-		for (const p of iterateShape(info.targets, isPathLike)) {
+		for (const p of iterateShape(info.targets, isBuildPathLike)) {
 			const abs = BuildPath.from(p).abs(this._buildRoot);
 			mkdirSync(dirname(abs), { recursive: true });
 		}

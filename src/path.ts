@@ -78,6 +78,10 @@ export class Path {
 
 export type BuildPathLike = string | BuildPath;
 
+export function isBuildPathLike(obj: any): obj is BuildPathLike {
+	return typeof obj === 'string' || obj instanceof BuildPath;
+}
+
 export interface IBuildPathGenOpts {
 	/**
 	 * file extension to replace in given path
@@ -94,6 +98,9 @@ export class BuildPath extends Path {
 	constructor(components: string[]) {
 		super(PathType.build, components);
 	}
+
+	// always has this type
+	override readonly type: PathType.build = PathType.build;
 
 	static from(pathLike: BuildPathLike): BuildPath {
 		if (typeof pathLike === 'string') {

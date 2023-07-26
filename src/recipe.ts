@@ -1,7 +1,14 @@
-import { Path, PathLike } from './Path';
+import { PathLike, BuildPathLike } from './Path';
 import { SimpleShape, MappedShape } from './SimpleShape';
 
-export type RecipePaths = SimpleShape<PathLike>;
+export type SourcePaths = SimpleShape<PathLike>;
+
+// doesn't make sense to have a null target - would never be built
+export type TargetPaths =
+	| string
+	| BuildPathLike
+	| BuildPathLike[]
+	| Record<string, BuildPathLike>;
 
 export interface IRecipeBuildArgs<T extends IRecipe> {
 	sources: MappedShape<ReturnType<T['sources']>, string>;
@@ -9,11 +16,11 @@ export interface IRecipeBuildArgs<T extends IRecipe> {
 }
 
 class GenericRecipe {
-	sources(): RecipePaths {
+	sources(): SourcePaths {
 		return null;
 	}
 
-	targets(): RecipePaths {
+	targets(): TargetPaths {
 		return null;
 	}
 
@@ -29,12 +36,12 @@ export interface IRecipe<Impl extends IRecipe = GenericRecipe> {
 	/**
 	 * Source files that the recipe needs to build
 	 */
-	sources(): RecipePaths;
+	sources(): SourcePaths;
 
 	/**
 	 * Target files that are outputs of the recipe's build
 	 */
-	targets(): RecipePaths;
+	targets(): TargetPaths;
 
 	/**
 	 * Generate targets from sources

@@ -1,6 +1,7 @@
 const { Path, BuildPath, cli } = require('gulpachek');
 const sass = require('sass');
 const fs = require('node:fs');
+const path = require('node:path');
 
 // ScssTarget.js
 
@@ -11,9 +12,9 @@ class ScssRecipe {
 	_srcPath;
 	_destPath;
 
-	constructor(src) {
+	constructor(src, genOpts) {
 		this._srcPath = Path.src(src);
-		this._destPath = BuildPath.gen(this._srcPath, { ext: '.css' });
+		this._destPath = BuildPath.gen(this._srcPath, { ext: '.css', ...genOpts });
 	}
 
 	sources() {
@@ -32,8 +33,12 @@ class ScssRecipe {
 	}
 }
 
+function addSass(book, src, genOpts) {
+	book.add(new ScssRecipe(src, genOpts));
+}
+
 // make.js
 
 cli((book) => {
-	book.add(new ScssRecipe('src/style.scss'));
+	addSass(book, 'src/style.scss');
 });

@@ -83,6 +83,11 @@ export interface IBuildPathGenOpts {
 	 * file extension to replace in given path
 	 */
 	ext?: string;
+
+	/**
+	 * Directory of path to generate
+	 */
+	dir?: string;
 }
 
 export class BuildPath extends Path {
@@ -99,15 +104,11 @@ export class BuildPath extends Path {
 	}
 
 	static gen(orig: Path, opts?: IBuildPathGenOpts): BuildPath {
-		if (opts) {
-			if (opts.ext) {
-				const parsed = path.posix.parse(orig.rel());
-				parsed.ext = opts.ext;
-				delete parsed.base;
-				return BuildPath.from(path.posix.format(parsed));
-			}
-		}
+		const posix = path.posix;
 
-		return new BuildPath(orig.components);
+		const parsed = posix.parse(orig.rel());
+		delete parsed.base; // should be able to simply specify extension
+		const fmtOpts = { ...parsed, ...opts };
+		return new BuildPath(getComponents(posix.format(fmtOpts), '/'));
 	}
 }

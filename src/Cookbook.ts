@@ -66,12 +66,22 @@ export class Cookbook {
 		const info = this._targets.get(target);
 		if (!info) throw new Error(`Target ${target} does not exist`);
 
+		// build sources
+		for (const src of iterateShape(info.sources, isPathLike)) {
+			if (src instanceof Path && src.type === PathType.build) {
+				await this.build(src.rel());
+			}
+		}
+
 		const srcPaths: string[] = [];
 		const targetPaths: string[] = [];
 
 		const args: IRecipeBuildArgs<IRecipe> = {
 			sources: mapShape(info.sources, isPathLike, (p) => {
-				const srcAbs = Path.src(p).abs(this._srcRoot);
+				const srcAbs = Path.src(p).abs({
+					src: this._srcRoot,
+					build: this._buildRoot,
+				});
 				srcPaths.push(srcAbs);
 				return srcAbs;
 			}),

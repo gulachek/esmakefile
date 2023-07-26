@@ -2,6 +2,31 @@ const { Path, BuildPath, cli } = require('gulpachek');
 const sass = require('sass');
 const fs = require('node:fs');
 
+// WriteFile.js
+class WriteFileRecipe {
+	_destPath;
+	_bytes;
+
+	constructor(dst, bytes) {
+		this._destPath = BuildPath.from(dst);
+		this._bytes = bytes;
+	}
+
+	sources() {
+		return null;
+	}
+
+	targets() {
+		return this._destPath;
+	}
+
+	buildAsync(args) {
+		console.log(`Generating ${this._destPath}`);
+		fs.writeFileSync(args.targets, this._bytes, 'utf8');
+		return Promise.resolve(true);
+	}
+}
+
 // ScssTarget.js
 
 /**
@@ -39,5 +64,17 @@ function addSass(book, src, genOpts) {
 // make.js
 
 cli((book) => {
-	addSass(book, 'src/style.scss');
+	const scssFile = BuildPath.from('style.scss');
+	const writeFile = new WriteFileRecipe(
+		scssFile,
+		`
+		.foo {
+			.bar {
+				background-color: red;
+			}
+		}`,
+	);
+	book.add(writeFile);
+
+	addSass(book, scssFile);
 });

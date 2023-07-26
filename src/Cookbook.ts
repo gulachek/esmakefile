@@ -1,7 +1,7 @@
 import { IRecipe, SourcePaths, TargetPaths, IRecipeBuildArgs } from './Recipe';
 import { iterateShape, mapShape } from './SimpleShape';
 
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { BuildPath, Path, PathType, isPathLike, isBuildPathLike } from './Path';
 
@@ -66,20 +66,41 @@ export class Cookbook {
 		const info = this._targets.get(target);
 		if (!info) throw new Error(`Target ${target} does not exist`);
 
+		const srcPaths: string[] = [];
+		const targetPaths: string[] = [];
+
 		const args: IRecipeBuildArgs<IRecipe> = {
-			sources: mapShape(info.sources, isPathLike, (p) =>
-				Path.src(p).abs(this._srcRoot),
-			),
-			targets: mapShape(info.targets, isBuildPathLike, (p) =>
-				BuildPath.from(p).abs(this._buildRoot),
-			),
+			sources: mapShape(info.sources, isPathLike, (p) => {
+				const srcAbs = Path.src(p).abs(this._srcRoot);
+				srcPaths.push(srcAbs);
+				return srcAbs;
+			}),
+			targets: mapShape(info.targets, isBuildPathLike, (p) => {
+				const targAbs = BuildPath.from(p).abs(this._buildRoot);
+				targetPaths.push(targAbs);
+				return targAbs;
+			}),
 		};
 
-		for (const p of iterateShape(info.targets, isBuildPathLike)) {
-			const abs = BuildPath.from(p).abs(this._buildRoot);
+		const targetAbs = BuildPath.from(target).abs(this._buildRoot);
+		if (!needsBuild(targetAbs, srcPaths)) return;
+
+		for (const abs of targetPaths) {
 			mkdirSync(dirname(abs), { recursive: true });
 		}
 
 		await info.recipe.buildAsync(args);
 	}
+}
+
+function needsBuild(target: string, sources: string[]): boolean {
+	const targetStats = statSync(target, { throwIfNoEntry: false });
+	if (!targetStats) return true;
+
+	for (const src of sources) {
+		const srcStat = statSync(src);
+		if (srcStat.mtimeMs > targetStats.mtimeMs) return true;
+	}
+
+	return false;
 }

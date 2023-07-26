@@ -18,18 +18,18 @@ export interface ICookbookOpts {
 
 export class Cookbook {
 	private _targets = new Map<string, TargetInfo>();
-	private _buildRoot: string;
-	private _srcRoot: string;
+	readonly buildRoot: string;
+	readonly srcRoot: string;
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
-		this._srcRoot = opts.srcRoot || resolve('.');
+		this.srcRoot = opts.srcRoot || resolve('.');
 
-		if (!this._srcRoot) {
+		if (!this.srcRoot) {
 			throw new Error(`No source root is available.`);
 		}
 
-		this._buildRoot = opts.buildRoot || join(this._srcRoot, 'build');
+		this.buildRoot = opts.buildRoot || join(this.srcRoot, 'build');
 	}
 
 	add(recipe: IRecipe): void {
@@ -78,21 +78,18 @@ export class Cookbook {
 
 		const args: IRecipeBuildArgs<IRecipe> = {
 			sources: mapShape(info.sources, isPathLike, (p) => {
-				const srcAbs = Path.src(p).abs({
-					src: this._srcRoot,
-					build: this._buildRoot,
-				});
+				const srcAbs = this.abs(Path.src(p));
 				srcPaths.push(srcAbs);
 				return srcAbs;
 			}),
 			targets: mapShape(info.targets, isBuildPathLike, (p) => {
-				const targAbs = BuildPath.from(p).abs(this._buildRoot);
+				const targAbs = BuildPath.from(p).abs(this.buildRoot);
 				targetPaths.push(targAbs);
 				return targAbs;
 			}),
 		};
 
-		const targetAbs = BuildPath.from(target).abs(this._buildRoot);
+		const targetAbs = BuildPath.from(target).abs(this.buildRoot);
 		if (!needsBuild(targetAbs, srcPaths)) return;
 
 		for (const abs of targetPaths) {
@@ -100,6 +97,13 @@ export class Cookbook {
 		}
 
 		await info.recipe.buildAsync(args);
+	}
+
+	abs(path: Path): string {
+		return path.abs({
+			src: this.srcRoot,
+			build: this.buildRoot,
+		});
 	}
 }
 

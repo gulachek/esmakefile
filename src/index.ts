@@ -1,4 +1,10 @@
-export { Path, PathLike, BuildPath } from './Path';
+export {
+	Path,
+	PathLike,
+	BuildPath,
+	BuildPathLike,
+	BuildPathGenOpts,
+} from './Path';
 export { cli } from './cli';
 export { Cookbook } from './Cookbook';
-export { IRecipe } from './Recipe';
+export { IRecipe, IRecipeBuildArgs } from './Recipe';

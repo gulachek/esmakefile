@@ -94,6 +94,8 @@ export interface IBuildPathGenOpts {
 	dir?: string;
 }
 
+export type BuildPathGenOpts = BuildPathLike | IBuildPathGenOpts;
+
 export class BuildPath extends Path {
 	constructor(components: string[]) {
 		super(PathType.build, components);
@@ -110,7 +112,11 @@ export class BuildPath extends Path {
 		}
 	}
 
-	static gen(orig: Path, opts?: IBuildPathGenOpts): BuildPath {
+	static gen(orig: Path, opts?: BuildPathGenOpts): BuildPath {
+		if (isBuildPathLike(opts)) {
+			return BuildPath.from(opts);
+		}
+
 		const posix = path.posix;
 
 		const parsed = posix.parse(orig.rel());

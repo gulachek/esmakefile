@@ -21,6 +21,20 @@ function mkBook(testCase: string): Cookbook {
 }
 
 describe('Cookbook', () => {
+	describe('targets', () => {
+		it('lists targets by path relative to build dir', () => {
+			const book = new Cookbook();
+			book.add(new WriteFileRecipe('write.txt', 'hello'));
+			book.add(new CopyFileRecipe('src.txt', '/sub/dest.txt'));
+
+			const targets = new Set(book.targets());
+
+			expect(targets.size).toEqual(2);
+			expect(targets.has('write.txt')).toBeTrue();
+			expect(targets.has('sub/dest.txt')).toBeTrue();
+		});
+	});
+
 	describe('write-hello', () => {
 		const book = mkBook('write-hello');
 		const helloTxt = 'Hello world!';
@@ -33,13 +47,6 @@ describe('Cookbook', () => {
 
 			await rm(book.buildRoot, { recursive: true } as any);
 			await book.build('copy/hello.txt');
-		});
-
-		it('lists targets by path relative to build dir', () => {
-			const targets = new Set(book.targets());
-			expect(targets.size).toEqual(2);
-			expect(targets.has('hello.txt')).toBeTrue();
-			expect(targets.has('copy/hello.txt')).toBeTrue();
 		});
 
 		it('generates hello.txt', async () => {
@@ -69,13 +76,15 @@ class WriteFileRecipe implements IRecipe<WriteFileRecipe> {
 		this._txt = txt;
 	}
 
-	sources(): null {
-		return null;
+	sources(): Path[] {
+		return [];
 	}
-	targets(): BuildPath {
+
+	targets() {
 		return this.path;
 	}
-	async buildAsync(args: IRecipeBuildArgs<WriteFileRecipe>): Promise<boolean> {
+
+	async buildAsync(args: IRecipeBuildArgs<WriteFileRecipe>) {
 		await writeFile(args.targets, this._txt, 'utf8');
 		return true;
 	}
@@ -90,10 +99,11 @@ class CopyFileRecipe implements IRecipe<CopyFileRecipe> {
 		this.dest = BuildPath.gen(this.src, genOpts);
 	}
 
-	sources(): Path {
+	sources() {
 		return this.src;
 	}
-	targets(): BuildPath {
+
+	targets() {
 		return this.dest;
 	}
 

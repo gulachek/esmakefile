@@ -1,14 +1,19 @@
-import { IRecipe, SourcePaths, TargetPaths, IRecipeBuildArgs } from './Recipe';
-import { iterateShape, mapShape } from './SimpleShape';
+import {
+	IHasSourcesTargets,
+	IRecipe,
+	IRecipeBuildArgs,
+	SourcePaths,
+} from './Recipe';
+import { ElemOf, SimpleShape, MappedShape, mapShape } from './SimpleShape';
 
 import { mkdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { BuildPath, Path, PathType, isPathLike, isBuildPathLike } from './Path';
 
 type TargetInfo = {
-	recipe: IRecipe;
-	sources: SourcePaths;
-	targets: TargetPaths;
+	buildAsync(): Promise<boolean>;
+	sources: Path[];
+	targets: BuildPath[];
 };
 
 export interface ICookbookOpts {
@@ -32,29 +37,11 @@ export class Cookbook {
 		this.buildRoot = opts.buildRoot || join(this.srcRoot, 'build');
 	}
 
-	add(recipe: IRecipe): void {
-		const sources = recipe.sources();
-		const targets = recipe.targets();
+	add<T extends IHasSourcesTargets>(recipe: IRecipe<T>): void {
+		const info = this.normalizeRecipe(recipe);
 
-		for (const p of iterateShape(targets, isBuildPathLike)) {
-			let buildPath: BuildPath;
-			if (typeof p === 'string') {
-				buildPath = BuildPath.from(p);
-			} else if (p instanceof Path) {
-				if (p.type !== PathType.build) {
-					throw new Error('Target can only be build paths');
-				}
-
-				buildPath = new BuildPath(p.components);
-			} else {
-				throw new Error(`Unexpected path type ${p}`);
-			}
-
-			this._targets.set(buildPath.rel(), {
-				recipe,
-				sources,
-				targets,
-			});
+		for (const p of info.targets) {
+			this._targets.set(p.rel(), info);
 		}
 	}
 
@@ -67,36 +54,26 @@ export class Cookbook {
 		if (!info) throw new Error(`Target ${target} does not exist`);
 
 		// build sources
-		for (const src of iterateShape(info.sources, isPathLike)) {
-			if (src instanceof Path && src.type === PathType.build) {
+		for (const src of info.sources) {
+			if (src.type === PathType.build) {
 				await this.build(src.rel());
 			}
 		}
 
-		const srcPaths: string[] = [];
-		const targetPaths: string[] = [];
-
-		const args: IRecipeBuildArgs<IRecipe> = {
-			sources: mapShape(info.sources, isPathLike, (p) => {
-				const srcAbs = this.abs(Path.src(p));
-				srcPaths.push(srcAbs);
-				return srcAbs;
-			}),
-			targets: mapShape(info.targets, isBuildPathLike, (p) => {
-				const targAbs = BuildPath.from(p).abs(this.buildRoot);
-				targetPaths.push(targAbs);
-				return targAbs;
-			}),
-		};
-
 		const targetAbs = BuildPath.from(target).abs(this.buildRoot);
-		if (!needsBuild(targetAbs, srcPaths)) return;
+		if (
+			!needsBuild(
+				targetAbs,
+				info.sources.map((p) => this.abs(p)),
+			)
+		)
+			return;
 
-		for (const abs of targetPaths) {
-			mkdirSync(dirname(abs), { recursive: true });
+		for (const target of info.targets) {
+			mkdirSync(dirname(target.abs(this.buildRoot)), { recursive: true });
 		}
 
-		await info.recipe.buildAsync(args);
+		await info.buildAsync();
 	}
 
 	abs(path: Path): string {
@@ -104,6 +81,48 @@ export class Cookbook {
 			src: this.srcRoot,
 			build: this.buildRoot,
 		});
+	}
+
+	normalizeRecipe<T extends IHasSourcesTargets>(
+		recipe: IRecipe<T>,
+	): TargetInfo {
+		const sources: Path[] = [];
+		const targets: BuildPath[] = [];
+
+		type TSources = ReturnType<T['sources']>;
+		type TTargets = ReturnType<T['targets']>;
+
+		const rawSources = recipe.sources();
+		const rawTargets = recipe.targets();
+
+		type Ret = ElemOf<typeof rawSources>;
+
+		const args: IRecipeBuildArgs<T> = {
+			sources: mapShape(
+				rawSources,
+				(p): p is ElemOf<TSources> => p instanceof Path,
+				(pL) => {
+					const p = Path.src(pL);
+					sources.push(p);
+					return this.abs(p);
+				},
+			),
+			targets: mapShape(
+				rawTargets,
+				(p): p is ElemOf<TTargets> => p instanceof BuildPath,
+				(pL) => {
+					const p = BuildPath.from(pL);
+					targets.push(p);
+					return p.abs(this.buildRoot);
+				},
+			),
+		};
+
+		const buildAsync = () => {
+			return recipe.buildAsync(args);
+		};
+
+		return { sources, targets, buildAsync };
 	}
 }
 

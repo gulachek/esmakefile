@@ -1,6 +1,6 @@
-export type SimpleShape<T> = null | T | T[] | Record<string, T>;
+export type SimpleShape<T> = T | T[] | Record<string, T>;
 
-type ElemOf<S extends SimpleShape<any>> = S extends SimpleShape<infer T>
+export type ElemOf<S extends SimpleShape<any>> = S extends SimpleShape<infer T>
 	? T
 	: never;
 
@@ -8,19 +8,13 @@ type MappedRecordType<S extends Record<string, any>, TNew> = {
 	[P in keyof S]: TNew;
 };
 
-export type MappedShape<S extends SimpleShape<any>, TNew> = S extends null
-	? null
-	: S extends ElemOf<S>
+export type MappedShape<S extends SimpleShape<any>, TNew> = S extends ElemOf<S>
 	? TNew
 	: S extends any[]
 	? TNew[]
 	: S extends Record<string, any>
 	? MappedRecordType<S, TNew>
 	: never;
-
-function isNull(obj: any): obj is null {
-	return obj === null;
-}
 
 function isArray<T>(obj: any): obj is T[] {
 	return Array.isArray(obj);
@@ -37,8 +31,6 @@ export function* iterateShape<S extends SimpleShape<any>>(
 	typeGuard: TypeGuard<ElemOf<S>>,
 ): Generator<ElemOf<S>> {
 	type E = ElemOf<S>;
-
-	if (isNull(shape)) return;
 
 	if (typeGuard(shape)) {
 		yield shape;
@@ -62,8 +54,6 @@ export function mapShape<S extends SimpleShape<any>, TNew>(
 	fn: (elem: ElemOf<S>) => TNew,
 ): MappedShape<S, TNew> {
 	type E = ElemOf<S>;
-
-	if (isNull(shape)) return null;
 
 	if (typeGuard(shape)) {
 		return fn(shape) as MappedShape<S, TNew>;

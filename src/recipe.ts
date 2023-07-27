@@ -1,47 +1,35 @@
-import { PathLike, BuildPathLike } from './Path';
+import { BuildPath, Path } from './Path';
 import { SimpleShape, MappedShape } from './SimpleShape';
 
-export type SourcePaths = SimpleShape<PathLike>;
+export type SourcePaths = SimpleShape<Path>;
 
 // doesn't make sense to have a null target - would never be built
-export type TargetPaths =
-	| string
-	| BuildPathLike
-	| BuildPathLike[]
-	| Record<string, BuildPathLike>;
+export type TargetPaths = SimpleShape<BuildPath>;
 
-export interface IRecipeBuildArgs<T extends IRecipe> {
-	sources: MappedShape<ReturnType<T['sources']>, string>;
-	targets: MappedShape<ReturnType<T['targets']>, string>;
+export interface IHasSourcesTargets {
+	sources(): SourcePaths;
+	targets(): TargetPaths;
 }
 
-class GenericRecipe {
-	sources(): SourcePaths {
-		return null;
-	}
-
-	targets(): TargetPaths {
-		return null;
-	}
-
-	buildAsync(_args: IRecipeBuildArgs<GenericRecipe>): Promise<boolean> {
-		return Promise.resolve(false);
-	}
+export interface IRecipeBuildArgs<T extends IHasSourcesTargets> {
+	sources: MappedShape<ReturnType<T['sources']>, string>;
+	targets: MappedShape<ReturnType<T['targets']>, string>;
 }
 
 /**
  * A recipe to build targets from sources
  */
-export interface IRecipe<Impl extends IRecipe = GenericRecipe> {
+export interface IRecipe<Impl extends IHasSourcesTargets>
+	extends IHasSourcesTargets {
 	/**
 	 * Source files that the recipe needs to build
 	 */
-	sources(): SourcePaths;
+	sources(): ReturnType<Impl['sources']>;
 
 	/**
 	 * Target files that are outputs of the recipe's build
 	 */
-	targets(): TargetPaths;
+	targets(): ReturnType<Impl['targets']>;
 
 	/**
 	 * Generate targets from sources

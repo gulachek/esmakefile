@@ -12,10 +12,6 @@ class WriteFileRecipe {
 		this._bytes = bytes;
 	}
 
-	sources() {
-		return null;
-	}
-
 	targets() {
 		return this._destPath;
 	}

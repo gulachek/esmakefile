@@ -7,12 +7,14 @@ export type SourcePaths = SimpleShape<Path>;
 export type TargetPaths = SimpleShape<BuildPath>;
 
 export interface IHasSourcesTargets {
-	sources(): SourcePaths;
+	sources?(): SourcePaths;
 	targets(): TargetPaths;
 }
 
 export interface IRecipeBuildArgs<T extends IHasSourcesTargets> {
-	sources: MappedShape<ReturnType<T['sources']>, string>;
+	sources: 'sources' extends keyof T
+		? MappedShape<ReturnType<T['sources']>, string>
+		: undefined;
 	targets: MappedShape<ReturnType<T['targets']>, string>;
 }
 
@@ -24,7 +26,7 @@ export interface IRecipe<Impl extends IHasSourcesTargets>
 	/**
 	 * Source files that the recipe needs to build
 	 */
-	sources(): ReturnType<Impl['sources']>;
+	sources?(): ReturnType<Impl['sources']>;
 
 	/**
 	 * Target files that are outputs of the recipe's build

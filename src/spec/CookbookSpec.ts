@@ -76,10 +76,6 @@ class WriteFileRecipe implements IRecipe<WriteFileRecipe> {
 		this._txt = txt;
 	}
 
-	sources(): Path[] {
-		return [];
-	}
-
 	targets() {
 		return this.path;
 	}

@@ -92,21 +92,21 @@ export class Cookbook {
 		type TSources = ReturnType<T['sources']>;
 		type TTargets = ReturnType<T['targets']>;
 
-		const rawSources = recipe.sources();
+		const rawSources: TSources | undefined = recipe.sources?.();
 		const rawTargets = recipe.targets();
 
-		type Ret = ElemOf<typeof rawSources>;
-
 		const args: IRecipeBuildArgs<T> = {
-			sources: mapShape(
-				rawSources,
-				(p): p is ElemOf<TSources> => p instanceof Path,
-				(pL) => {
-					const p = Path.src(pL);
-					sources.push(p);
-					return this.abs(p);
-				},
-			),
+			sources:
+				rawSources &&
+				(mapShape(
+					rawSources,
+					(p): p is ElemOf<TSources> => p instanceof Path,
+					(pL) => {
+						const p = Path.src(pL);
+						sources.push(p);
+						return this.abs(p);
+					},
+				) as IRecipeBuildArgs<T>['sources']),
 			targets: mapShape(
 				rawTargets,
 				(p): p is ElemOf<TTargets> => p instanceof BuildPath,

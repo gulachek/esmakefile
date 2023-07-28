@@ -106,7 +106,7 @@ describe('Cookbook', () => {
 			book.add(copy);
 
 			await rm(book.buildRoot, { recursive: true } as any);
-			await book.build('copy/hello.txt');
+			await book.build(cpPath);
 		});
 
 		it("builds the target's dependency", async () => {
@@ -128,7 +128,7 @@ describe('Cookbook', () => {
 		it('skips building target if newer than sources', async () => {
 			// already built with buildAll, so rebuild and check
 			const preBuildCount = copy.buildCount;
-			await book.build('copy/hello.txt');
+			await book.build(cpPath);
 			expect(copy.buildCount).toEqual(preBuildCount);
 		});
 
@@ -137,7 +137,7 @@ describe('Cookbook', () => {
 			const preBuildCount = copy.buildCount;
 			await waitMs(2); // paranoid about stuff happening sub ms
 			await writeFile(book.abs(helloPath), 'Different text');
-			await book.build('copy/hello.txt');
+			await book.build(cpPath);
 			expect(copy.buildCount).toEqual(preBuildCount + 1);
 		});
 	});

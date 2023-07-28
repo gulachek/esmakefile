@@ -1,14 +1,9 @@
-import {
-	IHasSourcesTargets,
-	IRecipe,
-	IRecipeBuildArgs,
-	SourcePaths,
-} from './Recipe';
-import { ElemOf, SimpleShape, MappedShape, mapShape } from './SimpleShape';
+import { IHasSourcesTargets, IRecipe, IRecipeBuildArgs } from './Recipe';
+import { ElemOf, mapShape } from './SimpleShape';
 
 import { mkdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { BuildPath, Path, PathType, isPathLike, isBuildPathLike } from './Path';
+import { BuildPath, Path, PathType } from './Path';
 
 type TargetInfo = {
 	buildAsync(): Promise<boolean>;
@@ -49,14 +44,14 @@ export class Cookbook {
 		return [...this._targets.keys()];
 	}
 
-	async build(target: string): Promise<void> {
-		const info = this._targets.get(target);
+	async build(target: BuildPath): Promise<boolean> {
+		const info = this._targets.get(target.rel());
 		if (!info) throw new Error(`Target ${target} does not exist`);
 
 		// build sources
 		for (const src of info.sources) {
 			if (src.type === PathType.build) {
-				await this.build(src.rel());
+				await this.build(src as BuildPath);
 			}
 		}
 

@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { Cookbook } from './Cookbook';
+import { BuildPath } from './Path';
 
 interface ICliOptionTypeMap {
 	boolean: boolean;
@@ -191,7 +192,7 @@ export function cli(fn: Function, opts?: CliOptions): void {
 		.argument('target', 'The target to be built')
 		.action((target: string) => {
 			const book = makeCookbook();
-			book.build(target);
+			book.build(BuildPath.from(target));
 		});
 
 	program

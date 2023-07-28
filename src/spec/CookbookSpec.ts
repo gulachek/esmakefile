@@ -140,5 +140,15 @@ describe('Cookbook', () => {
 			await book.build(cpPath);
 			expect(copy.buildCount).toEqual(preBuildCount + 1);
 		});
+
+		it('y0b0: you only build once. calling build while building results in one build', async () => {
+			const preBuildCount = copy.buildCount;
+			await writeFile(book.abs(helloPath), 'Different text');
+			const first = book.build(cpPath);
+			const second = book.build(cpPath);
+			await first;
+			await second;
+			expect(copy.buildCount).toEqual(preBuildCount + 1);
+		});
 	});
 });

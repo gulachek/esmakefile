@@ -20,6 +20,7 @@ export class Cookbook {
 	private _targets = new Map<string, TargetInfo>();
 	readonly buildRoot: string;
 	readonly srcRoot: string;
+	private _buildInProgress = new Map<string, Promise<boolean>>();
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
@@ -45,9 +46,37 @@ export class Cookbook {
 	}
 
 	async build(target: BuildPath): Promise<boolean> {
-		const info = this._targets.get(target.rel());
+		const rel = target.rel();
+		const info = this._targets.get(rel);
 		if (!info) throw new Error(`Target ${target} does not exist`);
 
+		const currentBuild = this._buildInProgress.get(rel);
+		if (currentBuild) {
+			return currentBuild;
+		} else {
+			const { promise, resolve, reject } = makePromise<boolean>();
+			this._buildInProgress.set(rel, promise);
+
+			let result = false;
+
+			try {
+				const targetAbs = target.abs(this.buildRoot);
+				result = await this._startBuild(info, targetAbs);
+				resolve(result);
+			} catch (err) {
+				reject(err);
+			} finally {
+				this._buildInProgress.delete(rel);
+			}
+
+			return result;
+		}
+	}
+
+	private async _startBuild(
+		info: TargetInfo,
+		targetAbs: string,
+	): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
 			if (isBuildPath(src)) {
@@ -55,20 +84,19 @@ export class Cookbook {
 			}
 		}
 
-		const targetAbs = BuildPath.from(target).abs(this.buildRoot);
 		if (
 			!needsBuild(
 				targetAbs,
 				info.sources.map((p) => this.abs(p)),
 			)
 		)
-			return;
+			return true;
 
 		for (const target of info.targets) {
 			mkdirSync(dirname(target.abs(this.buildRoot)), { recursive: true });
 		}
 
-		await info.buildAsync();
+		return info.buildAsync();
 	}
 
 	abs(path: Path): string {
@@ -131,4 +159,19 @@ function needsBuild(target: string, sources: string[]): boolean {
 	}
 
 	return false;
+}
+
+interface IPromisePieces<T> {
+	promise: Promise<T>;
+	resolve: (val: T) => Promise<T> | void;
+	reject: (err: Error) => void;
+}
+
+function makePromise<T>(): IPromisePieces<T> {
+	let resolve, reject;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { resolve, reject, promise };
 }

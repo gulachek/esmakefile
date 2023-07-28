@@ -3,7 +3,7 @@ import { ElemOf, mapShape } from './SimpleShape';
 
 import { mkdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { BuildPath, Path, PathType } from './Path';
+import { BuildPath, isBuildPath, Path, PathType } from './Path';
 
 type TargetInfo = {
 	buildAsync(): Promise<boolean>;
@@ -50,8 +50,8 @@ export class Cookbook {
 
 		// build sources
 		for (const src of info.sources) {
-			if (src.type === PathType.build) {
-				await this.build(src as BuildPath);
+			if (isBuildPath(src)) {
+				await this.build(src);
 			}
 		}
 

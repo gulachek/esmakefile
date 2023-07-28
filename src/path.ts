@@ -17,9 +17,9 @@ function getComponents(str: string, sep: string): string[] {
 
 export class Path {
 	readonly type: PathType = PathType.src;
-	readonly components: string[] = [];
+	private components: string[] = [];
 
-	constructor(type: PathType, components: string[]) {
+	protected constructor(type: PathType, components: string[]) {
 		this.type = type;
 		this.components = [...components];
 	}
@@ -97,7 +97,7 @@ export interface IBuildPathGenOpts {
 export type BuildPathGenOpts = BuildPathLike | IBuildPathGenOpts;
 
 export class BuildPath extends Path {
-	constructor(components: string[]) {
+	private constructor(components: string[]) {
 		super(PathType.build, components);
 	}
 
@@ -124,4 +124,8 @@ export class BuildPath extends Path {
 		const fmtOpts = { ...parsed, ...opts };
 		return new BuildPath(getComponents(posix.format(fmtOpts), '/'));
 	}
+}
+
+export function isBuildPath(path: Path): path is BuildPath {
+	return path.type === PathType.build;
 }

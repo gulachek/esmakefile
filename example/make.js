@@ -17,8 +17,9 @@ class WriteFileRecipe {
 	}
 
 	buildAsync(args) {
+		const { targets } = args.paths();
 		console.log(`Generating ${this._destPath}`);
-		fs.writeFileSync(args.targets, this._bytes, 'utf8');
+		fs.writeFileSync(targets, this._bytes, 'utf8');
 		return Promise.resolve(true);
 	}
 }
@@ -46,9 +47,10 @@ class ScssRecipe {
 	}
 
 	buildAsync(args) {
+		const { sources, targets } = args.paths();
 		console.log(`sass ${this._srcPath}`);
-		const result = sass.compile(args.sources);
-		fs.writeFileSync(args.targets, result.css);
+		const result = sass.compile(sources);
+		fs.writeFileSync(targets, result.css);
 		return Promise.resolve(true);
 	}
 }

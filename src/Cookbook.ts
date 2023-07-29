@@ -1,9 +1,9 @@
-import { IHasSourcesTargets, IRecipe, IRecipeBuildArgs } from './Recipe';
-import { ElemOf, mapShape } from './SimpleShape';
+import { IRecipe, RecipeBuildArgs, MappedPaths, SourcePaths } from './Recipe';
+import { mapShape } from './SimpleShape';
 
 import { mkdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { BuildPath, isBuildPath, Path, PathType } from './Path';
+import { BuildPath, isBuildPath, Path } from './Path';
 
 type TargetInfo = {
 	buildAsync(): Promise<boolean>;
@@ -33,7 +33,7 @@ export class Cookbook {
 		this.buildRoot = opts.buildRoot || join(this.srcRoot, 'build');
 	}
 
-	add<T extends IHasSourcesTargets>(recipe: IRecipe<T>): void {
+	add(recipe: IRecipe): void {
 		const info = this.normalizeRecipe(recipe);
 
 		for (const p of info.targets) {
@@ -106,33 +106,28 @@ export class Cookbook {
 		});
 	}
 
-	normalizeRecipe<T extends IHasSourcesTargets>(
-		recipe: IRecipe<T>,
-	): TargetInfo {
+	normalizeRecipe(recipe: IRecipe): TargetInfo {
 		const sources: Path[] = [];
 		const targets: BuildPath[] = [];
 
-		type TSources = ReturnType<T['sources']>;
-		type TTargets = ReturnType<T['targets']>;
-
-		const rawSources: TSources | undefined = recipe.sources?.();
+		const rawSources: SourcePaths | undefined = recipe.sources?.();
 		const rawTargets = recipe.targets();
 
-		const args: IRecipeBuildArgs<T> = {
+		const mappedPaths: MappedPaths<IRecipe> = {
 			sources:
 				rawSources &&
-				(mapShape(
+				mapShape(
 					rawSources,
-					(p): p is ElemOf<TSources> => p instanceof Path,
+					(p): p is Path => p instanceof Path,
 					(pL) => {
 						const p = Path.src(pL);
 						sources.push(p);
 						return this.abs(p);
 					},
-				) as IRecipeBuildArgs<T>['sources']),
+				),
 			targets: mapShape(
 				rawTargets,
-				(p): p is ElemOf<TTargets> => p instanceof BuildPath,
+				(p): p is BuildPath => p instanceof BuildPath,
 				(pL) => {
 					const p = BuildPath.from(pL);
 					targets.push(p);
@@ -142,7 +137,8 @@ export class Cookbook {
 		};
 
 		const buildAsync = () => {
-			return recipe.buildAsync(args);
+			const buildArgs = new RecipeBuildArgs(mappedPaths);
+			return recipe.buildAsync(buildArgs);
 		};
 
 		return { sources, targets, buildAsync };

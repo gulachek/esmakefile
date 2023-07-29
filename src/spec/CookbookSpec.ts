@@ -8,13 +8,13 @@ import {
 	BuildPathGenOpts,
 	Path,
 	PathLike,
-	IRecipeBuildArgs,
+	RecipeBuildArgs,
 } from '..';
 import { writeFile, copyFile, readFile, rm, stat } from 'node:fs/promises';
 
 import path from 'node:path';
 
-class WriteFileRecipe implements IRecipe<WriteFileRecipe> {
+class WriteFileRecipe implements IRecipe {
 	readonly path: BuildPath;
 	private _buildCount: number = 0;
 	private _txt: string;
@@ -32,14 +32,15 @@ class WriteFileRecipe implements IRecipe<WriteFileRecipe> {
 		return this.path;
 	}
 
-	async buildAsync(args: IRecipeBuildArgs<WriteFileRecipe>) {
+	async buildAsync(args: RecipeBuildArgs) {
+		const { targets } = args.paths<WriteFileRecipe>();
 		++this._buildCount;
-		await writeFile(args.targets, this._txt, 'utf8');
+		await writeFile(targets, this._txt, 'utf8');
 		return true;
 	}
 }
 
-class CopyFileRecipe implements IRecipe<CopyFileRecipe> {
+class CopyFileRecipe implements IRecipe {
 	readonly src: Path;
 	readonly dest: BuildPath;
 	private _buildCount: number = 0;
@@ -61,9 +62,10 @@ class CopyFileRecipe implements IRecipe<CopyFileRecipe> {
 		return this.dest;
 	}
 
-	async buildAsync(args: IRecipeBuildArgs<CopyFileRecipe>): Promise<boolean> {
+	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+		const { sources, targets } = args.paths<CopyFileRecipe>();
 		++this._buildCount;
-		await copyFile(args.sources, args.targets);
+		await copyFile(sources, targets);
 		return true;
 	}
 }

@@ -95,7 +95,6 @@ class CatFilesRecipe implements IRecipe {
 	}
 
 	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
-		debugger;
 		const { sources, targets } = args.paths<CatFilesRecipe>();
 		const srcDir = dirname(sources);
 		++this.buildCount;
@@ -105,8 +104,9 @@ class CatFilesRecipe implements IRecipe {
 		const handle = await open(targets, 'w');
 		for (const line of lines) {
 			if (!line) continue;
-			args.addSrc(line);
-			const contents = await readFile(resolve(srcDir, line), 'utf8');
+			const path = resolve(srcDir, line);
+			args.addSrc(path);
+			const contents = await readFile(path, 'utf8');
 			await handle.appendFile(contents);
 		}
 
@@ -225,6 +225,35 @@ describe('Cookbook', () => {
 			const aContents = await readFile(aAbs, 'utf8');
 			await writeFile(aAbs, aContents, 'utf8'); // just to update mtime
 			await book.build(outPath);
+			expect(cat.buildCount).toEqual(preBuildCount + 1);
+		});
+
+		it('skips unnecessary builds across runs', async () => {
+			await book.build(outPath); // build once
+			const preBuildCount = cat.buildCount;
+
+			// make a new instance to avoid any state in object
+			const newBook = mkBook('cat-files');
+			newBook.add(cat);
+
+			await newBook.build(outPath);
+			expect(cat.buildCount).toEqual(preBuildCount);
+		});
+
+		it('detects runtime dependency change across runs', async () => {
+			await book.build(outPath); // build once
+			const preBuildCount = cat.buildCount;
+
+			await waitMs(2);
+			const aAbs = book.abs(aPath);
+			const aContents = await readFile(aAbs, 'utf8');
+			await writeFile(aAbs, aContents, 'utf8'); // just to update mtime
+
+			// make a new instance to avoid any state in object
+			const newBook = mkBook('cat-files');
+			newBook.add(cat);
+
+			await newBook.build(outPath);
 			expect(cat.buildCount).toEqual(preBuildCount + 1);
 		});
 	});

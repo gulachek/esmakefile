@@ -18,17 +18,40 @@ export interface ICookbookOpts {
 	srcRoot?: string;
 }
 
+interface IBuildResultsJson {
+	runtimeSrc: [string, string[]][];
+}
+
 class BuildResults {
 	private _runtimeSrcMap = new Map<string, Set<string>>();
 
 	static async readFile(abs: string): Promise<BuildResults | null> {
 		try {
 			const contents = await readFile(abs, 'utf8');
-			const json = JSON.parse(contents);
-			return json as BuildResults;
+			const json = JSON.parse(contents) as IBuildResultsJson;
+			const results = new BuildResults();
+			for (const entry of json.runtimeSrc) {
+				const [target, src] = entry;
+				results._runtimeSrcMap.set(target, new Set<string>(src));
+			}
+
+			return results;
 		} catch {
 			return null;
 		}
+	}
+
+	async writeFile(abs: string): Promise<void> {
+		const json: IBuildResultsJson = {
+			runtimeSrc: [],
+		};
+
+		for (const [target, src] of this._runtimeSrcMap) {
+			json.runtimeSrc.push([target, [...src]]);
+		}
+
+		mkdirSync(dirname(abs), { recursive: true });
+		await writeFile(abs, JSON.stringify(json), 'utf8');
 	}
 
 	addRuntimeSrc(targets: BuildPath[], srcAbs: Set<string>): void {
@@ -104,6 +127,7 @@ export class Cookbook {
 
 			await this._findOrStartBuild(target, buildResults);
 
+			await buildResults.writeFile(prevBuildAbs);
 			this._prevBuild = buildResults;
 		} finally {
 			unlock();

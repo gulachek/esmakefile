@@ -2,8 +2,10 @@ import { IRecipe, RecipeBuildArgs, MappedPaths, SourcePaths } from './Recipe';
 import { mapShape } from './SimpleShape';
 
 import { mkdirSync, statSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { BuildPath, isBuildPath, Path } from './Path';
+import { Mutex } from './Mutex';
 
 type TargetInfo = {
 	buildAsync(): Promise<boolean>;
@@ -16,11 +18,25 @@ export interface ICookbookOpts {
 	srcRoot?: string;
 }
 
+class BuildResults {
+	static async readFile(abs: string): Promise<BuildResults | null> {
+		try {
+			const contents = await readFile(abs, 'utf8');
+			const json = JSON.parse(contents);
+			return json as BuildResults;
+		} catch {
+			return null;
+		}
+	}
+}
+
 export class Cookbook {
+	private _mutex = new Mutex();
 	private _targets = new Map<string, TargetInfo>();
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 	private _buildInProgress = new Map<string, Promise<boolean>>();
+	private _prevBuild: BuildResults | null = null;
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
@@ -34,10 +50,19 @@ export class Cookbook {
 	}
 
 	add(recipe: IRecipe): void {
-		const info = this.normalizeRecipe(recipe);
+		const unlock = this._mutex.tryLock();
+		if (!unlock) {
+			throw new Error('Cannot add while build is in progress');
+		}
 
-		for (const p of info.targets) {
-			this._targets.set(p.rel(), info);
+		try {
+			const info = this.normalizeRecipe(recipe);
+
+			for (const p of info.targets) {
+				this._targets.set(p.rel(), info);
+			}
+		} finally {
+			unlock();
 		}
 	}
 
@@ -45,7 +70,33 @@ export class Cookbook {
 		return [...this._targets.keys()];
 	}
 
+	/**
+	 * Top level build function. Runs exclusively
+	 * @param target The target to build
+	 * @returns A promise that resolves when the build is done
+	 */
 	async build(target: BuildPath): Promise<boolean> {
+		const unlock = await this._mutex.lockAsync();
+		let result = false;
+		const prevBuildAbs = this.abs(
+			BuildPath.from('__gulpachek__/previous-build.json'),
+		);
+
+		try {
+			/*
+			this._prevBuild =
+				this._prevBuild || (await BuildResults.readFile(prevBuildAbs));
+			 */
+
+			const results = await this._findOrStartBuild(target);
+		} finally {
+			unlock();
+		}
+
+		return result;
+	}
+
+	private async _findOrStartBuild(target: BuildPath): Promise<BuildResults> {
 		const rel = target.rel();
 		const info = this._targets.get(rel);
 		if (!info) throw new Error(`Target ${target} does not exist`);
@@ -69,7 +120,7 @@ export class Cookbook {
 				this._buildInProgress.delete(rel);
 			}
 
-			return result;
+			return new BuildResults();
 		}
 	}
 
@@ -80,7 +131,7 @@ export class Cookbook {
 		// build sources
 		for (const src of info.sources) {
 			if (isBuildPath(src)) {
-				await this.build(src);
+				await this._findOrStartBuild(src);
 			}
 		}
 
@@ -137,7 +188,8 @@ export class Cookbook {
 		};
 
 		const buildAsync = () => {
-			const buildArgs = new RecipeBuildArgs(mappedPaths);
+			const src = new Set<string>();
+			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
 			return recipe.buildAsync(buildArgs);
 		};
 

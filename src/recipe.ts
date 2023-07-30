@@ -21,13 +21,19 @@ export type MappedPaths<T extends IRecipe> = 'sources' extends keyof T
 
 export class RecipeBuildArgs {
 	private _mappedPaths: MappedPaths<IRecipe>;
+	private _runtimeSrc: Set<string>;
 
-	constructor(mappedPaths: MappedPaths<IRecipe>) {
+	constructor(mappedPaths: MappedPaths<IRecipe>, runtimeSrc: Set<string>) {
 		this._mappedPaths = mappedPaths;
+		this._runtimeSrc = runtimeSrc;
 	}
 
 	paths<T extends IRecipe>(): MappedPaths<T> {
 		return this._mappedPaths as MappedPaths<T>;
+	}
+
+	addSrc(abs: string): void {
+		this._runtimeSrc.add(abs);
 	}
 }
 

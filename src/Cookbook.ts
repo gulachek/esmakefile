@@ -8,7 +8,7 @@ import { BuildPath, isBuildPath, Path } from './Path';
 import { Mutex } from './Mutex';
 
 type TargetInfo = {
-	buildAsync(): Promise<boolean>;
+	buildAsync(results: BuildResults): Promise<boolean>;
 	sources: Path[];
 	targets: BuildPath[];
 };
@@ -19,6 +19,8 @@ export interface ICookbookOpts {
 }
 
 class BuildResults {
+	private _runtimeSrcMap = new Map<string, Set<string>>();
+
 	static async readFile(abs: string): Promise<BuildResults | null> {
 		try {
 			const contents = await readFile(abs, 'utf8');
@@ -27,6 +29,18 @@ class BuildResults {
 		} catch {
 			return null;
 		}
+	}
+
+	addRuntimeSrc(targets: BuildPath[], srcAbs: Set<string>): void {
+		for (const t of targets) {
+			this._runtimeSrcMap.set(t.rel(), srcAbs);
+		}
+	}
+
+	runtimeSrc(target: BuildPath): Set<string> {
+		const src = this._runtimeSrcMap.get(target.rel());
+		if (src) return src;
+		return new Set<string>();
 	}
 }
 
@@ -83,12 +97,14 @@ export class Cookbook {
 		);
 
 		try {
-			/*
-			this._prevBuild =
-				this._prevBuild || (await BuildResults.readFile(prevBuildAbs));
-			 */
+			const buildResults =
+				this._prevBuild ||
+				(await BuildResults.readFile(prevBuildAbs)) ||
+				new BuildResults();
 
-			const results = await this._findOrStartBuild(target);
+			await this._findOrStartBuild(target, buildResults);
+
+			this._prevBuild = buildResults;
 		} finally {
 			unlock();
 		}
@@ -96,7 +112,10 @@ export class Cookbook {
 		return result;
 	}
 
-	private async _findOrStartBuild(target: BuildPath): Promise<BuildResults> {
+	private async _findOrStartBuild(
+		target: BuildPath,
+		buildResults: BuildResults,
+	): Promise<boolean> {
 		const rel = target.rel();
 		const info = this._targets.get(rel);
 		if (!info) throw new Error(`Target ${target} does not exist`);
@@ -111,8 +130,7 @@ export class Cookbook {
 			let result = false;
 
 			try {
-				const targetAbs = target.abs(this.buildRoot);
-				result = await this._startBuild(info, targetAbs);
+				result = await this._startBuild(info, target, buildResults);
 				resolve(result);
 			} catch (err) {
 				reject(err);
@@ -120,25 +138,27 @@ export class Cookbook {
 				this._buildInProgress.delete(rel);
 			}
 
-			return new BuildResults();
+			return result;
 		}
 	}
 
 	private async _startBuild(
 		info: TargetInfo,
-		targetAbs: string,
+		target: BuildPath,
+		buildResults: BuildResults,
 	): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
 			if (isBuildPath(src)) {
-				await this._findOrStartBuild(src);
+				await this._findOrStartBuild(src, buildResults);
 			}
 		}
 
 		if (
 			!needsBuild(
-				targetAbs,
+				this.abs(target),
 				info.sources.map((p) => this.abs(p)),
+				buildResults.runtimeSrc(target),
 			)
 		)
 			return true;
@@ -147,7 +167,7 @@ export class Cookbook {
 			mkdirSync(dirname(target.abs(this.buildRoot)), { recursive: true });
 		}
 
-		return info.buildAsync();
+		return info.buildAsync(buildResults);
 	}
 
 	abs(path: Path): string {
@@ -187,22 +207,34 @@ export class Cookbook {
 			),
 		};
 
-		const buildAsync = () => {
+		const buildAsync = async (results: BuildResults) => {
 			const src = new Set<string>();
 			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
-			return recipe.buildAsync(buildArgs);
+			const result = await recipe.buildAsync(buildArgs);
+			results.addRuntimeSrc(targets, src);
+			return result;
 		};
 
 		return { sources, targets, buildAsync };
 	}
 }
 
-function needsBuild(target: string, sources: string[]): boolean {
+function needsBuild(
+	target: string,
+	sources: string[],
+	runtimeSrc: Set<string>,
+): boolean {
 	const targetStats = statSync(target, { throwIfNoEntry: false });
 	if (!targetStats) return true;
 
 	for (const src of sources) {
 		const srcStat = statSync(src);
+		if (srcStat.mtimeMs > targetStats.mtimeMs) return true;
+	}
+
+	for (const src of runtimeSrc) {
+		const srcStat = statSync(src, { throwIfNoEntry: false });
+		if (!srcStat) return true; // need to see if still needed
 		if (srcStat.mtimeMs > targetStats.mtimeMs) return true;
 	}
 

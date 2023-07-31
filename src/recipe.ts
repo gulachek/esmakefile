@@ -1,5 +1,6 @@
 import { BuildPath, Path } from './Path';
 import { SimpleShape, MappedShape } from './SimpleShape';
+import { isAbsolute } from 'node:path';
 
 export type SourcePaths = SimpleShape<Path>;
 
@@ -33,6 +34,11 @@ export class RecipeBuildArgs {
 	}
 
 	addSrc(abs: string): void {
+		if (!isAbsolute(abs))
+			throw new Error(
+				`addSrc: argument must be an absolute path. '${abs}' given.`,
+			);
+
 		this._runtimeSrc.add(abs);
 	}
 }

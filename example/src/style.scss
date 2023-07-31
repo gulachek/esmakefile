@@ -1,5 +1,7 @@
+@use './foo.scss' as foo;
+
 .outer {
 	.inner {
-		color: red;
+		@include foo.foo;
 	}
 }

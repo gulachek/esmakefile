@@ -2,28 +2,6 @@ const { Path, BuildPath, cli } = require('gulpachek');
 const sass = require('sass');
 const fs = require('node:fs');
 
-// WriteFile.js
-class WriteFileRecipe {
-	_destPath;
-	_bytes;
-
-	constructor(dst, bytes) {
-		this._destPath = BuildPath.from(dst);
-		this._bytes = bytes;
-	}
-
-	targets() {
-		return this._destPath;
-	}
-
-	buildAsync(args) {
-		const { targets } = args.paths();
-		console.log(`Generating ${this._destPath}`);
-		fs.writeFileSync(targets, this._bytes, 'utf8');
-		return Promise.resolve(true);
-	}
-}
-
 // ScssTarget.js
 
 /**
@@ -50,6 +28,12 @@ class ScssRecipe {
 		const { sources, targets } = args.paths();
 		console.log(`sass ${this._srcPath}`);
 		const result = sass.compile(sources);
+
+		// update dependencies
+		for (const url of result.loadedUrls) {
+			args.addSrc(url.pathname);
+		}
+
 		fs.writeFileSync(targets, result.css);
 		return Promise.resolve(true);
 	}
@@ -62,17 +46,6 @@ function addSass(book, src, genOpts) {
 // make.js
 
 cli((book) => {
-	const scssFile = BuildPath.from('style.scss');
-	const writeFile = new WriteFileRecipe(
-		scssFile,
-		`
-		.foo {
-			.bar {
-				background-color: red;
-			}
-		}`,
-	);
-	book.add(writeFile);
-
+	const scssFile = Path.src('src/style.scss');
 	addSass(book, scssFile);
 });

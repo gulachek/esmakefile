@@ -21,6 +21,12 @@ import {
 
 import path, { dirname, resolve } from 'node:path';
 
+async function rmDir(dirAbs: string): Promise<void> {
+	try {
+		await rm(dirAbs, { recursive: true });
+	} catch {}
+}
+
 class WriteFileRecipe implements IRecipe {
 	readonly path: BuildPath;
 	private _buildCount: number = 0;
@@ -255,6 +261,40 @@ describe('Cookbook', () => {
 
 			await newBook.build(outPath);
 			expect(cat.buildCount).toEqual(preBuildCount + 1);
+		});
+	});
+
+	describe('cat-files2', async () => {
+		const book = mkBook('cat-files2');
+		const aPath = BuildPath.from('a.txt');
+		const cpPath = BuildPath.from('copy.txt');
+		const catPath = BuildPath.from('index.txt');
+		const outPath = BuildPath.from('output.txt');
+		const writeA = new WriteFileRecipe(aPath, 'original');
+		const copyA = new CopyFileRecipe(aPath, cpPath);
+		const writeIndex = new WriteFileRecipe(catPath, 'copy.txt');
+		const cat = new CatFilesRecipe(catPath, outPath);
+
+		beforeEach(async () => {
+			book.add(writeA);
+			book.add(copyA);
+			book.add(writeIndex);
+			book.add(cat);
+			await rmDir(book.buildRoot);
+		});
+
+		it('builds runtime sources that are build paths', async () => {
+			debugger;
+			await book.build(cpPath);
+			await book.build(outPath);
+			const preBuildCount = cat.buildCount;
+
+			await writeFile(book.abs(aPath), 'update', 'utf8');
+			await book.build(outPath);
+
+			expect(cat.buildCount).toEqual(preBuildCount + 1);
+			const contents = await readFile(book.abs(outPath), 'utf8');
+			expect(contents).toEqual('update');
 		});
 	});
 });

@@ -178,11 +178,19 @@ export class Cookbook {
 			}
 		}
 
+		const runtimeSrc = buildResults.runtimeSrc(target);
+		for (const src of runtimeSrc) {
+			if (src.startsWith(this.buildRoot)) {
+				const path = BuildPath.from(src.slice(this.buildRoot.length));
+				await this._findOrStartBuild(path, buildResults);
+			}
+		}
+
 		if (
 			!needsBuild(
 				this.abs(target),
 				info.sources.map((p) => this.abs(p)),
-				buildResults.runtimeSrc(target),
+				runtimeSrc,
 			)
 		)
 			return true;
@@ -234,7 +242,14 @@ export class Cookbook {
 		const buildAsync = async (results: BuildResults) => {
 			const src = new Set<string>();
 			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
-			const result = await recipe.buildAsync(buildArgs);
+			let result = false;
+			try {
+				result = await recipe.buildAsync(buildArgs);
+			} catch (ex) {
+				const strTargets = targets.map((p) => `${p}`).join(', ');
+				console.error(`Failed to build ${strTargets}: ${ex.message}`);
+				return false;
+			}
 			results.addRuntimeSrc(targets, src);
 			return result;
 		};
@@ -252,7 +267,12 @@ function needsBuild(
 	if (!targetStats) return true;
 
 	for (const src of sources) {
-		const srcStat = statSync(src);
+		const srcStat = statSync(src, { throwIfNoEntry: false });
+		if (!srcStat) {
+			throw new Error(
+				`Source '${src}' does not exist. Required to build target '${target}'`,
+			);
+		}
 		if (srcStat.mtimeMs > targetStats.mtimeMs) return true;
 	}
 

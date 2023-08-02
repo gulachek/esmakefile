@@ -2,3 +2,5 @@ build
 node_modules
 jasmine.json
 spec
+dist/example
+types/example

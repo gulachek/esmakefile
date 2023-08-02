@@ -83,7 +83,7 @@ export class Cookbook {
 			throw new Error(`No source root is available.`);
 		}
 
-		this.buildRoot = opts.buildRoot || join(this.srcRoot, 'build');
+		this.buildRoot = opts.buildRoot || resolve('build');
 	}
 
 	add(recipe: IRecipe): void {

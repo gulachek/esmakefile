@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { Cookbook } from './Cookbook';
 import { BuildPath } from './Path';
+import { resolve } from 'node:path';
 
 interface ICliOptionTypeMap {
 	boolean: boolean;
@@ -69,6 +70,10 @@ const stdOpts = makeCliOpts({
 		arg: 'development',
 		type: 'boolean',
 	},
+	sourceRoot: {
+		arg: 'source-root',
+		type: 'string',
+	},
 });
 
 export type StdBuildOpts = BuildOptionGroupOf<typeof stdOpts>;
@@ -106,7 +111,7 @@ function addOptions(
 	extKey?: string,
 ): void {
 	for (const key in opts) {
-		const { arg } = opts[key];
+		const { arg, type } = opts[key];
 
 		const lkup = cache.get(arg);
 		if (lkup) {
@@ -117,7 +122,16 @@ function addOptions(
 			);
 		}
 
-		cmd.option(`--${arg}`);
+		switch (type) {
+			case 'boolean':
+				cmd.option(`--${arg}`);
+				break;
+			case 'string':
+				cmd.option(`--${arg} <value>`);
+				break;
+			default:
+				throw new Error(`Unknown type '${type}' for CLI arg '${arg}'`);
+		}
 		cache.set(arg, { extKey, buildKey: key });
 	}
 }
@@ -180,8 +194,7 @@ export function cli(fn: Function, opts?: CliOptions): void {
 
 	const makeCookbook = () => {
 		const buildOpts = parseOpts(program, args, opts);
-
-		const book = new Cookbook();
+		const book = new Cookbook({ srcRoot: buildOpts.sourceRoot });
 		fn(book, buildOpts);
 		return book;
 	};

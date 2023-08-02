@@ -12,7 +12,6 @@
 		"sourceMap": true,
 		"noImplicitAny": true,
 		"noImplicitOverride": true,
-		"checkJs": true,
 		"forceConsistentCasingInFileNames": true
 	}
 }

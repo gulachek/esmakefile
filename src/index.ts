@@ -1,8 +1,10 @@
 export {
 	Path,
 	PathLike,
+	isPathLike,
 	BuildPath,
 	BuildPathLike,
+	isBuildPathLike,
 	BuildPathGenOpts,
 } from './Path';
 export { cli } from './cli';

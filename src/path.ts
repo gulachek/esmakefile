@@ -17,7 +17,7 @@ function getComponents(str: string, sep: string): string[] {
 
 export class Path {
 	readonly type: PathType = PathType.src;
-	private components: string[] = [];
+	protected components: string[] = [];
 
 	protected constructor(type: PathType, components: string[]) {
 		this.type = type;
@@ -103,6 +103,23 @@ export class BuildPath extends Path {
 
 	// always has this type
 	override readonly type: PathType.build = PathType.build;
+
+	override join(...pieces: string[]): BuildPath {
+		const components = [...this.components];
+		for (const p of pieces) {
+			for (const c of getComponents(p, '/')) {
+				components.push(c);
+			}
+		}
+
+		return new BuildPath(components);
+	}
+
+	override get dir(): BuildPath {
+		const components = [...this.components];
+		components.pop();
+		return new BuildPath(components);
+	}
 
 	static from(pathLike: BuildPathLike): BuildPath {
 		if (typeof pathLike === 'string') {

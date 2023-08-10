@@ -262,6 +262,16 @@ describe('Cookbook', () => {
 			await newBook.build(outPath);
 			expect(cat.buildCount).toEqual(preBuildCount + 1);
 		});
+
+		it('builds all targets by default', async () => {
+			const oneOff = new WriteFileRecipe('one-off.txt', 'One off');
+			book.add(oneOff);
+			const preBuildCount = cat.buildCount;
+			await book.build();
+
+			expect(cat.buildCount).toEqual(preBuildCount + 1);
+			expect(oneOff.buildCount).toEqual(1);
+		});
 	});
 
 	describe('cat-files2', async () => {

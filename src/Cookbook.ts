@@ -3,7 +3,7 @@ import { mapShape } from './SimpleShape';
 
 import { mkdirSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { BuildPath, isBuildPath, Path } from './Path';
 import { Mutex } from './Mutex';
 
@@ -112,7 +112,7 @@ export class Cookbook {
 	 * @param target The target to build
 	 * @returns A promise that resolves when the build is done
 	 */
-	async build(target: BuildPath): Promise<boolean> {
+	async build(target?: BuildPath): Promise<boolean> {
 		const unlock = await this._mutex.lockAsync();
 		let result = false;
 		const prevBuildAbs = this.abs(
@@ -125,7 +125,11 @@ export class Cookbook {
 				(await BuildResults.readFile(prevBuildAbs)) ||
 				new BuildResults();
 
-			await this._findOrStartBuild(target, buildResults);
+			const targets = target ? [target] : this.__topLevelTargets(buildResults);
+
+			for (const t of targets) {
+				await this._findOrStartBuild(t, buildResults);
+			}
 
 			await buildResults.writeFile(prevBuildAbs);
 			this._prevBuild = buildResults;
@@ -134,6 +138,27 @@ export class Cookbook {
 		}
 
 		return result;
+	}
+
+	private *__topLevelTargets(buildResults: BuildResults): Generator<BuildPath> {
+		// top level targets are those that nobody depends on
+		const relTargets = new Set<string>(this._targets.keys());
+
+		// eliminate those that are listed as sources
+		for (const entry of this._targets) {
+			const [rel, info] = entry;
+			const runtimeSrc = buildResults.runtimeSrc(BuildPath.from(rel));
+			for (const src of runtimeSrc) {
+				relTargets.delete(src);
+			}
+
+			const { sources } = info;
+			for (const s of sources) {
+				relTargets.delete(s.rel());
+			}
+		}
+
+		for (const rel of relTargets) yield BuildPath.from(rel);
 	}
 
 	private async _findOrStartBuild(

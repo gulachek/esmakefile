@@ -284,7 +284,6 @@ describe('Cookbook', () => {
 		});
 
 		it('builds runtime sources that are build paths', async () => {
-			debugger;
 			await book.build(cpPath);
 			await book.build(outPath);
 			const preBuildCount = cat.buildCount;

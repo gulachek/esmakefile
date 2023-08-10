@@ -1,4 +1,4 @@
-type UnlockFunction = () => void;
+export type UnlockFunction = () => void;
 type ResolveFunction = (unlock: UnlockFunction) => void;
 
 export class Mutex {

@@ -10,7 +10,6 @@ import {
 import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe';
 import { spawn, ChildProcess } from 'node:child_process';
 import { open, readFile } from 'node:fs/promises';
-import { compile } from 'sass';
 
 function procClosed(proc: ChildProcess): Promise<number> {
 	return new Promise<number>((res) => {
@@ -123,6 +122,8 @@ class CatRecipe implements IRecipe {
 	}
 
 	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+		console.log(`Generating ${this.out}`);
+
 		const { targets, sources } = args.paths<CatRecipe>();
 		const stream = await open(targets, 'w');
 		for (const elem of this._elems) {

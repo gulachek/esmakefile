@@ -208,6 +208,14 @@ export function cli(fn: Function, opts?: CliOptions): void {
 		});
 
 	program
+		.command('watch')
+		.description('Rebuild top level targets when a source file changes')
+		.action(() => {
+			const book = makeCookbook();
+			book.watch();
+		});
+
+	program
 		.command('list')
 		.description('List all targets')
 		.action(() => {

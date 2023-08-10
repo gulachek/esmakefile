@@ -1,11 +1,13 @@
 import { IRecipe, RecipeBuildArgs, MappedPaths, SourcePaths } from './Recipe';
 import { mapShape } from './SimpleShape';
 
-import { mkdirSync, statSync } from 'node:fs';
+import { FSWatcher, mkdirSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { BuildPath, isBuildPath, Path } from './Path';
-import { Mutex } from './Mutex';
+import { Mutex, UnlockFunction } from './Mutex';
+import { watch } from 'node:fs';
+import EventEmitter from 'node:events';
 
 type TargetInfo = {
 	buildAsync(results: BuildResults): Promise<boolean>;
@@ -69,6 +71,7 @@ class BuildResults {
 
 export class Cookbook {
 	private _mutex = new Mutex();
+	private _buildLock: UnlockFunction | null = null;
 	private _targets = new Map<string, TargetInfo>();
 	readonly buildRoot: string;
 	readonly srcRoot: string;
@@ -77,13 +80,13 @@ export class Cookbook {
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
-		this.srcRoot = opts.srcRoot || resolve('.');
+		this.srcRoot = resolve(opts.srcRoot || '.');
 
 		if (!this.srcRoot) {
 			throw new Error(`No source root is available.`);
 		}
 
-		this.buildRoot = opts.buildRoot || resolve('build');
+		this.buildRoot = resolve(opts.buildRoot || 'build');
 	}
 
 	add(recipe: IRecipe): void {
@@ -107,13 +110,61 @@ export class Cookbook {
 		return [...this._targets.keys()];
 	}
 
+	async watch(): Promise<void> {
+		await this.build();
+
+		const watcher = new SourceWatcher(this.srcRoot, { debounceMs: 300 });
+
+		console.log(
+			`Watching '${this.srcRoot}'\nClose input stream to stop (usually Ctrl+D)`,
+		);
+
+		let foundChange = false;
+		watcher.on('change', async () => {
+			if (foundChange) return;
+			foundChange = true;
+			this._buildLock = await this._mutex.lockAsync();
+			foundChange = false;
+
+			try {
+				await this.build();
+			} finally {
+				this._buildLock && this._buildLock();
+				this._buildLock = null;
+			}
+		});
+
+		watcher.on('unknown', (type: string) => {
+			console.log(`Unhandled event type '${type}'`);
+		});
+
+		const closePromise = new Promise<void>((res) => {
+			watcher.on('close', () => res());
+		});
+
+		process.stdin.on('close', () => {
+			watcher.close();
+		});
+
+		process.stdin.on('data', () => {
+			// drain input
+			process.stdin.read();
+		});
+
+		return closePromise;
+	}
+
 	/**
 	 * Top level build function. Runs exclusively
 	 * @param target The target to build
 	 * @returns A promise that resolves when the build is done
 	 */
 	async build(target?: BuildPath): Promise<boolean> {
-		const unlock = await this._mutex.lockAsync();
+		let unlock: UnlockFunction | null = null;
+		if (!this._buildLock) {
+			unlock = await this._mutex.lockAsync();
+		}
+
 		let result = false;
 		const prevBuildAbs = this.abs(
 			BuildPath.from('__gulpachek__/previous-build.json'),
@@ -134,7 +185,7 @@ export class Cookbook {
 			await buildResults.writeFile(prevBuildAbs);
 			this._prevBuild = buildResults;
 		} finally {
-			unlock();
+			unlock && unlock();
 		}
 
 		return result;
@@ -323,4 +374,40 @@ function makePromise<T>(): IPromisePieces<T> {
 		reject = rej;
 	});
 	return { resolve, reject, promise };
+}
+
+class SourceWatcher extends EventEmitter {
+	private _watcher: FSWatcher;
+	private _debounceMs: number;
+	private _count: number = 0;
+
+	constructor(dir: string, opts: { debounceMs: number }) {
+		super();
+		this._debounceMs = opts.debounceMs;
+
+		this._watcher = watch(dir, { recursive: true });
+		this._watcher.on('change', this._onChange.bind(this));
+		this._watcher.on('close', () => this.emit('close'));
+	}
+
+	close() {
+		this._watcher.close();
+	}
+
+	private _onChange(type: string, _filename: string): void {
+		if (type === 'rename') {
+			this._queueChange();
+		} else {
+			this.emit('unknown', type);
+		}
+	}
+
+	private _queueChange() {
+		const count = ++this._count;
+		setTimeout(() => {
+			if (this._count === count) {
+				this.emit('change');
+			}
+		}, this._debounceMs);
+	}
 }

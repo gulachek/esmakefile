@@ -78,8 +78,12 @@ class CopyFileRecipe implements IRecipe {
 	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
 		const { sources, targets } = args.paths<CopyFileRecipe>();
 		++this._buildCount;
-		await copyFile(sources, targets);
-		return true;
+		try {
+			await copyFile(sources, targets);
+			return true;
+		} catch {
+			return false;
+		}
 	}
 }
 
@@ -147,14 +151,18 @@ describe('Cookbook', () => {
 	});
 
 	describe('write-hello', () => {
-		const book = mkBook('write-hello');
+		let book: Cookbook;
+		let write: WriteFileRecipe;
+		let copy: CopyFileRecipe;
+
 		const helloTxt = 'Hello world!';
 		const helloPath = BuildPath.from('hello.txt');
 		const cpPath = BuildPath.from('copy/hello.txt');
-		const write = new WriteFileRecipe(helloPath, helloTxt);
-		const copy = new CopyFileRecipe(helloPath, cpPath);
 
 		beforeEach(async () => {
+			book = mkBook('write-hello');
+			write = new WriteFileRecipe(helloPath, helloTxt);
+			copy = new CopyFileRecipe(helloPath, cpPath);
 			book.add(write);
 			book.add(copy);
 
@@ -202,6 +210,19 @@ describe('Cookbook', () => {
 			await first;
 			await second;
 			expect(copy.buildCount).toEqual(preBuildCount + 1);
+		});
+
+		it('does not build a target if a source fails to build', async () => {
+			const preBuildCount = copy.buildCount;
+
+			// make copy fail
+			await rm(book.abs(helloPath));
+			spyOn(write, 'buildAsync').and.returnValue(Promise.resolve(false));
+			const result = await book.build(cpPath);
+
+			expect(write.buildAsync).toHaveBeenCalled();
+			expect(copy.buildCount).toEqual(preBuildCount);
+			expect(result).toBeFalse();
 		});
 	});
 
@@ -275,17 +296,23 @@ describe('Cookbook', () => {
 	});
 
 	describe('cat-files2', async () => {
-		const book = mkBook('cat-files2');
+		let book: Cookbook;
 		const aPath = BuildPath.from('a.txt');
 		const cpPath = BuildPath.from('copy.txt');
 		const catPath = BuildPath.from('index.txt');
 		const outPath = BuildPath.from('output.txt');
-		const writeA = new WriteFileRecipe(aPath, 'original');
-		const copyA = new CopyFileRecipe(aPath, cpPath);
-		const writeIndex = new WriteFileRecipe(catPath, 'copy.txt');
-		const cat = new CatFilesRecipe(catPath, outPath);
+		let writeA: WriteFileRecipe;
+		let copyA: CopyFileRecipe;
+		let writeIndex: WriteFileRecipe;
+		let cat: CatFilesRecipe;
 
 		beforeEach(async () => {
+			book = mkBook('cat-files2');
+			writeA = new WriteFileRecipe(aPath, 'original');
+			copyA = new CopyFileRecipe(aPath, cpPath);
+			writeIndex = new WriteFileRecipe(catPath, 'copy.txt');
+			cat = new CatFilesRecipe(catPath, outPath);
+
 			book.add(writeA);
 			book.add(copyA);
 			book.add(writeIndex);
@@ -299,11 +326,27 @@ describe('Cookbook', () => {
 			const preBuildCount = cat.buildCount;
 
 			await writeFile(book.abs(aPath), 'update', 'utf8');
-			await book.build(outPath);
+			const result = await book.build(outPath);
 
 			expect(cat.buildCount).toEqual(preBuildCount + 1);
 			const contents = await readFile(book.abs(outPath), 'utf8');
 			expect(contents).toEqual('update');
+			expect(result).toBeTrue();
+		});
+
+		it('does not build a target if a runtime source fails to build', async () => {
+			await book.build(cpPath);
+			await book.build(outPath);
+			const preBuildCount = cat.buildCount;
+
+			// make copy fail
+			await rm(book.abs(cpPath));
+			spyOn(copyA, 'buildAsync').and.returnValue(Promise.resolve(false));
+			const result = await book.build(outPath);
+
+			expect(copyA.buildAsync).toHaveBeenCalled();
+			expect(cat.buildCount).toEqual(preBuildCount);
+			expect(result).toBeFalse();
 		});
 	});
 });

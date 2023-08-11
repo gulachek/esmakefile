@@ -165,7 +165,7 @@ export class Cookbook {
 			unlock = await this._mutex.lockAsync();
 		}
 
-		let result = false;
+		let result = true;
 		const prevBuildAbs = this.abs(
 			BuildPath.from('__gulpachek__/previous-build.json'),
 		);
@@ -179,7 +179,7 @@ export class Cookbook {
 			const targets = target ? [target] : this.__topLevelTargets(buildResults);
 
 			for (const t of targets) {
-				await this._findOrStartBuild(t, buildResults);
+				result = result && (await this._findOrStartBuild(t, buildResults));
 			}
 
 			await buildResults.writeFile(prevBuildAbs);
@@ -250,7 +250,8 @@ export class Cookbook {
 		// build sources
 		for (const src of info.sources) {
 			if (isBuildPath(src)) {
-				await this._findOrStartBuild(src, buildResults);
+				const result = await this._findOrStartBuild(src, buildResults);
+				if (!result) return false;
 			}
 		}
 
@@ -258,7 +259,8 @@ export class Cookbook {
 		for (const src of runtimeSrc) {
 			if (src.startsWith(this.buildRoot)) {
 				const path = BuildPath.from(src.slice(this.buildRoot.length));
-				await this._findOrStartBuild(path, buildResults);
+				const result = await this._findOrStartBuild(path, buildResults);
+				if (!result) return false;
 			}
 		}
 

@@ -402,5 +402,27 @@ describe('Cookbook', () => {
 			expect(rerunResult).toBeTrue();
 			expect(cat.buildCount).toEqual(preBuildCount + 1);
 		});
+
+		it('fails if recipe returns false', async () => {
+			const path = BuildPath.from('test.txt');
+			const write = new WriteFileRecipe(path, 'test');
+			spyOn(write, 'buildAsync').and.returnValue(Promise.resolve(false));
+			book.add(write);
+
+			const result = await book.build(path);
+			expect(result).toBeFalse();
+			expect(write.buildAsync).toHaveBeenCalled();
+		});
+
+		it('fails if recipe throws', async () => {
+			const path = BuildPath.from('test.txt');
+			const write = new WriteFileRecipe(path, 'test');
+			spyOn(write, 'buildAsync').and.throwError('test');
+			book.add(write);
+
+			const result = await book.build(path);
+			expect(result).toBeFalse();
+			expect(write.buildAsync).toHaveBeenCalled();
+		});
 	});
 });

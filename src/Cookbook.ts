@@ -324,8 +324,6 @@ export class Cookbook {
 			try {
 				result = await recipe.buildAsync(buildArgs);
 			} catch (ex) {
-				const strTargets = targets.map((p) => `${p}`).join(', ');
-				console.error(`Failed to build ${strTargets}: ${ex.message}`);
 				return false;
 			}
 			results.addRuntimeSrc(targets, src);

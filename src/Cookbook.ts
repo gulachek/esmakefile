@@ -264,14 +264,14 @@ export class Cookbook {
 			}
 		}
 
-		if (
-			!needsBuild(
-				this.abs(target),
-				info.sources.map((p) => this.abs(p)),
-				runtimeSrc,
-			)
-		)
-			return true;
+		const targetStatus = needsBuild(
+			this.abs(target),
+			info.sources.map((p) => this.abs(p)),
+			runtimeSrc,
+		);
+
+		if (targetStatus === NeedsBuildValue.error) return false;
+		if (targetStatus === NeedsBuildValue.upToDate) return true;
 
 		for (const target of info.targets) {
 			mkdirSync(dirname(target.abs(this.buildRoot)), { recursive: true });
@@ -336,31 +336,35 @@ export class Cookbook {
 	}
 }
 
+enum NeedsBuildValue {
+	stale,
+	error,
+	upToDate,
+}
+
 function needsBuild(
 	target: string,
 	sources: string[],
 	runtimeSrc: Set<string>,
-): boolean {
+): NeedsBuildValue {
 	const targetStats = statSync(target, { throwIfNoEntry: false });
-	if (!targetStats) return true;
+	if (!targetStats) return NeedsBuildValue.stale;
 
 	for (const src of sources) {
 		const srcStat = statSync(src, { throwIfNoEntry: false });
 		if (!srcStat) {
-			throw new Error(
-				`Source '${src}' does not exist. Required to build target '${target}'`,
-			);
+			return NeedsBuildValue.error;
 		}
-		if (srcStat.mtimeMs > targetStats.mtimeMs) return true;
+		if (srcStat.mtimeMs > targetStats.mtimeMs) return NeedsBuildValue.stale;
 	}
 
 	for (const src of runtimeSrc) {
 		const srcStat = statSync(src, { throwIfNoEntry: false });
-		if (!srcStat) return true; // need to see if still needed
-		if (srcStat.mtimeMs > targetStats.mtimeMs) return true;
+		if (!srcStat) return NeedsBuildValue.stale; // need to see if still needed
+		if (srcStat.mtimeMs > targetStats.mtimeMs) return NeedsBuildValue.stale;
 	}
 
-	return false;
+	return NeedsBuildValue.upToDate;
 }
 
 interface IPromisePieces<T> {

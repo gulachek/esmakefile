@@ -4,12 +4,12 @@ import { mapShape } from './SimpleShape';
 import { FSWatcher, mkdirSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { BuildPath, isBuildPath, Path } from './Path';
+import { BuildPath, BuildPathLike, isBuildPath, Path } from './Path';
 import { Mutex, UnlockFunction } from './Mutex';
 import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
 
-type TargetInfo = {
+type RecipeInfo = {
 	buildAsync(results: BuildResults): Promise<boolean>;
 	sources: Path[];
 	targets: BuildPath[];
@@ -69,13 +69,19 @@ class BuildResults {
 	}
 }
 
+type RecipeID = number;
+function isRecipeID(id: any): id is RecipeID {
+	return typeof id === 'number';
+}
+
 export class Cookbook {
 	private _mutex = new Mutex();
 	private _buildLock: UnlockFunction | null = null;
-	private _targets = new Map<string, TargetInfo>();
+	private _recipes: RecipeInfo[] = []; // index is RecipeID
+	private _targets = new Map<string, RecipeID>();
 	readonly buildRoot: string;
 	readonly srcRoot: string;
-	private _buildInProgress = new Map<string, Promise<boolean>>();
+	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
 	private _prevBuild: BuildResults | null = null;
 
 	constructor(opts?: ICookbookOpts) {
@@ -97,9 +103,11 @@ export class Cookbook {
 
 		try {
 			const info = this.normalizeRecipe(recipe);
+			const id: RecipeID = this._recipes.length;
+			this._recipes.push(info);
 
 			for (const p of info.targets) {
-				this._targets.set(p.rel(), info);
+				this._targets.set(p.rel(), id);
 			}
 		} finally {
 			unlock();
@@ -154,6 +162,13 @@ export class Cookbook {
 		return closePromise;
 	}
 
+	private _recipe(target: BuildPathLike): RecipeID | null {
+		const rel = typeof target === 'string' ? target : target.rel();
+		const recipe = this._targets.get(rel);
+		if (isRecipeID(recipe)) return recipe;
+		return null;
+	}
+
 	/**
 	 * Top level build function. Runs exclusively
 	 * @param target The target to build
@@ -170,16 +185,20 @@ export class Cookbook {
 			BuildPath.from('__gulpachek__/previous-build.json'),
 		);
 
+		const recipe = target && this._recipe(target);
+
 		try {
 			const buildResults =
 				this._prevBuild ||
 				(await BuildResults.readFile(prevBuildAbs)) ||
 				new BuildResults();
 
-			const targets = target ? [target] : this.__topLevelTargets(buildResults);
+			const recipes = isRecipeID(recipe)
+				? [recipe]
+				: this.__topLevelRecipes(buildResults);
 
-			for (const t of targets) {
-				result = result && (await this._findOrStartBuild(t, buildResults));
+			for (const r of recipes) {
+				result = result && (await this._findOrStartBuild(r, buildResults));
 			}
 
 			await buildResults.writeFile(prevBuildAbs);
@@ -191,51 +210,59 @@ export class Cookbook {
 		return result;
 	}
 
-	private *__topLevelTargets(buildResults: BuildResults): Generator<BuildPath> {
-		// top level targets are those that nobody depends on
-		const relTargets = new Set<string>(this._targets.keys());
+	private *__topLevelRecipes(buildResults: BuildResults): Generator<RecipeID> {
+		// top level recipes are those that nobody depends on
+		const srcIds = new Set<RecipeID>();
 
-		// eliminate those that are listed as sources
-		for (const entry of this._targets) {
-			const [rel, info] = entry;
-			const runtimeSrc = buildResults.runtimeSrc(BuildPath.from(rel));
+		for (let id = 0; id < this._recipes.length; ++id) {
+			const info = this._recipes[id];
+			const runtimeSrc = buildResults.runtimeSrc(info.targets[0]);
 			for (const src of runtimeSrc) {
-				relTargets.delete(src);
+				const srcId = this._recipe(src);
+				if (isRecipeID(srcId)) srcIds.add(srcId);
 			}
 
 			const { sources } = info;
 			for (const s of sources) {
-				relTargets.delete(s.rel());
+				if (!isBuildPath(s)) continue;
+				const srcId = this._recipe(s);
+				if (isRecipeID(srcId)) srcIds.add(srcId);
 			}
 		}
 
-		for (const rel of relTargets) yield BuildPath.from(rel);
+		for (let id = 0; id < this._recipes.length; ++id) {
+			if (!srcIds.has(id)) {
+				yield id;
+			}
+		}
 	}
 
 	private async _findOrStartBuild(
-		target: BuildPath,
+		recipe: RecipeID | null,
 		buildResults: BuildResults,
 	): Promise<boolean> {
-		const rel = target.rel();
-		const info = this._targets.get(rel);
-		if (!info) throw new Error(`Target ${target} does not exist`);
+		if (!isRecipeID(recipe) || recipe >= this._recipes.length) {
+			throw new Error(`Invalid recipe`);
+		}
 
-		const currentBuild = this._buildInProgress.get(rel);
+		const info = this._recipes[recipe];
+
+		const currentBuild = this._buildInProgress.get(recipe);
 		if (currentBuild) {
 			return currentBuild;
 		} else {
 			const { promise, resolve, reject } = makePromise<boolean>();
-			this._buildInProgress.set(rel, promise);
+			this._buildInProgress.set(recipe, promise);
 
 			let result = false;
 
 			try {
-				result = await this._startBuild(info, target, buildResults);
+				result = await this._startBuild(info, recipe, buildResults);
 				resolve(result);
 			} catch (err) {
 				reject(err);
 			} finally {
-				this._buildInProgress.delete(rel);
+				this._buildInProgress.delete(recipe);
 			}
 
 			return result;
@@ -243,35 +270,37 @@ export class Cookbook {
 	}
 
 	private async _startBuild(
-		info: TargetInfo,
-		target: BuildPath,
+		info: RecipeInfo,
+		recipe: RecipeID,
 		buildResults: BuildResults,
 	): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
 			if (isBuildPath(src)) {
-				const result = await this._findOrStartBuild(src, buildResults);
+				const srcId = this._recipe(src);
+				const result = await this._findOrStartBuild(srcId, buildResults);
 				if (!result) return false;
 			}
 		}
 
-		const runtimeSrc = buildResults.runtimeSrc(target);
+		const runtimeSrc = buildResults.runtimeSrc(info.targets[0]);
 		for (const src of runtimeSrc) {
 			if (src.startsWith(this.buildRoot)) {
 				const path = BuildPath.from(src.slice(this.buildRoot.length));
-				const result = await this._findOrStartBuild(path, buildResults);
+				const srcId = this._recipe(path);
+				const result = await this._findOrStartBuild(srcId, buildResults);
 				if (!result) return false;
 			}
 		}
 
-		const targetStatus = needsBuild(
-			this.abs(target),
+		const recipeStatus = needsBuild(
+			info.targets.map((p) => this.abs(p)),
 			info.sources.map((p) => this.abs(p)),
 			runtimeSrc,
 		);
 
-		if (targetStatus === NeedsBuildValue.error) return false;
-		if (targetStatus === NeedsBuildValue.upToDate) return true;
+		if (recipeStatus === NeedsBuildValue.error) return false;
+		if (recipeStatus === NeedsBuildValue.upToDate) return true;
 
 		for (const target of info.targets) {
 			mkdirSync(dirname(target.abs(this.buildRoot)), { recursive: true });
@@ -287,7 +316,7 @@ export class Cookbook {
 		});
 	}
 
-	normalizeRecipe(recipe: IRecipe): TargetInfo {
+	normalizeRecipe(recipe: IRecipe): RecipeInfo {
 		const sources: Path[] = [];
 		const targets: BuildPath[] = [];
 
@@ -341,25 +370,29 @@ enum NeedsBuildValue {
 }
 
 function needsBuild(
-	target: string,
+	targets: string[],
 	sources: string[],
 	runtimeSrc: Set<string>,
 ): NeedsBuildValue {
-	const targetStats = statSync(target, { throwIfNoEntry: false });
-	if (!targetStats) return NeedsBuildValue.stale;
+	let oldestTargetMtimeMs = Infinity;
+	for (const t of targets) {
+		const targetStats = statSync(t, { throwIfNoEntry: false });
+		if (!targetStats) return NeedsBuildValue.stale;
+		oldestTargetMtimeMs = Math.min(targetStats.mtimeMs, oldestTargetMtimeMs);
+	}
 
 	for (const src of sources) {
 		const srcStat = statSync(src, { throwIfNoEntry: false });
 		if (!srcStat) {
 			return NeedsBuildValue.error;
 		}
-		if (srcStat.mtimeMs > targetStats.mtimeMs) return NeedsBuildValue.stale;
+		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
 	}
 
 	for (const src of runtimeSrc) {
 		const srcStat = statSync(src, { throwIfNoEntry: false });
 		if (!srcStat) return NeedsBuildValue.stale; // need to see if still needed
-		if (srcStat.mtimeMs > targetStats.mtimeMs) return NeedsBuildValue.stale;
+		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
 	}
 
 	return NeedsBuildValue.upToDate;

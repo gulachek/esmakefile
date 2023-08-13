@@ -1,6 +1,6 @@
 import { isPathLike, Path, isBuildPathLike } from '..';
 import { expect } from 'chai';
-import { PathType } from '../Path';
+import { IBuildPath, PathType } from '../Path';
 
 describe('isPathLike', () => {
 	it('returns true for strings', () => {
@@ -65,6 +65,33 @@ describe('Path', () => {
 		it('does not allow .. to go above source root', () => {
 			const path = Path.src('../external.txt');
 			expect(path.abs('/test')).to.equal('/test/external.txt');
+		});
+	});
+
+	describe('build', () => {
+		it('makes a build path out of a string', () => {
+			const path = Path.build('hello/world');
+			expect(path.type).to.equal(PathType.build);
+		});
+
+		it('returns a build path as is', () => {
+			const path = Path.build('hello/world');
+			const build = Path.build(path);
+			expect(build).to.equal(path);
+		});
+
+		it('throws when given a src path', () => {
+			const path = Path.src('hello/world');
+			expect(() => Path.build(path as IBuildPath)).to.throw();
+		});
+
+		it('throws when given an invalid type', () => {
+			expect(() => Path.build(false as any)).to.throw();
+		});
+
+		it('normalizes the path', () => {
+			const path = Path.build('hello/../world');
+			expect(path.rel()).to.equal('world');
 		});
 	});
 

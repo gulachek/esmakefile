@@ -57,7 +57,13 @@ export class Path {
 
 	static build(pLike: BuildPathLike): IBuildPath {
 		if (pLike instanceof Path) {
-			return pLike;
+			if (pLike.isBuildPath()) {
+				return pLike;
+			} else {
+				throw new Error(
+					`Invalid path given to Path.build(). Source paths cannot be used as build paths (given '${pLike}')`,
+				);
+			}
 		} else if (typeof pLike === 'string') {
 			return new Path(PathType.build, getComponents(pLike)) as IBuildPath;
 		} else {

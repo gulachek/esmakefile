@@ -12,7 +12,21 @@ export function isPathLike(p: any): p is PathLike {
 }
 
 function getComponents(str: string, sep: string): string[] {
-	return str.split(sep).filter((p) => !!p);
+	const pieces: string[] = [];
+	for (const piece of str.split(sep)) {
+		switch (piece) {
+			case '':
+			case '.':
+				break;
+			case '..':
+				pieces.pop();
+				break;
+			default:
+				pieces.push(piece);
+		}
+	}
+
+	return pieces;
 }
 
 export class Path {
@@ -56,14 +70,8 @@ export class Path {
 	}
 
 	join(...pieces: string[]): Path {
-		const components = [...this.components];
-		for (const p of pieces) {
-			for (const c of getComponents(p, '/')) {
-				components.push(c);
-			}
-		}
-
-		return new Path(this.type, components);
+		const rel = this.rel() + '/' + pieces.join('/');
+		return new Path(this.type, getComponents(rel, '/'));
 	}
 
 	rel(): string {

@@ -1,11 +1,11 @@
-import { BuildPath, Path } from './Path';
+import { IBuildPath, Path } from './Path';
 import { SimpleShape, MappedShape } from './SimpleShape';
 import { isAbsolute } from 'node:path';
 
 export type SourcePaths = SimpleShape<Path>;
 
 // doesn't make sense to have a null target - would never be built
-export type TargetPaths = SimpleShape<BuildPath>;
+export type TargetPaths = SimpleShape<IBuildPath>;
 
 type MappedPathsWithSources<T extends IRecipe> = {
 	sources: MappedShape<ReturnType<T['sources']>, string>;

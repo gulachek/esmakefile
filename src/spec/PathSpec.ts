@@ -1,4 +1,4 @@
-import { isPathLike, Path, isBuildPathLike, BuildPath } from '..';
+import { isPathLike, Path, isBuildPathLike } from '..';
 import { expect } from 'chai';
 import { PathType } from '../Path';
 
@@ -22,7 +22,7 @@ describe('isBuildPathLike', () => {
 	});
 
 	it('returns true for BuildPaths', () => {
-		expect(isBuildPathLike(BuildPath.from('hello'))).to.be.true;
+		expect(isBuildPathLike(Path.build('hello'))).to.be.true;
 	});
 
 	it('returns false otherwise', () => {
@@ -38,7 +38,7 @@ describe('Path', () => {
 		});
 
 		it('returns a path as is', () => {
-			const path = BuildPath.from('hello/world');
+			const path = Path.build('hello/world');
 			const src = Path.src(path);
 			expect(src).to.equal(path);
 		});
@@ -75,7 +75,7 @@ describe('Path', () => {
 		});
 
 		it('prepends @build to relative path', () => {
-			const path = BuildPath.from('hello.txt');
+			const path = Path.build('hello.txt');
 			expect(path.toString()).to.equal('@build/hello.txt');
 		});
 	});

@@ -1,6 +1,6 @@
 import {
 	IRecipe,
-	BuildPath,
+	IBuildPath,
 	Path,
 	RecipeBuildArgs,
 	Cookbook,
@@ -18,10 +18,10 @@ function procClosed(proc: ChildProcess): Promise<number> {
 }
 
 export class ClangExecutableRecipe implements IRecipe {
-	exe: BuildPath;
+	exe: IBuildPath;
 	objs: Path[];
 
-	constructor(exe: BuildPath) {
+	constructor(exe: IBuildPath) {
 		this.exe = exe;
 		this.objs = [];
 	}
@@ -58,12 +58,10 @@ export function addClangExecutable(
 	out: BuildPathLike,
 	src: PathLike[],
 ): ClangExecutableRecipe {
-	const exePath = BuildPath.from(out);
+	const exePath = Path.build(out);
 	const exe = new ClangExecutableRecipe(exePath);
 
-	const compileCommands = new CatRecipe(
-		BuildPath.from('compile_commands.json'),
-	);
+	const compileCommands = new CatRecipe(Path.build('compile_commands.json'));
 	compileCommands.addText('[');
 
 	for (const s of src) {
@@ -93,11 +91,11 @@ type StringElem = {
 type Elem = PathElem | StringElem;
 
 class CatRecipe implements IRecipe {
-	out: BuildPath;
+	out: IBuildPath;
 	private _src: Path[];
 	private _elems: Elem[];
 
-	constructor(out: BuildPath) {
+	constructor(out: IBuildPath) {
 		this.out = out;
 		this._src = [];
 		this._elems = [];

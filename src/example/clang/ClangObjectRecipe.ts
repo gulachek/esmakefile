@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from 'node:child_process';
 import {
 	IRecipe,
 	PathLike,
-	BuildPath,
+	IBuildPath,
 	isBuildPathLike,
 	BuildPathGenOpts,
 	Path,
@@ -21,11 +21,11 @@ function procClosed(proc: ChildProcess): Promise<number> {
 
 export class ClangObjectRecipe implements IRecipe {
 	public src: Path;
-	public obj: BuildPath;
-	public depfile: BuildPath;
-	public compileCommands: BuildPath;
+	public obj: IBuildPath;
+	public depfile: IBuildPath;
+	public compileCommands: IBuildPath;
 
-	constructor(src: Path, out: BuildPath) {
+	constructor(src: Path, out: IBuildPath) {
 		this.src = src;
 		this.obj = out;
 		this.depfile = out.dir.join(out.basename + '.depfile');
@@ -80,8 +80,8 @@ export function addClangObject(
 ) {
 	const srcPath = Path.src(src);
 	const destPath = isBuildPathLike(genOpts)
-		? BuildPath.from(genOpts)
-		: BuildPath.gen(srcPath, { ext: '.o', ...genOpts });
+		? Path.build(genOpts)
+		: Path.gen(srcPath, { ext: '.o', ...genOpts });
 
 	const obj = new ClangObjectRecipe(srcPath, destPath);
 	book.add(obj);

@@ -1,6 +1,6 @@
 import {
 	Path,
-	BuildPath,
+	IBuildPath,
 	IRecipe,
 	BuildPathGenOpts,
 	PathLike,
@@ -13,15 +13,15 @@ import { isBuildPathLike } from '../Path';
 
 class ScssRecipe implements IRecipe {
 	_srcPath: Path;
-	_destPath: BuildPath;
+	_destPath: IBuildPath;
 
 	constructor(src: PathLike, genOpts: BuildPathGenOpts) {
 		this._srcPath = Path.src(src);
 
 		if (isBuildPathLike(genOpts)) {
-			this._destPath = BuildPath.from(genOpts);
+			this._destPath = Path.build(genOpts);
 		} else {
-			this._destPath = BuildPath.gen(this._srcPath, {
+			this._destPath = Path.gen(this._srcPath, {
 				ext: '.css',
 				...genOpts,
 			});

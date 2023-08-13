@@ -30,6 +30,12 @@ function getComponents(str: string): string[] {
 	return pieces;
 }
 
+export interface IBuildPath extends Path {
+	readonly type: PathType.build;
+	dir: IBuildPath;
+	join(...pieces: string[]): IBuildPath;
+}
+
 export class Path {
 	readonly type: PathType = PathType.src;
 	protected components: string[] = [];
@@ -49,8 +55,22 @@ export class Path {
 		}
 	}
 
+	static build(pLike: BuildPathLike): IBuildPath {
+		if (pLike instanceof Path) {
+			return pLike;
+		} else if (typeof pLike === 'string') {
+			return new Path(PathType.build, getComponents(pLike)) as IBuildPath;
+		} else {
+			throw new Error(`Invalid path object: ${pLike}`);
+		}
+	}
+
 	toString(): string {
 		return path.join(`@${this.type}`, ...this.components);
+	}
+
+	isBuildPath(): this is IBuildPath {
+		return this.type === PathType.build;
 	}
 
 	get dir(): Path {
@@ -83,12 +103,31 @@ export class Path {
 		root = typeof root === 'string' ? root : root[this.type];
 		return path.resolve(path.join(root, this.rel()));
 	}
+
+	static gen(orig: Path, opts?: BuildPathGenOpts): IBuildPath {
+		if (isBuildPathLike(opts)) {
+			return Path.build(opts);
+		}
+
+		const posix = path.posix;
+
+		const parsed = posix.parse(orig.rel());
+		delete parsed.base; // should be able to simply specify extension
+		const fmtOpts = { ...parsed, ...opts };
+		return new Path(
+			PathType.build,
+			getComponents(posix.format(fmtOpts)),
+		) as IBuildPath;
+	}
 }
 
-export type BuildPathLike = string | BuildPath;
+export type BuildPathLike = string | IBuildPath;
 
 export function isBuildPathLike(obj: any): obj is BuildPathLike {
-	return typeof obj === 'string' || obj instanceof BuildPath;
+	return (
+		typeof obj === 'string' ||
+		(obj instanceof Path && obj.type === PathType.build)
+	);
 }
 
 export interface IBuildPathGenOpts {
@@ -104,54 +143,3 @@ export interface IBuildPathGenOpts {
 }
 
 export type BuildPathGenOpts = BuildPathLike | IBuildPathGenOpts;
-
-export class BuildPath extends Path {
-	private constructor(components: string[]) {
-		super(PathType.build, components);
-	}
-
-	// always has this type
-	override readonly type: PathType.build = PathType.build;
-
-	override join(...pieces: string[]): BuildPath {
-		const components = [...this.components];
-		for (const p of pieces) {
-			for (const c of getComponents(p)) {
-				components.push(c);
-			}
-		}
-
-		return new BuildPath(components);
-	}
-
-	override get dir(): BuildPath {
-		const components = [...this.components];
-		components.pop();
-		return new BuildPath(components);
-	}
-
-	static from(pathLike: BuildPathLike): BuildPath {
-		if (typeof pathLike === 'string') {
-			return new BuildPath(getComponents(pathLike));
-		} else if (pathLike instanceof Path) {
-			return pathLike;
-		}
-	}
-
-	static gen(orig: Path, opts?: BuildPathGenOpts): BuildPath {
-		if (isBuildPathLike(opts)) {
-			return BuildPath.from(opts);
-		}
-
-		const posix = path.posix;
-
-		const parsed = posix.parse(orig.rel());
-		delete parsed.base; // should be able to simply specify extension
-		const fmtOpts = { ...parsed, ...opts };
-		return new BuildPath(getComponents(posix.format(fmtOpts)));
-	}
-}
-
-export function isBuildPath(path: Path): path is BuildPath {
-	return path.type === PathType.build;
-}

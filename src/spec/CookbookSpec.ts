@@ -2,7 +2,7 @@ import {
 	Cookbook,
 	IRecipe,
 	BuildPathLike,
-	BuildPath,
+	IBuildPath,
 	BuildPathGenOpts,
 	Path,
 	PathLike,
@@ -54,12 +54,12 @@ class TestRecipe {
 }
 
 class WriteFileRecipe extends TestRecipe implements IRecipe {
-	readonly path: BuildPath;
+	readonly path: IBuildPath;
 	public txt: string;
 
 	constructor(path: BuildPathLike, txt: string) {
 		super();
-		this.path = BuildPath.from(path);
+		this.path = Path.build(path);
 		this.txt = txt;
 	}
 
@@ -76,12 +76,12 @@ class WriteFileRecipe extends TestRecipe implements IRecipe {
 
 class CopyFileRecipe extends TestRecipe implements IRecipe {
 	readonly src: Path;
-	readonly dest: BuildPath;
+	readonly dest: IBuildPath;
 
 	constructor(src: PathLike, genOpts?: BuildPathGenOpts) {
 		super();
 		this.src = Path.src(src);
-		this.dest = BuildPath.gen(this.src, genOpts);
+		this.dest = Path.gen(this.src, genOpts);
 	}
 
 	sources() {
@@ -105,12 +105,12 @@ class CopyFileRecipe extends TestRecipe implements IRecipe {
 
 class CatFilesRecipe implements IRecipe {
 	readonly src: Path;
-	readonly dest: BuildPath;
+	readonly dest: IBuildPath;
 	buildCount: number = 0;
 
 	constructor(src: Path, genOpts?: BuildPathGenOpts) {
 		this.src = src;
-		this.dest = BuildPath.gen(src, genOpts);
+		this.dest = Path.gen(src, genOpts);
 	}
 
 	targets() {
@@ -188,8 +188,8 @@ describe('Cookbook', () => {
 		let copy: CopyFileRecipe;
 
 		const helloTxt = 'Hello world!';
-		const helloPath = BuildPath.from('hello.txt');
-		const cpPath = BuildPath.from('copy/hello.txt');
+		const helloPath = Path.build('hello.txt');
+		const cpPath = Path.build('copy/hello.txt');
 
 		beforeEach(async () => {
 			book = mkBook('write-hello');
@@ -258,7 +258,7 @@ describe('Cookbook', () => {
 
 		it('does not build a target if a static source does not exist', async () => {
 			const badPath = Path.src('bad.txt');
-			const badCopyPath = BuildPath.from('bad-copy.txt');
+			const badCopyPath = Path.build('bad-copy.txt');
 			await writeFile(book.abs(badCopyPath), 'stale', 'utf8');
 			const badCopy = new CopyFileRecipe(badPath, badCopyPath);
 			book.add(badCopy);
@@ -274,7 +274,7 @@ describe('Cookbook', () => {
 		const book = mkBook('cat-files');
 		const catPath = Path.src('index.txt');
 		const aPath = Path.src('a.txt');
-		const outPath = BuildPath.from('output.txt');
+		const outPath = Path.build('output.txt');
 		const cat: CatFilesRecipe = new CatFilesRecipe(catPath, outPath);
 
 		beforeEach(async () => {
@@ -341,10 +341,10 @@ describe('Cookbook', () => {
 
 	describe('cat-files2', async () => {
 		let book: Cookbook;
-		const aPath = BuildPath.from('a.txt');
-		const cpPath = BuildPath.from('copy.txt');
-		const catPath = BuildPath.from('index.txt');
-		const outPath = BuildPath.from('output.txt');
+		const aPath = Path.build('a.txt');
+		const cpPath = Path.build('copy.txt');
+		const catPath = Path.build('index.txt');
+		const outPath = Path.build('output.txt');
 		let writeA: WriteFileRecipe;
 		let copyA: CopyFileRecipe;
 		let writeIndex: WriteFileRecipe;
@@ -416,7 +416,7 @@ describe('Cookbook', () => {
 		});
 
 		it('fails if recipe returns false', async () => {
-			const path = BuildPath.from('test.txt');
+			const path = Path.build('test.txt');
 			const write = new WriteFileRecipe(path, 'test');
 			write.returnFalseOnBuild();
 			book.add(write);
@@ -426,7 +426,7 @@ describe('Cookbook', () => {
 		});
 
 		it('fails if recipe throws', async () => {
-			const path = BuildPath.from('test.txt');
+			const path = Path.build('test.txt');
 			const write = new WriteFileRecipe(path, 'test');
 			write.throwOnBuild(new Error('test'));
 			book.add(write);

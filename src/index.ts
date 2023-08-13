@@ -2,7 +2,7 @@ export {
 	Path,
 	PathLike,
 	isPathLike,
-	BuildPath,
+	IBuildPath,
 	BuildPathLike,
 	isBuildPathLike,
 	BuildPathGenOpts,

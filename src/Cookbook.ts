@@ -4,7 +4,7 @@ import { mapShape } from './SimpleShape';
 import { FSWatcher, mkdirSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { BuildPath, BuildPathLike, isBuildPath, Path } from './Path';
+import { IBuildPath, BuildPathLike, Path } from './Path';
 import { Mutex, UnlockFunction } from './Mutex';
 import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
@@ -12,7 +12,7 @@ import EventEmitter from 'node:events';
 type RecipeInfo = {
 	buildAsync(results: BuildResults): Promise<boolean>;
 	sources: Path[];
-	targets: BuildPath[];
+	targets: IBuildPath[];
 };
 
 export interface ICookbookOpts {
@@ -56,13 +56,13 @@ class BuildResults {
 		await writeFile(abs, JSON.stringify(json), 'utf8');
 	}
 
-	addRuntimeSrc(targets: BuildPath[], srcAbs: Set<string>): void {
+	addRuntimeSrc(targets: IBuildPath[], srcAbs: Set<string>): void {
 		for (const t of targets) {
 			this._runtimeSrcMap.set(t.rel(), srcAbs);
 		}
 	}
 
-	runtimeSrc(target: BuildPath): Set<string> {
+	runtimeSrc(target: IBuildPath): Set<string> {
 		const src = this._runtimeSrcMap.get(target.rel());
 		if (src) return src;
 		return new Set<string>();
@@ -174,7 +174,7 @@ export class Cookbook {
 	 * @param target The target to build
 	 * @returns A promise that resolves when the build is done
 	 */
-	async build(target?: BuildPath): Promise<boolean> {
+	async build(target?: IBuildPath): Promise<boolean> {
 		let unlock: UnlockFunction | null = null;
 		if (!this._buildLock) {
 			unlock = await this._mutex.lockAsync();
@@ -182,7 +182,7 @@ export class Cookbook {
 
 		let result = true;
 		const prevBuildAbs = this.abs(
-			BuildPath.from('__gulpachek__/previous-build.json'),
+			Path.build('__gulpachek__/previous-build.json'),
 		);
 
 		const recipe = target && this._recipe(target);
@@ -224,7 +224,7 @@ export class Cookbook {
 
 			const { sources } = info;
 			for (const s of sources) {
-				if (!isBuildPath(s)) continue;
+				if (!s.isBuildPath()) continue;
 				const srcId = this._recipe(s);
 				if (isRecipeID(srcId)) srcIds.add(srcId);
 			}
@@ -276,7 +276,7 @@ export class Cookbook {
 	): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
-			if (isBuildPath(src)) {
+			if (src.isBuildPath()) {
 				const srcId = this._recipe(src);
 				const result = await this._findOrStartBuild(srcId, buildResults);
 				if (!result) return false;
@@ -286,7 +286,7 @@ export class Cookbook {
 		const runtimeSrc = buildResults.runtimeSrc(info.targets[0]);
 		for (const src of runtimeSrc) {
 			if (src.startsWith(this.buildRoot)) {
-				const path = BuildPath.from(src.slice(this.buildRoot.length));
+				const path = Path.build(src.slice(this.buildRoot.length));
 				const srcId = this._recipe(path);
 				const result = await this._findOrStartBuild(srcId, buildResults);
 				if (!result) return false;
@@ -318,7 +318,7 @@ export class Cookbook {
 
 	normalizeRecipe(recipe: IRecipe): RecipeInfo {
 		const sources: Path[] = [];
-		const targets: BuildPath[] = [];
+		const targets: IBuildPath[] = [];
 
 		const rawSources: SourcePaths | undefined = recipe.sources?.();
 		const rawTargets = recipe.targets();
@@ -337,9 +337,9 @@ export class Cookbook {
 				),
 			targets: mapShape(
 				rawTargets,
-				(p): p is BuildPath => p instanceof BuildPath,
+				(p): p is IBuildPath => p instanceof Path,
 				(pL) => {
-					const p = BuildPath.from(pL);
+					const p = Path.build(pL);
 					targets.push(p);
 					return p.abs(this.buildRoot);
 				},

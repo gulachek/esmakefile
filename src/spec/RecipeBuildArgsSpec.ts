@@ -1,4 +1,4 @@
-import { RecipeBuildArgs } from '../Recipe';
+import { RecipeBuildArgs } from '..';
 import { expect } from 'chai';
 
 function mkArgs(): RecipeBuildArgs {

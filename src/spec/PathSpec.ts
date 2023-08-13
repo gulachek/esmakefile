@@ -95,6 +95,32 @@ describe('Path', () => {
 		});
 	});
 
+	describe('gen', () => {
+		it('makes a build path from a source path', () => {
+			const path = Path.src('hello/world.txt');
+			const build = Path.gen(path);
+			expect(build.isBuildPath()).to.be.true;
+		});
+
+		it('uses the same relative path', () => {
+			const path = Path.src('hello/world.txt');
+			const build = Path.gen(path);
+			expect(build.rel()).to.equal(path.rel());
+		});
+
+		it('accepts an extension', () => {
+			const path = Path.src('hello/world.txt');
+			const build = Path.gen(path, { ext: '.cpp' });
+			expect(build.rel()).to.equal('hello/world.cpp');
+		});
+
+		it('accepts a directory', () => {
+			const path = Path.src('hello/world.txt');
+			const build = Path.gen(path, { dir: 'another/dir' });
+			expect(build.rel()).to.equal('another/dir/world.txt');
+		});
+	});
+
 	describe('toString', () => {
 		it('prepends @src to relative path', () => {
 			const path = Path.src('hello.txt');

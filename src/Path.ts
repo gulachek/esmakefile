@@ -71,6 +71,22 @@ export class Path {
 		}
 	}
 
+	static gen(orig: Path, opts?: BuildPathGenOpts): IBuildPath {
+		if (isBuildPathLike(opts)) {
+			return Path.build(opts);
+		}
+
+		const posix = path.posix;
+
+		const parsed = posix.parse(orig.rel());
+		delete parsed.base; // should be able to simply specify extension
+		const fmtOpts = { ...parsed, ...opts };
+		return new Path(
+			PathType.build,
+			getComponents(posix.format(fmtOpts)),
+		) as IBuildPath;
+	}
+
 	toString(): string {
 		return path.join(`@${this.type}`, ...this.components);
 	}
@@ -108,22 +124,6 @@ export class Path {
 	abs(root: string | { build: string; src: string }): string {
 		root = typeof root === 'string' ? root : root[this.type];
 		return path.resolve(path.join(root, this.rel()));
-	}
-
-	static gen(orig: Path, opts?: BuildPathGenOpts): IBuildPath {
-		if (isBuildPathLike(opts)) {
-			return Path.build(opts);
-		}
-
-		const posix = path.posix;
-
-		const parsed = posix.parse(orig.rel());
-		delete parsed.base; // should be able to simply specify extension
-		const fmtOpts = { ...parsed, ...opts };
-		return new Path(
-			PathType.build,
-			getComponents(posix.format(fmtOpts)),
-		) as IBuildPath;
 	}
 }
 

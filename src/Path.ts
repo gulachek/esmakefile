@@ -11,7 +11,8 @@ export function isPathLike(p: any): p is PathLike {
 	return typeof p === 'string' || p instanceof Path;
 }
 
-function getComponents(str: string, sep: string): string[] {
+function getComponents(str: string): string[] {
+	const sep = '/';
 	const pieces: string[] = [];
 	for (const piece of str.split(sep)) {
 		switch (piece) {
@@ -42,7 +43,7 @@ export class Path {
 		if (pathLike instanceof Path) {
 			return pathLike;
 		} else if (typeof pathLike === 'string') {
-			return new Path(PathType.src, getComponents(pathLike, '/'));
+			return new Path(PathType.src, getComponents(pathLike));
 		} else {
 			throw new Error(`Invalid path object: ${pathLike}`);
 		}
@@ -71,7 +72,7 @@ export class Path {
 
 	join(...pieces: string[]): Path {
 		const rel = this.rel() + '/' + pieces.join('/');
-		return new Path(this.type, getComponents(rel, '/'));
+		return new Path(this.type, getComponents(rel));
 	}
 
 	rel(): string {
@@ -115,7 +116,7 @@ export class BuildPath extends Path {
 	override join(...pieces: string[]): BuildPath {
 		const components = [...this.components];
 		for (const p of pieces) {
-			for (const c of getComponents(p, '/')) {
+			for (const c of getComponents(p)) {
 				components.push(c);
 			}
 		}
@@ -131,7 +132,7 @@ export class BuildPath extends Path {
 
 	static from(pathLike: BuildPathLike): BuildPath {
 		if (typeof pathLike === 'string') {
-			return new BuildPath(getComponents(pathLike, '/'));
+			return new BuildPath(getComponents(pathLike));
 		} else if (pathLike instanceof Path) {
 			return pathLike;
 		}
@@ -147,7 +148,7 @@ export class BuildPath extends Path {
 		const parsed = posix.parse(orig.rel());
 		delete parsed.base; // should be able to simply specify extension
 		const fmtOpts = { ...parsed, ...opts };
-		return new BuildPath(getComponents(posix.format(fmtOpts), '/'));
+		return new BuildPath(getComponents(posix.format(fmtOpts)));
 	}
 }
 

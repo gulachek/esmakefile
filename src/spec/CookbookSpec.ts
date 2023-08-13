@@ -1,5 +1,4 @@
-require('jasmine');
-
+debugger;
 import {
 	Cookbook,
 	IRecipe,
@@ -20,8 +19,9 @@ import {
 	FileHandle,
 } from 'node:fs/promises';
 
+import { expect } from 'chai';
+
 import path, { dirname, resolve } from 'node:path';
-import { mkdir } from 'node:fs';
 
 async function rmDir(dirAbs: string): Promise<void> {
 	try {
@@ -29,44 +29,60 @@ async function rmDir(dirAbs: string): Promise<void> {
 	} catch {}
 }
 
-class WriteFileRecipe implements IRecipe {
+class TestRecipe {
+	public buildCount: number = 0;
+	private _returnFalseOnBuild: boolean = false;
+	public _throwOnBuild: Error | null = null;
+
+	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+		++this.buildCount;
+		if (this._throwOnBuild) throw this._throwOnBuild;
+		if (this._returnFalseOnBuild) return false;
+		return this.onBuild(args);
+	}
+
+	public returnFalseOnBuild(): void {
+		this._returnFalseOnBuild = true;
+	}
+
+	public throwOnBuild(err: Error): void {
+		this._throwOnBuild = err;
+	}
+
+	protected onBuild(_args: RecipeBuildArgs): Promise<boolean> {
+		return Promise.resolve(true);
+	}
+}
+
+class WriteFileRecipe extends TestRecipe implements IRecipe {
 	readonly path: BuildPath;
-	private _buildCount: number = 0;
 	public txt: string;
 
 	constructor(path: BuildPathLike, txt: string) {
+		super();
 		this.path = BuildPath.from(path);
 		this.txt = txt;
-	}
-
-	get buildCount() {
-		return this._buildCount;
 	}
 
 	targets() {
 		return this.path;
 	}
 
-	async buildAsync(args: RecipeBuildArgs) {
+	override async onBuild(args: RecipeBuildArgs) {
 		const { targets } = args.paths<WriteFileRecipe>();
-		++this._buildCount;
 		await writeFile(targets, this.txt, 'utf8');
 		return true;
 	}
 }
 
-class CopyFileRecipe implements IRecipe {
+class CopyFileRecipe extends TestRecipe implements IRecipe {
 	readonly src: Path;
 	readonly dest: BuildPath;
-	private _buildCount: number = 0;
 
 	constructor(src: PathLike, genOpts?: BuildPathGenOpts) {
+		super();
 		this.src = Path.src(src);
 		this.dest = BuildPath.gen(this.src, genOpts);
-	}
-
-	get buildCount() {
-		return this._buildCount;
 	}
 
 	sources() {
@@ -77,9 +93,8 @@ class CopyFileRecipe implements IRecipe {
 		return this.dest;
 	}
 
-	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+	override async onBuild(args: RecipeBuildArgs): Promise<boolean> {
 		const { sources, targets } = args.paths<CopyFileRecipe>();
-		++this._buildCount;
 		try {
 			await copyFile(sources, targets);
 			return true;
@@ -162,9 +177,9 @@ describe('Cookbook', () => {
 
 			const targets = new Set(book.targets());
 
-			expect(targets.size).toEqual(2);
-			expect(targets.has('write.txt')).toBeTrue();
-			expect(targets.has('sub/dest.txt')).toBeTrue();
+			expect(targets.size).to.equal(2);
+			expect(targets.has('write.txt')).to.be.true;
+			expect(targets.has('sub/dest.txt')).to.be.true;
 		});
 	});
 
@@ -190,25 +205,25 @@ describe('Cookbook', () => {
 
 		it("builds the target's dependency", async () => {
 			const hello = await readFile(book.abs(helloPath), 'utf8');
-			expect(hello).toEqual(helloTxt);
+			expect(hello).to.equal(helloTxt);
 		});
 
 		it('ensures a target directory exists before building', async () => {
 			const cpDir = book.abs(cpPath.dir);
 			const dirStat = await stat(cpDir);
-			expect(dirStat.isDirectory()).toBeTrue();
+			expect(dirStat.isDirectory()).to.be.true;
 		});
 
 		it("builds a target after it's dependency", async () => {
 			const hello = await readFile(book.abs(cpPath), 'utf8');
-			expect(hello).toEqual(helloTxt);
+			expect(hello).to.equal(helloTxt);
 		});
 
 		it('skips building target if newer than sources', async () => {
 			// already built with buildAll, so rebuild and check
 			const preBuildCount = copy.buildCount;
 			await book.build(cpPath);
-			expect(copy.buildCount).toEqual(preBuildCount);
+			expect(copy.buildCount).to.equal(preBuildCount);
 		});
 
 		it('rebuilds target if older than sources', async () => {
@@ -217,7 +232,7 @@ describe('Cookbook', () => {
 			await waitMs(2); // paranoid about stuff happening sub ms
 			await writeFile(book.abs(helloPath), 'Different text');
 			await book.build(cpPath);
-			expect(copy.buildCount).toEqual(preBuildCount + 1);
+			expect(copy.buildCount).to.equal(preBuildCount + 1);
 		});
 
 		it('y0b0: you only build once. calling build while building results in one build', async () => {
@@ -227,7 +242,7 @@ describe('Cookbook', () => {
 			const second = book.build(cpPath);
 			await first;
 			await second;
-			expect(copy.buildCount).toEqual(preBuildCount + 1);
+			expect(copy.buildCount).to.equal(preBuildCount + 1);
 		});
 
 		it('does not build a target if a source fails to build', async () => {
@@ -235,12 +250,11 @@ describe('Cookbook', () => {
 
 			// make copy fail
 			await rm(book.abs(helloPath));
-			spyOn(write, 'buildAsync').and.returnValue(Promise.resolve(false));
+			write.returnFalseOnBuild();
 			const result = await book.build(cpPath);
 
-			expect(write.buildAsync).toHaveBeenCalled();
-			expect(copy.buildCount).toEqual(preBuildCount);
-			expect(result).toBeFalse();
+			expect(copy.buildCount).to.equal(preBuildCount);
+			expect(result).to.be.false;
 		});
 
 		it('does not build a target if a static source does not exist', async () => {
@@ -252,8 +266,8 @@ describe('Cookbook', () => {
 
 			const result = await book.build(badCopyPath);
 
-			expect(badCopy.buildCount).toEqual(0);
-			expect(result).toBeFalse();
+			expect(badCopy.buildCount).to.equal(0);
+			expect(result).to.be.false;
 		});
 	});
 
@@ -272,7 +286,7 @@ describe('Cookbook', () => {
 		it('concatenates the files in index.txt', async () => {
 			await book.build(outPath);
 			const contents = await readFile(book.abs(outPath), 'utf8');
-			expect(contents).toEqual('A\nB\nC\n');
+			expect(contents).to.equal('A\nB\nC\n');
 		});
 
 		it('rebuilds when runtime dependency changes', async () => {
@@ -283,7 +297,7 @@ describe('Cookbook', () => {
 			const aContents = await readFile(aAbs, 'utf8');
 			await writeFile(aAbs, aContents, 'utf8'); // just to update mtime
 			await book.build(outPath);
-			expect(cat.buildCount).toEqual(preBuildCount + 1);
+			expect(cat.buildCount).to.equal(preBuildCount + 1);
 		});
 
 		it('skips unnecessary builds across runs', async () => {
@@ -295,7 +309,7 @@ describe('Cookbook', () => {
 			newBook.add(cat);
 
 			await newBook.build(outPath);
-			expect(cat.buildCount).toEqual(preBuildCount);
+			expect(cat.buildCount).to.equal(preBuildCount);
 		});
 
 		it('detects runtime dependency change across runs', async () => {
@@ -312,7 +326,7 @@ describe('Cookbook', () => {
 			newBook.add(cat);
 
 			await newBook.build(outPath);
-			expect(cat.buildCount).toEqual(preBuildCount + 1);
+			expect(cat.buildCount).to.equal(preBuildCount + 1);
 		});
 
 		it('builds all targets by default', async () => {
@@ -321,8 +335,8 @@ describe('Cookbook', () => {
 			const preBuildCount = cat.buildCount;
 			await book.build();
 
-			expect(cat.buildCount).toEqual(preBuildCount + 1);
-			expect(oneOff.buildCount).toEqual(1);
+			expect(cat.buildCount).to.equal(preBuildCount + 1);
+			expect(oneOff.buildCount).to.equal(1);
 		});
 	});
 
@@ -359,10 +373,10 @@ describe('Cookbook', () => {
 			await writeFile(book.abs(aPath), 'update', 'utf8');
 			const result = await book.build(outPath);
 
-			expect(cat.buildCount).toEqual(preBuildCount + 1);
+			expect(cat.buildCount).to.equal(preBuildCount + 1);
 			const contents = await readFile(book.abs(outPath), 'utf8');
-			expect(contents).toEqual('update');
-			expect(result).toBeTrue();
+			expect(contents).to.equal('update');
+			expect(result).to.be.true;
 		});
 
 		it('does not build a target if a runtime source fails to build', async () => {
@@ -372,12 +386,11 @@ describe('Cookbook', () => {
 
 			// make copy fail
 			await rm(book.abs(cpPath));
-			spyOn(copyA, 'buildAsync').and.returnValue(Promise.resolve(false));
+			copyA.returnFalseOnBuild();
 			const result = await book.build(outPath);
 
-			expect(copyA.buildAsync).toHaveBeenCalled();
-			expect(cat.buildCount).toEqual(preBuildCount);
-			expect(result).toBeFalse();
+			expect(cat.buildCount).to.equal(preBuildCount);
+			expect(result).to.be.false;
 		});
 
 		it('attempts to build target if static runtime source does not exist', async () => {
@@ -392,37 +405,35 @@ describe('Cookbook', () => {
 			await rm(book.abs(catPath));
 
 			const result = await book.build(outPath);
-			expect(result).toBeTrue();
+			expect(result).to.be.true;
 			const preBuildCount = cat.buildCount;
 
 			await rm(book.abs(badPath));
 			writeIndex.txt = oldTxt;
 			await rm(book.abs(catPath));
 			const rerunResult = await book.build(outPath);
-			expect(rerunResult).toBeTrue();
-			expect(cat.buildCount).toEqual(preBuildCount + 1);
+			expect(rerunResult).to.be.true;
+			expect(cat.buildCount).to.equal(preBuildCount + 1);
 		});
 
 		it('fails if recipe returns false', async () => {
 			const path = BuildPath.from('test.txt');
 			const write = new WriteFileRecipe(path, 'test');
-			spyOn(write, 'buildAsync').and.returnValue(Promise.resolve(false));
+			write.returnFalseOnBuild();
 			book.add(write);
 
 			const result = await book.build(path);
-			expect(result).toBeFalse();
-			expect(write.buildAsync).toHaveBeenCalled();
+			expect(result).to.be.false;
 		});
 
 		it('fails if recipe throws', async () => {
 			const path = BuildPath.from('test.txt');
 			const write = new WriteFileRecipe(path, 'test');
-			spyOn(write, 'buildAsync').and.throwError('test');
+			write.throwOnBuild(new Error('test'));
 			book.add(write);
 
 			const result = await book.build(path);
-			expect(result).toBeFalse();
-			expect(write.buildAsync).toHaveBeenCalled();
+			expect(result).to.be.false;
 		});
 	});
 });

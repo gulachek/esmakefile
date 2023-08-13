@@ -1,6 +1,7 @@
 build
 node_modules
-jasmine.json
-spec
 dist/example
+dist/spec
 types/example
+types/spec
+test-cases

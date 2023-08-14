@@ -219,6 +219,37 @@ describe('Cookbook', () => {
 			const contents = await readFile(book.abs(path), 'utf8');
 			expect(contents).to.equal('hello');
 		});
+
+		it("builds a target's dependency", async () => {
+			const srcPath = Path.build('src.txt');
+			const write = new WriteFileRecipe(srcPath, 'hello');
+			book.add(write);
+
+			const cpPath = Path.build('cp.txt');
+			const cp = new CopyFileRecipe(srcPath, cpPath);
+			book.add(cp);
+
+			await book.build(cpPath);
+
+			const contents = await readFile(book.abs(cpPath), 'utf8');
+			expect(contents).to.equal('hello');
+			expect(write.buildCount).to.equal(1);
+		});
+
+		it('ensures a target directory exists before building', async () => {
+			const srcPath = Path.build('src.txt');
+			const write = new WriteFileRecipe(srcPath, 'hello');
+			book.add(write);
+
+			const cpPath = Path.build('sub/cp.txt');
+			const cp = new CopyFileRecipe(srcPath, cpPath);
+			book.add(cp);
+
+			await book.build(cpPath);
+
+			const dirStat = await stat(book.abs(cpPath.dir));
+			expect(dirStat.isDirectory()).to.be.true;
+		});
 	});
 
 	describe('write-hello', () => {
@@ -239,17 +270,6 @@ describe('Cookbook', () => {
 
 			await rm(book.buildRoot, { recursive: true });
 			await book.build(cpPath);
-		});
-
-		it("builds the target's dependency", async () => {
-			const hello = await readFile(book.abs(helloPath), 'utf8');
-			expect(hello).to.equal(helloTxt);
-		});
-
-		it('ensures a target directory exists before building', async () => {
-			const cpDir = book.abs(cpPath.dir);
-			const dirStat = await stat(cpDir);
-			expect(dirStat.isDirectory()).to.be.true;
 		});
 
 		it("builds a target after it's dependency", async () => {

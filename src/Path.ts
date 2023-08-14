@@ -32,7 +32,7 @@ function getComponents(str: string): string[] {
 
 export interface IBuildPath extends Path {
 	readonly type: PathType.build;
-	dir: IBuildPath;
+	dir(): IBuildPath;
 	join(...pieces: string[]): IBuildPath;
 }
 
@@ -95,7 +95,7 @@ export class Path {
 		return this.type === PathType.build;
 	}
 
-	get dir(): Path {
+	dir(): Path {
 		const components = [...this.components];
 		components.pop();
 		return new Path(this.type, components);

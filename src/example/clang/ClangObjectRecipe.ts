@@ -28,10 +28,10 @@ export class ClangObjectRecipe implements IRecipe {
 	constructor(src: Path, out: IBuildPath) {
 		this.src = src;
 		this.obj = out;
-		this.depfile = out.dir.join(out.basename + '.depfile');
-		this.compileCommands = out.dir.join(
-			out.basename + '.compile_commands.json',
-		);
+		this.depfile = out.dir().join(out.basename + '.depfile');
+		this.compileCommands = out
+			.dir()
+			.join(out.basename + '.compile_commands.json');
 	}
 
 	targets() {

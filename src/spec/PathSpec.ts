@@ -136,12 +136,12 @@ describe('Path', () => {
 	describe('dir', () => {
 		it('has parent path', () => {
 			const path = Path.src('hello/world.txt');
-			expect(path.dir.rel()).to.equal('hello');
+			expect(path.dir().rel()).to.equal('hello');
 		});
 
 		it('has same type as path', () => {
 			const path = Path.src('hello/world.txt');
-			expect(path.dir.type).to.equal(PathType.src);
+			expect(path.dir().type).to.equal(PathType.src);
 		});
 	});
 

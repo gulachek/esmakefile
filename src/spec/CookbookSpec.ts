@@ -247,7 +247,7 @@ describe('Cookbook', () => {
 
 			await book.build(cpPath);
 
-			const dirStat = await stat(book.abs(cpPath.dir));
+			const dirStat = await stat(book.abs(cpPath.dir()));
 			expect(dirStat.isDirectory()).to.be.true;
 		});
 	});

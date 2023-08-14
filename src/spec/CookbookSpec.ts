@@ -22,6 +22,7 @@ import {
 import { expect } from 'chai';
 
 import path, { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 
 async function rmDir(dirAbs: string): Promise<void> {
 	try {
@@ -200,14 +201,17 @@ describe('Cookbook', () => {
 
 		beforeEach(async () => {
 			const srcRoot = resolve('test-src');
+			const buildRoot = resolve(srcRoot, 'build');
 
 			try {
+				console.log('removing ', srcRoot);
 				await rm(srcRoot, { recursive: true });
-			} catch {}
+				expect(existsSync(srcRoot)).to.be.false;
+			} catch (_) {}
 
 			await mkdir(srcRoot, { recursive: true });
 
-			book = new Cookbook({ srcRoot });
+			book = new Cookbook({ srcRoot, buildRoot });
 		});
 
 		it('builds a target', async () => {
@@ -250,6 +254,40 @@ describe('Cookbook', () => {
 			const dirStat = await stat(book.abs(cpPath.dir()));
 			expect(dirStat.isDirectory()).to.be.true;
 		});
+
+		it('skips building target if newer than sources', async () => {
+			const srcPath = Path.build('src.txt');
+			const write = new WriteFileRecipe(srcPath, 'hello');
+			book.add(write);
+
+			const cpPath = Path.build('cp.txt');
+			const cp = new CopyFileRecipe(srcPath, cpPath);
+			book.add(cp);
+
+			await book.build(cpPath);
+			await book.build(cpPath);
+
+			expect(cp.buildCount).to.equal(1);
+		});
+
+		it('rebuilds target if older than sources', async () => {
+			const srcPath = Path.src('src.txt');
+			await writeFile(book.abs(srcPath), 'hello', 'utf8');
+
+			const cpPath = Path.build('cp.txt');
+			const cp = new CopyFileRecipe(srcPath, cpPath);
+			book.add(cp);
+
+			await book.build(cpPath);
+
+			await writeFile(book.abs(srcPath), 'update', 'utf8');
+
+			await book.build(cpPath);
+
+			expect(cp.buildCount).to.equal(2);
+			const contents = await readFile(book.abs(cpPath), 'utf8');
+			expect(contents).to.equal('update');
+		});
 	});
 
 	describe('write-hello', () => {
@@ -270,27 +308,6 @@ describe('Cookbook', () => {
 
 			await rm(book.buildRoot, { recursive: true });
 			await book.build(cpPath);
-		});
-
-		it("builds a target after it's dependency", async () => {
-			const hello = await readFile(book.abs(cpPath), 'utf8');
-			expect(hello).to.equal(helloTxt);
-		});
-
-		it('skips building target if newer than sources', async () => {
-			// already built with buildAll, so rebuild and check
-			const preBuildCount = copy.buildCount;
-			await book.build(cpPath);
-			expect(copy.buildCount).to.equal(preBuildCount);
-		});
-
-		it('rebuilds target if older than sources', async () => {
-			// already built with buildAll, so rebuild and check
-			const preBuildCount = copy.buildCount;
-			await waitMs(2); // paranoid about stuff happening sub ms
-			await writeFile(book.abs(helloPath), 'Different text');
-			await book.build(cpPath);
-			expect(copy.buildCount).to.equal(preBuildCount + 1);
 		});
 
 		it('y0b0: you only build once. calling build while building results in one build', async () => {

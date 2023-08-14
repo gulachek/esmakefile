@@ -1,6 +1,7 @@
 node_modules
 libroot
 build
+test-src
 dist
 types
 install

@@ -13,6 +13,7 @@ import {
 	copyFile,
 	readFile,
 	rm,
+	mkdir,
 	stat,
 	open,
 	FileHandle,
@@ -191,6 +192,32 @@ describe('Cookbook', () => {
 				book.add(new CopyFileRecipe('src.txt', '/sub/dest.txt')),
 			).to.throw();
 			await prom;
+		});
+	});
+
+	describe('buildAsync', () => {
+		let book: Cookbook;
+
+		beforeEach(async () => {
+			const srcRoot = resolve('test-src');
+
+			try {
+				await rm(srcRoot, { recursive: true });
+			} catch {}
+
+			await mkdir(srcRoot, { recursive: true });
+
+			book = new Cookbook({ srcRoot });
+		});
+
+		it('builds a target', async () => {
+			const path = Path.build('output.txt');
+			const write = new WriteFileRecipe(path, 'hello');
+			book.add(write);
+
+			await book.build(path);
+			const contents = await readFile(book.abs(path), 'utf8');
+			expect(contents).to.equal('hello');
 		});
 	});
 

@@ -181,5 +181,17 @@ describe('Path', () => {
 			const child = path.join('../file.txt');
 			expect(child.rel()).to.equal('hello/file.txt');
 		});
+
+		it('has the same type as the original path', () => {
+			const path = Path.src('hello');
+			const child = path.join('file.txt');
+			expect(child.type).to.equal(path.type);
+		});
+
+		it('accepts multiple string arguments', () => {
+			const path = Path.src('hello');
+			const child = path.join('sub', '../..', 'file.txt');
+			expect(child.rel()).to.equal('file.txt');
+		});
 	});
 });

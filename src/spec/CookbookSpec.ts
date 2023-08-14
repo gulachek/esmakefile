@@ -182,6 +182,18 @@ describe('Cookbook', () => {
 		});
 	});
 
+	describe('add', () => {
+		it('cannot add while build is in progress', async () => {
+			const book = new Cookbook();
+			book.add(new WriteFileRecipe('write.txt', 'hello'));
+			const prom = book.build();
+			expect(() =>
+				book.add(new CopyFileRecipe('src.txt', '/sub/dest.txt')),
+			).to.throw();
+			await prom;
+		});
+	});
+
 	describe('write-hello', () => {
 		let book: Cookbook;
 		let write: WriteFileRecipe;

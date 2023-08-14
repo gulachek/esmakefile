@@ -87,11 +87,6 @@ export class Cookbook {
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
 		this.srcRoot = resolve(opts.srcRoot || '.');
-
-		if (!this.srcRoot) {
-			throw new Error(`No source root is available.`);
-		}
-
 		this.buildRoot = resolve(opts.buildRoot || 'build');
 	}
 

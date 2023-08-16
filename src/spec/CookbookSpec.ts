@@ -22,7 +22,7 @@ import {
 import { expect } from 'chai';
 
 import path, { dirname, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, Stats } from 'node:fs';
 
 async function rmDir(dirAbs: string): Promise<void> {
 	try {
@@ -199,6 +199,22 @@ describe('Cookbook', () => {
 	describe('buildAsync', () => {
 		let book: Cookbook;
 
+		function writePath(path: Path, contents: string): Promise<void> {
+			return writeFile(book.abs(path), contents, 'utf8');
+		}
+
+		function readPath(path: Path): Promise<string> {
+			return readFile(book.abs(path), 'utf8');
+		}
+
+		function statsPath(path: Path): Promise<Stats> {
+			return stat(book.abs(path));
+		}
+
+		function rmPath(path: Path): Promise<void> {
+			return rm(book.abs(path));
+		}
+
 		beforeEach(async () => {
 			const srcRoot = resolve('test-src');
 			const buildRoot = resolve(srcRoot, 'build');
@@ -220,7 +236,7 @@ describe('Cookbook', () => {
 			book.add(write);
 
 			await book.build(path);
-			const contents = await readFile(book.abs(path), 'utf8');
+			const contents = await readPath(path);
 			expect(contents).to.equal('hello');
 		});
 
@@ -235,7 +251,7 @@ describe('Cookbook', () => {
 
 			await book.build(cpPath);
 
-			const contents = await readFile(book.abs(cpPath), 'utf8');
+			const contents = await readPath(cpPath);
 			expect(contents).to.equal('hello');
 			expect(write.buildCount).to.equal(1);
 		});
@@ -251,7 +267,7 @@ describe('Cookbook', () => {
 
 			await book.build(cpPath);
 
-			const dirStat = await stat(book.abs(cpPath.dir()));
+			const dirStat = await statsPath(cpPath.dir());
 			expect(dirStat.isDirectory()).to.be.true;
 		});
 
@@ -272,7 +288,7 @@ describe('Cookbook', () => {
 
 		it('rebuilds target if older than sources', async () => {
 			const srcPath = Path.src('src.txt');
-			await writeFile(book.abs(srcPath), 'hello', 'utf8');
+			await writePath(srcPath, 'hello');
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRecipe(srcPath, cpPath);
@@ -280,69 +296,67 @@ describe('Cookbook', () => {
 
 			await book.build(cpPath);
 
-			await writeFile(book.abs(srcPath), 'update', 'utf8');
+			await writePath(srcPath, 'update');
 
 			await book.build(cpPath);
 
 			expect(cp.buildCount).to.equal(2);
-			const contents = await readFile(book.abs(cpPath), 'utf8');
+			const contents = await readPath(cpPath);
 			expect(contents).to.equal('update');
-		});
-	});
-
-	describe('write-hello', () => {
-		let book: Cookbook;
-		let write: WriteFileRecipe;
-		let copy: CopyFileRecipe;
-
-		const helloTxt = 'Hello world!';
-		const helloPath = Path.build('hello.txt');
-		const cpPath = Path.build('copy/hello.txt');
-
-		beforeEach(async () => {
-			book = mkBook('write-hello');
-			write = new WriteFileRecipe(helloPath, helloTxt);
-			copy = new CopyFileRecipe(helloPath, cpPath);
-			book.add(write);
-			book.add(copy);
-
-			await rm(book.buildRoot, { recursive: true });
-			await book.build(cpPath);
 		});
 
 		it('y0b0: you only build once. calling build while building results in one build', async () => {
-			const preBuildCount = copy.buildCount;
-			await writeFile(book.abs(helloPath), 'Different text');
+			const srcPath = Path.build('src.txt');
+			const write = new WriteFileRecipe(srcPath, 'hello');
+			book.add(write);
+
+			const cpPath = Path.build('cp.txt');
+			const cp = new CopyFileRecipe(srcPath, cpPath);
+			book.add(cp);
+
 			const first = book.build(cpPath);
 			const second = book.build(cpPath);
-			await first;
-			await second;
-			expect(copy.buildCount).to.equal(preBuildCount + 1);
+			await Promise.all([first, second]);
+
+			expect(write.buildCount).to.equal(1);
+			expect(cp.buildCount).to.equal(1);
 		});
 
 		it('does not build a target if a source fails to build', async () => {
-			const preBuildCount = copy.buildCount;
-
-			// make copy fail
-			await rm(book.abs(helloPath));
+			const srcPath = Path.build('src.txt');
+			const write = new WriteFileRecipe(srcPath, 'hello');
 			write.returnFalseOnBuild();
+			book.add(write);
+
+			const cpPath = Path.build('cp.txt');
+			const cp = new CopyFileRecipe(srcPath, cpPath);
+			book.add(cp);
+
 			const result = await book.build(cpPath);
 
-			expect(copy.buildCount).to.equal(preBuildCount);
+			expect(cp.buildCount).to.equal(0);
 			expect(result).to.be.false;
 		});
 
-		it('does not build a target if a static source does not exist', async () => {
-			const badPath = Path.src('bad.txt');
-			const badCopyPath = Path.build('bad-copy.txt');
-			await writeFile(book.abs(badCopyPath), 'stale', 'utf8');
-			const badCopy = new CopyFileRecipe(badPath, badCopyPath);
-			book.add(badCopy);
+		it('does not build a target if a source was deleted', async () => {
+			const srcPath = Path.src('src.txt');
+			const outPath = Path.build('out.txt');
 
-			const result = await book.build(badCopyPath);
+			await writePath(srcPath, 'contents');
 
-			expect(badCopy.buildCount).to.equal(0);
+			const copy = new CopyFileRecipe(srcPath, outPath);
+			book.add(copy);
+
+			let result = await book.build(outPath);
+			expect(result).to.be.true;
+			expect(copy.buildCount).to.equal(1);
+
+			// now delete (hits case where target path does exist prior)
+			await rmPath(srcPath);
+
+			result = await book.build(outPath);
 			expect(result).to.be.false;
+			expect(copy.buildCount).to.equal(1);
 		});
 	});
 

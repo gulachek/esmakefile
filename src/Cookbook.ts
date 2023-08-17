@@ -102,7 +102,14 @@ export class Cookbook {
 			this._recipes.push(info);
 
 			for (const p of info.targets) {
-				this._targets.set(p.rel(), id);
+				const rel = p.rel();
+				if (this._targets.has(rel)) {
+					throw new Error(
+						`Target '${rel}' is already built by another recipe. Cannot add.`,
+					);
+				}
+
+				this._targets.set(rel, id);
 			}
 		} finally {
 			unlock();

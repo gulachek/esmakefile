@@ -182,6 +182,16 @@ describe('Cookbook', () => {
 			).to.throw();
 			await prom;
 		});
+
+		it('throws if a target is already built', async () => {
+			const book = new Cookbook();
+			const path = Path.build('conflict.txt');
+			const write = new WriteFileRecipe(path, 'hello');
+			const copy = new CopyFileRecipe('something.txt', path);
+
+			book.add(write);
+			expect(() => book.add(copy)).to.throw();
+		});
 	});
 
 	describe('buildAsync', () => {

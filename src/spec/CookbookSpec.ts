@@ -24,12 +24,6 @@ import { expect } from 'chai';
 import path, { dirname, resolve } from 'node:path';
 import { existsSync, Stats } from 'node:fs';
 
-async function rmDir(dirAbs: string): Promise<void> {
-	try {
-		await rm(dirAbs, { recursive: true });
-	} catch {}
-}
-
 class TestRecipe {
 	public buildCount: number = 0;
 	private _returnFalseOnBuild: boolean = false;
@@ -157,12 +151,6 @@ class CatFilesRecipe implements IRecipe {
 		await handle.close();
 		return true;
 	}
-}
-
-function mkBook(testCase: string): Cookbook {
-	const srcRoot = path.resolve(__dirname, '..', '..', 'test-cases', testCase);
-
-	return new Cookbook({ srcRoot });
 }
 
 function waitMs(ms: number): Promise<void> {

@@ -241,6 +241,26 @@ describe('Cookbook', () => {
 			expect(result).to.be.true;
 		});
 
+		it('fails if recipe returns false', async () => {
+			const path = Path.build('test.txt');
+			const write = new WriteFileRecipe(path, 'test');
+			write.returnFalseOnBuild();
+			book.add(write);
+
+			const result = await book.build(path);
+			expect(result).to.be.false;
+		});
+
+		it('fails if recipe throws', async () => {
+			const path = Path.build('test.txt');
+			const write = new WriteFileRecipe(path, 'test');
+			write.throwOnBuild(new Error('test'));
+			book.add(write);
+
+			const result = await book.build(path);
+			expect(result).to.be.false;
+		});
+
 		it('builds all targets by default', async () => {
 			const pOne = Path.build('one.txt');
 			const pTwo = Path.build('two.txt');
@@ -447,103 +467,70 @@ describe('Cookbook', () => {
 				expect(cat.buildCount).to.equal(2);
 				expect(await readPath(catPath)).to.equal('A changed\nB\n');
 			});
-		});
-	});
 
-	describe('cat-files2', async () => {
-		let book: Cookbook;
-		const aPath = Path.build('a.txt');
-		const cpPath = Path.build('copy.txt');
-		const catPath = Path.build('index.txt');
-		const outPath = Path.build('output.txt');
-		let writeA: WriteFileRecipe;
-		let copyA: CopyFileRecipe;
-		let writeIndex: WriteFileRecipe;
-		let cat: CatFilesRecipe;
+			it('attempts to build target if static runtime source does not exist', async () => {
+				let result = await book.build(catPath);
+				expect(result).to.be.true;
+				expect(cat.buildCount).to.equal(1);
+				expect(await readPath(catPath)).to.equal('A\nB\n');
 
-		beforeEach(async () => {
-			book = mkBook('cat-files2');
-			writeA = new WriteFileRecipe(aPath, 'original');
-			copyA = new CopyFileRecipe(aPath, cpPath);
-			writeIndex = new WriteFileRecipe(catPath, 'copy.txt');
-			cat = new CatFilesRecipe(catPath, outPath);
-
-			book.add(writeA);
-			book.add(copyA);
-			book.add(writeIndex);
-			book.add(cat);
-			await rmDir(book.buildRoot);
+				await rmPath(aPath);
+				result = await book.build(catPath);
+				expect(result).to.be.false;
+				expect(cat.buildCount).to.equal(2);
+			});
 		});
 
-		it('builds runtime sources that are build paths', async () => {
-			await book.build(cpPath);
-			await book.build(outPath);
-			const preBuildCount = cat.buildCount;
+		/*
+		 * This might initially be perceived as a bug. However, it's unclear
+		 * how this would be a stable build. Seems circular to need to
+		 * build a target to discover a dependency so it should be
+		 * built.  To make the first build successful, build script
+		 * should be designed to know which sources are necessary for
+		 * build. Runtime src is only meant for detecting updates.
+		 *
+		 * Open to a valid use case pointing out how its stable, but
+		 * for now, this seems correct.
+		 */
+		it('does not build runtime sources that are build paths', async () => {
+			const srcPath = Path.src('src.txt');
+			const cpPath = Path.build('copy.txt');
+			const outPath = Path.build('out.txt');
 
-			await writeFile(book.abs(aPath), 'update', 'utf8');
-			const result = await book.build(outPath);
+			await writePath(srcPath, 'src');
+			const copy = new CopyFileRecipe(srcPath, cpPath);
+			let buildCount = 0;
+			book.add(copy);
 
-			expect(cat.buildCount).to.equal(preBuildCount + 1);
-			const contents = await readFile(book.abs(outPath), 'utf8');
-			expect(contents).to.equal('update');
+			expect(await book.build(cpPath)).to.be.true;
+
+			// no a priori depencency on cpPath
+			const adHocRecipe: IRecipe = {
+				targets() {
+					return outPath;
+				},
+				buildAsync: async (args: RecipeBuildArgs) => {
+					++buildCount;
+					await writePath(outPath, 'test');
+					// only after build
+					args.addSrc(book.abs(cpPath));
+					return true;
+				},
+			};
+
+			book.add(adHocRecipe);
+
+			let result = await book.build(outPath);
 			expect(result).to.be.true;
-		});
+			expect(buildCount).to.equal(1);
+			expect(copy.buildCount).to.equal(1);
 
-		it('does not build a target if a runtime source fails to build', async () => {
-			await book.build(cpPath);
-			await book.build(outPath);
-			const preBuildCount = cat.buildCount;
+			// now presumably knows runtime src
 
-			// make copy fail
-			await rm(book.abs(cpPath));
-			copyA.returnFalseOnBuild();
-			const result = await book.build(outPath);
-
-			expect(cat.buildCount).to.equal(preBuildCount);
-			expect(result).to.be.false;
-		});
-
-		it('attempts to build target if static runtime source does not exist', async () => {
-			await book.build(cpPath);
-			await book.build(outPath);
-
-			// TODO - gitignore the test scratch directories
-			const badPath = Path.src('bad.txt');
-			await writeFile(book.abs(badPath), 'delete this', 'utf8');
-			const oldTxt = writeIndex.txt;
-			writeIndex.txt = book.abs(badPath);
-			await rm(book.abs(catPath));
-
-			const result = await book.build(outPath);
-			expect(result).to.be.true;
-			const preBuildCount = cat.buildCount;
-
-			await rm(book.abs(badPath));
-			writeIndex.txt = oldTxt;
-			await rm(book.abs(catPath));
-			const rerunResult = await book.build(outPath);
-			expect(rerunResult).to.be.true;
-			expect(cat.buildCount).to.equal(preBuildCount + 1);
-		});
-
-		it('fails if recipe returns false', async () => {
-			const path = Path.build('test.txt');
-			const write = new WriteFileRecipe(path, 'test');
-			write.returnFalseOnBuild();
-			book.add(write);
-
-			const result = await book.build(path);
-			expect(result).to.be.false;
-		});
-
-		it('fails if recipe throws', async () => {
-			const path = Path.build('test.txt');
-			const write = new WriteFileRecipe(path, 'test');
-			write.throwOnBuild(new Error('test'));
-			book.add(write);
-
-			const result = await book.build(path);
-			expect(result).to.be.false;
+			await writePath(srcPath, 'update');
+			result = await book.build(outPath);
+			expect(buildCount).to.equal(1);
+			expect(copy.buildCount).to.equal(1);
 		});
 	});
 });

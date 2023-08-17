@@ -279,14 +279,6 @@ export class Cookbook {
 		}
 
 		const runtimeSrc = buildResults.runtimeSrc(info.targets[0]);
-		for (const src of runtimeSrc) {
-			if (src.startsWith(this.buildRoot)) {
-				const path = Path.build(src.slice(this.buildRoot.length));
-				const srcId = this._recipe(path);
-				const result = await this._findOrStartBuild(srcId, buildResults);
-				if (!result) return false;
-			}
-		}
 
 		const recipeStatus = needsBuild(
 			info.targets.map((p) => this.abs(p)),

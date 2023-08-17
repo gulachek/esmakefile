@@ -31,6 +31,15 @@ class Build {
 	private _sources = new Map<RecipeID, Set<string>>();
 	private _targets = new Map<string, RecipeID>();
 
+	constructor(recipes?: RecipeInfo[]) {
+		if (recipes) {
+			for (let id = 0; id < recipes.length; ++id) {
+				const { targets, sources } = recipes[id];
+				this.register(id, targets, sources);
+			}
+		}
+	}
+
 	static async readFile(abs: string): Promise<Build | null> {
 		try {
 			const contents = await readFile(abs, 'utf8');
@@ -82,7 +91,11 @@ class Build {
 		this._runtimeSrcMap.set(recipe, srcAbs);
 	}
 
-	register(recipe: RecipeID, targets: IBuildPath[], sources: Path[]): void {
+	private register(
+		recipe: RecipeID,
+		targets: IBuildPath[],
+		sources: Path[],
+	): void {
 		for (const t of targets) {
 			this._targets.set(t.rel(), recipe);
 		}
@@ -223,7 +236,7 @@ export class Cookbook {
 
 		try {
 			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
-			const curBuild = (this._curBuild = new Build());
+			const curBuild = (this._curBuild = new Build(this._recipes));
 
 			const recipes = isRecipeID(recipe) ? [recipe] : this.__topLevelRecipes();
 
@@ -376,7 +389,6 @@ export class Cookbook {
 				);
 			}
 
-			build.register(id, targets, sources);
 			const src = new Set<string>();
 			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
 			let result = false;

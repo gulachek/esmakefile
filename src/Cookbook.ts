@@ -10,7 +10,7 @@ import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
 
 type RecipeInfo = {
-	buildAsync(results: Build): Promise<boolean>;
+	buildAsync(): Promise<boolean>;
 	sources: Path[];
 	targets: IBuildPath[];
 };
@@ -104,14 +104,17 @@ function isRecipeID(id: any): id is RecipeID {
 }
 
 export class Cookbook {
+	readonly buildRoot: string;
+	readonly srcRoot: string;
+
 	private _mutex = new Mutex();
 	private _buildLock: UnlockFunction | null = null;
 	private _recipes: RecipeInfo[] = []; // index is RecipeID
 	private _targets = new Map<string, RecipeID>();
-	readonly buildRoot: string;
-	readonly srcRoot: string;
-	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
+
 	private _prevBuild: Build | null = null;
+	private _curBuild: Build | null = null;
+	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
@@ -219,19 +222,17 @@ export class Cookbook {
 		const recipe = target && this._recipe(target);
 
 		try {
-			const buildResults =
-				this._prevBuild || (await Build.readFile(prevBuildAbs)) || new Build();
+			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
+			const curBuild = (this._curBuild = new Build());
 
-			const recipes = isRecipeID(recipe)
-				? [recipe]
-				: this.__topLevelRecipes(buildResults);
+			const recipes = isRecipeID(recipe) ? [recipe] : this.__topLevelRecipes();
 
 			for (const r of recipes) {
-				result = result && (await this._findOrStartBuild(r, buildResults));
+				result = result && (await this._findOrStartBuild(r));
 			}
 
-			await buildResults.writeFile(prevBuildAbs);
-			this._prevBuild = buildResults;
+			await curBuild.writeFile(prevBuildAbs);
+			this._prevBuild = curBuild;
 		} finally {
 			unlock && unlock();
 		}
@@ -239,16 +240,20 @@ export class Cookbook {
 		return result;
 	}
 
-	private *__topLevelRecipes(buildResults: Build): Generator<RecipeID> {
+	private *__topLevelRecipes(): Generator<RecipeID> {
 		// top level recipes are those that nobody depends on
 		const srcIds = new Set<RecipeID>();
 
 		for (let id = 0; id < this._recipes.length; ++id) {
 			const info = this._recipes[id];
-			const runtimeSrc = buildResults.runtimeSrc(info.targets[0]);
-			for (const src of runtimeSrc) {
-				const srcId = this._recipe(src);
-				if (isRecipeID(srcId)) srcIds.add(srcId);
+
+			const prevBuild = this._prevBuild;
+			if (prevBuild) {
+				const runtimeSrc = prevBuild.runtimeSrc(info.targets[0]);
+				for (const src of runtimeSrc) {
+					const srcId = this._recipe(src);
+					if (isRecipeID(srcId)) srcIds.add(srcId);
+				}
 			}
 
 			const { sources } = info;
@@ -266,10 +271,7 @@ export class Cookbook {
 		}
 	}
 
-	private async _findOrStartBuild(
-		recipe: RecipeID | null,
-		buildResults: Build,
-	): Promise<boolean> {
+	private async _findOrStartBuild(recipe: RecipeID | null): Promise<boolean> {
 		if (!isRecipeID(recipe) || recipe >= this._recipes.length) {
 			throw new Error(`Invalid recipe`);
 		}
@@ -286,7 +288,7 @@ export class Cookbook {
 			let result = false;
 
 			try {
-				result = await this._startBuild(info, recipe, buildResults);
+				result = await this._startBuild(info, recipe);
 				resolve(result);
 			} catch (err) {
 				reject(err);
@@ -301,18 +303,17 @@ export class Cookbook {
 	private async _startBuild(
 		info: RecipeInfo,
 		recipe: RecipeID,
-		buildResults: Build,
 	): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
 			if (src.isBuildPath()) {
 				const srcId = this._recipe(src);
-				const result = await this._findOrStartBuild(srcId, buildResults);
+				const result = await this._findOrStartBuild(srcId);
 				if (!result) return false;
 			}
 		}
 
-		const runtimeSrc = buildResults.runtimeSrc(info.targets[0]);
+		const runtimeSrc = this._prevBuild?.runtimeSrc(info.targets[0]);
 
 		const recipeStatus = needsBuild(
 			info.targets.map((p) => this.abs(p)),
@@ -327,7 +328,7 @@ export class Cookbook {
 			mkdirSync(dirname(target.abs(this.buildRoot)), { recursive: true });
 		}
 
-		return info.buildAsync(buildResults);
+		return info.buildAsync();
 	}
 
 	abs(path: Path): string {
@@ -367,8 +368,15 @@ export class Cookbook {
 			),
 		};
 
-		const buildAsync = async (results: Build) => {
-			results.register(id, targets, sources);
+		const buildAsync = async () => {
+			const build = this._curBuild;
+			if (!build) {
+				throw new Error(
+					`Attempting to build ${targets} without initiating build.`,
+				);
+			}
+
+			build.register(id, targets, sources);
 			const src = new Set<string>();
 			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
 			let result = false;
@@ -377,7 +385,7 @@ export class Cookbook {
 			} catch (ex) {
 				return false;
 			}
-			results.addRuntimeSrc(id, src);
+			build.addRuntimeSrc(id, src);
 			return result;
 		};
 
@@ -394,7 +402,7 @@ enum NeedsBuildValue {
 function needsBuild(
 	targets: string[],
 	sources: string[],
-	runtimeSrc: Set<string>,
+	runtimeSrc: Set<string> | null,
 ): NeedsBuildValue {
 	let oldestTargetMtimeMs = Infinity;
 	for (const t of targets) {
@@ -411,10 +419,12 @@ function needsBuild(
 		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
 	}
 
-	for (const src of runtimeSrc) {
-		const srcStat = statSync(src, { throwIfNoEntry: false });
-		if (!srcStat) return NeedsBuildValue.stale; // need to see if still needed
-		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
+	if (runtimeSrc) {
+		for (const src of runtimeSrc) {
+			const srcStat = statSync(src, { throwIfNoEntry: false });
+			if (!srcStat) return NeedsBuildValue.stale; // need to see if still needed
+			if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
+		}
 	}
 
 	return NeedsBuildValue.upToDate;

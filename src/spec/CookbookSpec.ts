@@ -235,9 +235,38 @@ describe('Cookbook', () => {
 			const write = new WriteFileRecipe(path, 'hello');
 			book.add(write);
 
-			await book.build(path);
+			const result = await book.build(path);
 			const contents = await readPath(path);
 			expect(contents).to.equal('hello');
+			expect(result).to.be.true;
+		});
+
+		it('builds all targets by default', async () => {
+			const pOne = Path.build('one.txt');
+			const pTwo = Path.build('two.txt');
+			const writeOne = new WriteFileRecipe(pOne, 'one');
+			const writeTwo = new WriteFileRecipe(pTwo, 'two');
+			book.add(writeOne);
+			book.add(writeTwo);
+
+			const result = await book.build();
+			expect(result).to.be.true;
+			expect(await readPath(pOne)).to.equal('one');
+			expect(await readPath(pTwo)).to.equal('two');
+		});
+
+		it('does not build all targets when one is specified', async () => {
+			const pOne = Path.build('one.txt');
+			const pTwo = Path.build('two.txt');
+			const writeOne = new WriteFileRecipe(pOne, 'one');
+			const writeTwo = new WriteFileRecipe(pTwo, 'two');
+			book.add(writeOne);
+			book.add(writeTwo);
+
+			const result = await book.build(pOne);
+			expect(result).to.be.true;
+			expect(writeOne.buildCount).to.equal(1);
+			expect(writeTwo.buildCount).to.equal(0);
 		});
 
 		it("builds a target's dependency", async () => {
@@ -358,74 +387,66 @@ describe('Cookbook', () => {
 			expect(result).to.be.false;
 			expect(copy.buildCount).to.equal(1);
 		});
-	});
 
-	describe('cat-files', () => {
-		const book = mkBook('cat-files');
-		const catPath = Path.src('index.txt');
-		const aPath = Path.src('a.txt');
-		const outPath = Path.build('output.txt');
-		const cat: CatFilesRecipe = new CatFilesRecipe(catPath, outPath);
+		describe('with runtime dependencies', () => {
+			const aPath = Path.src('a.txt');
+			const bPath = Path.src('b.txt');
+			const indexPath = Path.src('index.txt');
+			const catPath = Path.build('cat.txt');
+			let cat: CatFilesRecipe;
 
-		beforeEach(async () => {
-			book.add(cat);
-			await rm(book.buildRoot, { recursive: true });
-		});
+			beforeEach(async () => {
+				await writePath(aPath, 'A\n');
+				await writePath(bPath, 'B\n');
+				await writePath(indexPath, 'a.txt\nb.txt\n');
 
-		it('concatenates the files in index.txt', async () => {
-			await book.build(outPath);
-			const contents = await readFile(book.abs(outPath), 'utf8');
-			expect(contents).to.equal('A\nB\nC\n');
-		});
+				cat = new CatFilesRecipe(indexPath, catPath);
+				book.add(cat);
+			});
 
-		it('rebuilds when runtime dependency changes', async () => {
-			await book.build(outPath); // build once
-			const preBuildCount = cat.buildCount;
-			await waitMs(2);
-			const aAbs = book.abs(aPath);
-			const aContents = await readFile(aAbs, 'utf8');
-			await writeFile(aAbs, aContents, 'utf8'); // just to update mtime
-			await book.build(outPath);
-			expect(cat.buildCount).to.equal(preBuildCount + 1);
-		});
+			it('rebuilds when runtime dependency changes', async () => {
+				let result = await book.build(catPath); // build once
+				expect(result).to.be.true;
+				expect(cat.buildCount).to.equal(1);
+				expect(await readPath(catPath)).to.equal('A\nB\n');
 
-		it('skips unnecessary builds across runs', async () => {
-			await book.build(outPath); // build once
-			const preBuildCount = cat.buildCount;
+				await waitMs(2);
+				await writePath(aPath, 'A change\n');
+				result = await book.build(catPath);
 
-			// make a new instance to avoid any state in object
-			const newBook = mkBook('cat-files');
-			newBook.add(cat);
+				expect(result).to.be.true;
+				expect(cat.buildCount).to.equal(2);
+				expect(await readPath(catPath)).to.equal('A change\nB\n');
+			});
 
-			await newBook.build(outPath);
-			expect(cat.buildCount).to.equal(preBuildCount);
-		});
+			it('does not rebuild if runtime dependency does not change', async () => {
+				let result = await book.build(catPath);
+				expect(result).to.be.true;
+				expect(cat.buildCount).to.equal(1);
+				expect(await readPath(catPath)).to.equal('A\nB\n');
 
-		it('detects runtime dependency change across runs', async () => {
-			await book.build(outPath); // build once
-			const preBuildCount = cat.buildCount;
+				result = await book.build(catPath);
+				expect(result).to.be.true;
+				expect(cat.buildCount).to.equal(1);
+			});
 
-			await waitMs(2);
-			const aAbs = book.abs(aPath);
-			const aContents = await readFile(aAbs, 'utf8');
-			await writeFile(aAbs, aContents, 'utf8'); // just to update mtime
+			it('tracks runtime sources across runs', async () => {
+				let result = await book.build(catPath);
+				expect(result).to.be.true;
+				expect(cat.buildCount).to.equal(1);
+				expect(await readPath(catPath)).to.equal('A\nB\n');
 
-			// make a new instance to avoid any state in object
-			const newBook = mkBook('cat-files');
-			newBook.add(cat);
+				// make a new instance to avoid any state in object
+				const { srcRoot, buildRoot } = book;
+				const newBook = new Cookbook({ srcRoot, buildRoot });
+				newBook.add(cat);
 
-			await newBook.build(outPath);
-			expect(cat.buildCount).to.equal(preBuildCount + 1);
-		});
-
-		it('builds all targets by default', async () => {
-			const oneOff = new WriteFileRecipe('one-off.txt', 'One off');
-			book.add(oneOff);
-			const preBuildCount = cat.buildCount;
-			await book.build();
-
-			expect(cat.buildCount).to.equal(preBuildCount + 1);
-			expect(oneOff.buildCount).to.equal(1);
+				await writePath(aPath, 'A changed\n');
+				result = await newBook.build(catPath);
+				expect(result).to.be.true;
+				expect(cat.buildCount).to.equal(2);
+				expect(await readPath(catPath)).to.equal('A changed\nB\n');
+			});
 		});
 	});
 

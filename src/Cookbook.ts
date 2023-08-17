@@ -10,7 +10,7 @@ import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
 
 type RecipeInfo = {
-	buildAsync(results: BuildResults): Promise<boolean>;
+	buildAsync(results: Build): Promise<boolean>;
 	sources: Path[];
 	targets: IBuildPath[];
 };
@@ -20,18 +20,18 @@ export interface ICookbookOpts {
 	srcRoot?: string;
 }
 
-interface IBuildResultsJson {
+interface IBuildJson {
 	runtimeSrc: [string, string[]][];
 }
 
-class BuildResults {
+class Build {
 	private _runtimeSrcMap = new Map<string, Set<string>>();
 
-	static async readFile(abs: string): Promise<BuildResults | null> {
+	static async readFile(abs: string): Promise<Build | null> {
 		try {
 			const contents = await readFile(abs, 'utf8');
-			const json = JSON.parse(contents) as IBuildResultsJson;
-			const results = new BuildResults();
+			const json = JSON.parse(contents) as IBuildJson;
+			const results = new Build();
 			for (const entry of json.runtimeSrc) {
 				const [target, src] = entry;
 				results._runtimeSrcMap.set(target, new Set<string>(src));
@@ -44,7 +44,7 @@ class BuildResults {
 	}
 
 	async writeFile(abs: string): Promise<void> {
-		const json: IBuildResultsJson = {
+		const json: IBuildJson = {
 			runtimeSrc: [],
 		};
 
@@ -82,7 +82,7 @@ export class Cookbook {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
-	private _prevBuild: BuildResults | null = null;
+	private _prevBuild: Build | null = null;
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
@@ -191,9 +191,7 @@ export class Cookbook {
 
 		try {
 			const buildResults =
-				this._prevBuild ||
-				(await BuildResults.readFile(prevBuildAbs)) ||
-				new BuildResults();
+				this._prevBuild || (await Build.readFile(prevBuildAbs)) || new Build();
 
 			const recipes = isRecipeID(recipe)
 				? [recipe]
@@ -212,7 +210,7 @@ export class Cookbook {
 		return result;
 	}
 
-	private *__topLevelRecipes(buildResults: BuildResults): Generator<RecipeID> {
+	private *__topLevelRecipes(buildResults: Build): Generator<RecipeID> {
 		// top level recipes are those that nobody depends on
 		const srcIds = new Set<RecipeID>();
 
@@ -241,7 +239,7 @@ export class Cookbook {
 
 	private async _findOrStartBuild(
 		recipe: RecipeID | null,
-		buildResults: BuildResults,
+		buildResults: Build,
 	): Promise<boolean> {
 		if (!isRecipeID(recipe) || recipe >= this._recipes.length) {
 			throw new Error(`Invalid recipe`);
@@ -274,7 +272,7 @@ export class Cookbook {
 	private async _startBuild(
 		info: RecipeInfo,
 		recipe: RecipeID,
-		buildResults: BuildResults,
+		buildResults: Build,
 	): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
@@ -340,7 +338,7 @@ export class Cookbook {
 			),
 		};
 
-		const buildAsync = async (results: BuildResults) => {
+		const buildAsync = async (results: Build) => {
 			const src = new Set<string>();
 			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
 			let result = false;

@@ -21,20 +21,32 @@ export interface ICookbookOpts {
 }
 
 interface IBuildJson {
-	runtimeSrc: [string, string[]][];
+	targets: [string, RecipeID][];
+	sources: [RecipeID, string[]][];
+	runtimeSrc: [RecipeID, string[]][];
 }
 
 class Build {
-	private _runtimeSrcMap = new Map<string, Set<string>>();
+	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
+	private _sources = new Map<RecipeID, Set<string>>();
+	private _targets = new Map<string, RecipeID>();
 
 	static async readFile(abs: string): Promise<Build | null> {
 		try {
 			const contents = await readFile(abs, 'utf8');
 			const json = JSON.parse(contents) as IBuildJson;
 			const results = new Build();
-			for (const entry of json.runtimeSrc) {
-				const [target, src] = entry;
-				results._runtimeSrcMap.set(target, new Set<string>(src));
+
+			for (const [rel, id] of json.targets) {
+				results._targets.set(rel, id);
+			}
+
+			for (const [recipe, src] of json.runtimeSrc) {
+				results._runtimeSrcMap.set(recipe, new Set<string>(src));
+			}
+
+			for (const [recipe, src] of json.sources) {
+				results._sources.set(recipe, new Set<string>(src));
 			}
 
 			return results;
@@ -46,24 +58,41 @@ class Build {
 	async writeFile(abs: string): Promise<void> {
 		const json: IBuildJson = {
 			runtimeSrc: [],
+			targets: [],
+			sources: [],
 		};
 
-		for (const [target, src] of this._runtimeSrcMap) {
-			json.runtimeSrc.push([target, [...src]]);
+		for (const [recipe, src] of this._runtimeSrcMap) {
+			json.runtimeSrc.push([recipe, [...src]]);
+		}
+
+		for (const [recipe, src] of this._sources) {
+			json.sources.push([recipe, [...src]]);
+		}
+
+		for (const [target, recipe] of this._targets) {
+			json.targets.push([target, recipe]);
 		}
 
 		mkdirSync(dirname(abs), { recursive: true });
 		await writeFile(abs, JSON.stringify(json), 'utf8');
 	}
 
-	addRuntimeSrc(targets: IBuildPath[], srcAbs: Set<string>): void {
+	addRuntimeSrc(recipe: RecipeID, srcAbs: Set<string>): void {
+		this._runtimeSrcMap.set(recipe, srcAbs);
+	}
+
+	register(recipe: RecipeID, targets: IBuildPath[], sources: Path[]): void {
 		for (const t of targets) {
-			this._runtimeSrcMap.set(t.rel(), srcAbs);
+			this._targets.set(t.rel(), recipe);
 		}
+
+		this._sources.set(recipe, new Set(sources.map((p) => p.rel())));
 	}
 
 	runtimeSrc(target: IBuildPath): Set<string> {
-		const src = this._runtimeSrcMap.get(target.rel());
+		const recipe = this._targets.get(target.rel());
+		const src = isRecipeID(recipe) && this._runtimeSrcMap.get(recipe);
 		if (src) return src;
 		return new Set<string>();
 	}
@@ -97,8 +126,8 @@ export class Cookbook {
 		}
 
 		try {
-			const info = this.normalizeRecipe(recipe);
 			const id: RecipeID = this._recipes.length;
+			const info = this.normalizeRecipe(id, recipe);
 			this._recipes.push(info);
 
 			for (const p of info.targets) {
@@ -308,7 +337,7 @@ export class Cookbook {
 		});
 	}
 
-	normalizeRecipe(recipe: IRecipe): RecipeInfo {
+	normalizeRecipe(id: RecipeID, recipe: IRecipe): RecipeInfo {
 		const sources: Path[] = [];
 		const targets: IBuildPath[] = [];
 
@@ -339,6 +368,7 @@ export class Cookbook {
 		};
 
 		const buildAsync = async (results: Build) => {
+			results.register(id, targets, sources);
 			const src = new Set<string>();
 			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
 			let result = false;
@@ -347,7 +377,7 @@ export class Cookbook {
 			} catch (ex) {
 				return false;
 			}
-			results.addRuntimeSrc(targets, src);
+			results.addRuntimeSrc(id, src);
 			return result;
 		};
 

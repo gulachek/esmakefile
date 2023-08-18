@@ -35,10 +35,10 @@ export class Build {
 
 	private _recipes: RecipeInfo[] = [];
 	private _prevBuild: Build | null;
-	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
-	private _sources = new Map<RecipeID, Set<string>>();
+
 	private _targets = new Map<string, RecipeID>();
 	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
+	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
 
 	constructor(opts?: IBuildOpts) {
 		if (opts) {
@@ -50,8 +50,7 @@ export class Build {
 			this._prevBuild = opts.prevBuild;
 
 			for (let id = 0; id < recipes.length; ++id) {
-				const { targets, sources } = recipes[id];
-				this.register(id, targets, sources);
+				this.register(id);
 			}
 		}
 	}
@@ -148,10 +147,6 @@ export class Build {
 				results._runtimeSrcMap.set(recipe, new Set<string>(src));
 			}
 
-			for (const [recipe, src] of json.sources) {
-				results._sources.set(recipe, new Set<string>(src));
-			}
-
 			return results;
 		} catch {
 			return null;
@@ -169,8 +164,9 @@ export class Build {
 			json.runtimeSrc.push([recipe, [...src]]);
 		}
 
-		for (const [recipe, src] of this._sources) {
-			json.sources.push([recipe, [...src]]);
+		for (let id = 0; id < this._recipes.length; ++id) {
+			const rel = this._recipes[id].sources.map((p) => this.abs(p));
+			json.sources.push([id, rel]);
 		}
 
 		for (const [target, recipe] of this._targets) {
@@ -192,16 +188,10 @@ export class Build {
 		return null;
 	}
 
-	private register(
-		recipe: RecipeID,
-		targets: IBuildPath[],
-		sources: Path[],
-	): void {
-		for (const t of targets) {
+	private register(recipe: RecipeID): void {
+		for (const t of this._recipes[recipe].targets) {
 			this._targets.set(t.rel(), recipe);
 		}
-
-		this._sources.set(recipe, new Set(sources.map((p) => p.rel())));
 	}
 
 	runtimeSrc(target: IBuildPath): Set<string> {

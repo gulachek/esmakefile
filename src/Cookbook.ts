@@ -4,8 +4,8 @@ import { Mutex, UnlockFunction } from './Mutex';
 import { IBuildPath, BuildPathLike, Path } from './Path';
 import { Build, RecipeID, RecipeInfo, isRecipeID } from './Build';
 
-import { FSWatcher, mkdirSync, statSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { FSWatcher } from 'node:fs';
+import { resolve } from 'node:path';
 import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
 

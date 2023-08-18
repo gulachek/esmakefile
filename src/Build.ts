@@ -21,13 +21,18 @@ interface IBuildJson {
 	runtimeSrc: [RecipeID, string[]][];
 }
 
+interface IBuildOpts {
+	recipes: RecipeInfo[];
+}
+
 export class Build {
 	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
 	private _sources = new Map<RecipeID, Set<string>>();
 	private _targets = new Map<string, RecipeID>();
 
-	constructor(recipes?: RecipeInfo[]) {
-		if (recipes) {
+	constructor(opts?: IBuildOpts) {
+		if (opts) {
+			const { recipes } = opts;
 			for (let id = 0; id < recipes.length; ++id) {
 				const { targets, sources } = recipes[id];
 				this.register(id, targets, sources);

@@ -126,17 +126,20 @@ export class Cookbook {
 		}
 
 		let result = true;
-		const prevBuildAbs = this.abs(
-			Path.build('__gulpachek__/previous-build.json'),
-		);
-
-		const recipe = target && this._recipe(target);
 
 		try {
-			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
-			const curBuild = (this._curBuild = new Build(this._recipes));
+			const prevBuildAbs = this.abs(
+				Path.build('__gulpachek__/previous-build.json'),
+			);
+
+			const recipe = target && this._recipe(target);
 
 			const recipes = isRecipeID(recipe) ? [recipe] : this.__topLevelRecipes();
+
+			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
+			const curBuild = (this._curBuild = new Build({
+				recipes: this._recipes,
+			}));
 
 			for (const r of recipes) {
 				result = result && (await this._findOrStartBuild(r));

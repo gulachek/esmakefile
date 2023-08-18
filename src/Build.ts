@@ -81,7 +81,7 @@ export class Build {
 			let result = false;
 
 			try {
-				result = await this._startBuild(info, recipe);
+				result = await this._startBuild(info);
 				resolve(result);
 			} catch (err) {
 				reject(err);
@@ -101,10 +101,7 @@ export class Build {
 		}
 	}
 
-	private async _startBuild(
-		info: RecipeInfo,
-		recipe: RecipeID,
-	): Promise<boolean> {
+	private async _startBuild(info: RecipeInfo): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
 			if (src.isBuildPath()) {

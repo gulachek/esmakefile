@@ -218,7 +218,6 @@ describe('Cookbook', () => {
 			const buildRoot = resolve(srcRoot, 'build');
 
 			try {
-				console.log('removing ', srcRoot);
 				await rm(srcRoot, { recursive: true });
 				expect(existsSync(srcRoot)).to.be.false;
 			} catch (_) {}
@@ -229,6 +228,7 @@ describe('Cookbook', () => {
 		});
 
 		it('builds a target', async () => {
+			debugger;
 			const path = Path.build('output.txt');
 			const write = new WriteFileRecipe(path, 'hello');
 			book.add(write);

@@ -25,7 +25,6 @@ export class Cookbook {
 
 	private _prevBuild: Build | null = null;
 	private _curBuild: Build | null = null;
-	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
@@ -139,11 +138,12 @@ export class Cookbook {
 			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
 			const curBuild = (this._curBuild = new Build({
 				recipes: this._recipes,
+				prevBuild: this._prevBuild,
+				buildRoot: this.buildRoot,
+				srcRoot: this.srcRoot,
 			}));
 
-			for (const r of recipes) {
-				result = result && (await this._findOrStartBuild(r));
-			}
+			result = await curBuild.runAll(recipes);
 
 			await curBuild.writeFile(prevBuildAbs);
 			this._prevBuild = curBuild;
@@ -183,66 +183,6 @@ export class Cookbook {
 				yield id;
 			}
 		}
-	}
-
-	private async _findOrStartBuild(recipe: RecipeID | null): Promise<boolean> {
-		if (!isRecipeID(recipe) || recipe >= this._recipes.length) {
-			throw new Error(`Invalid recipe`);
-		}
-
-		const info = this._recipes[recipe];
-
-		const currentBuild = this._buildInProgress.get(recipe);
-		if (currentBuild) {
-			return currentBuild;
-		} else {
-			const { promise, resolve, reject } = makePromise<boolean>();
-			this._buildInProgress.set(recipe, promise);
-
-			let result = false;
-
-			try {
-				result = await this._startBuild(info, recipe);
-				resolve(result);
-			} catch (err) {
-				reject(err);
-			} finally {
-				this._buildInProgress.delete(recipe);
-			}
-
-			return result;
-		}
-	}
-
-	private async _startBuild(
-		info: RecipeInfo,
-		recipe: RecipeID,
-	): Promise<boolean> {
-		// build sources
-		for (const src of info.sources) {
-			if (src.isBuildPath()) {
-				const srcId = this._recipe(src);
-				const result = await this._findOrStartBuild(srcId);
-				if (!result) return false;
-			}
-		}
-
-		const runtimeSrc = this._prevBuild?.runtimeSrc(info.targets[0]);
-
-		const recipeStatus = needsBuild(
-			info.targets.map((p) => this.abs(p)),
-			info.sources.map((p) => this.abs(p)),
-			runtimeSrc,
-		);
-
-		if (recipeStatus === NeedsBuildValue.error) return false;
-		if (recipeStatus === NeedsBuildValue.upToDate) return true;
-
-		for (const target of info.targets) {
-			mkdirSync(dirname(target.abs(this.buildRoot)), { recursive: true });
-		}
-
-		return info.buildAsync();
 	}
 
 	abs(path: Path): string {
@@ -304,58 +244,6 @@ export class Cookbook {
 
 		return { sources, targets, buildAsync };
 	}
-}
-
-enum NeedsBuildValue {
-	stale,
-	error,
-	upToDate,
-}
-
-function needsBuild(
-	targets: string[],
-	sources: string[],
-	runtimeSrc: Set<string> | null,
-): NeedsBuildValue {
-	let oldestTargetMtimeMs = Infinity;
-	for (const t of targets) {
-		const targetStats = statSync(t, { throwIfNoEntry: false });
-		if (!targetStats) return NeedsBuildValue.stale;
-		oldestTargetMtimeMs = Math.min(targetStats.mtimeMs, oldestTargetMtimeMs);
-	}
-
-	for (const src of sources) {
-		const srcStat = statSync(src, { throwIfNoEntry: false });
-		if (!srcStat) {
-			return NeedsBuildValue.error;
-		}
-		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
-	}
-
-	if (runtimeSrc) {
-		for (const src of runtimeSrc) {
-			const srcStat = statSync(src, { throwIfNoEntry: false });
-			if (!srcStat) return NeedsBuildValue.stale; // need to see if still needed
-			if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
-		}
-	}
-
-	return NeedsBuildValue.upToDate;
-}
-
-interface IPromisePieces<T> {
-	promise: Promise<T>;
-	resolve: (val: T) => Promise<T> | void;
-	reject: (err: Error) => void;
-}
-
-function makePromise<T>(): IPromisePieces<T> {
-	let resolve, reject;
-	const promise = new Promise<T>((res, rej) => {
-		resolve = res;
-		reject = rej;
-	});
-	return { resolve, reject, promise };
 }
 
 class SourceWatcher extends EventEmitter {

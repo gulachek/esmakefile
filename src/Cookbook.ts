@@ -24,7 +24,6 @@ export class Cookbook {
 	private _targets = new Map<string, RecipeID>();
 
 	private _prevBuild: Build | null = null;
-	private _curBuild: Build | null = null;
 
 	constructor(opts?: ICookbookOpts) {
 		opts = opts || {};
@@ -136,12 +135,12 @@ export class Cookbook {
 			const recipes = isRecipeID(recipe) ? [recipe] : this.__topLevelRecipes();
 
 			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
-			const curBuild = (this._curBuild = new Build({
+			const curBuild = new Build({
 				recipes: this._recipes,
 				prevBuild: this._prevBuild,
 				buildRoot: this.buildRoot,
 				srcRoot: this.srcRoot,
-			}));
+			});
 
 			result = await curBuild.runAll(recipes);
 
@@ -222,8 +221,7 @@ export class Cookbook {
 			),
 		};
 
-		const buildAsync = async () => {
-			const build = this._curBuild;
+		const buildAsync = async (build: Build) => {
 			if (!build) {
 				throw new Error(
 					`Attempting to build ${targets} without initiating build.`,

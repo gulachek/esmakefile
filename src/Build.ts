@@ -11,7 +11,7 @@ export function isRecipeID(id: any): id is RecipeID {
 }
 
 export type RecipeInfo = {
-	buildAsync(): Promise<boolean>;
+	buildAsync(build: Build): Promise<boolean>;
 	sources: Path[];
 	targets: IBuildPath[];
 };
@@ -130,7 +130,7 @@ export class Build {
 			await mkdir(target.dir().abs(this.buildRoot), { recursive: true });
 		}
 
-		return info.buildAsync();
+		return info.buildAsync(this);
 	}
 
 	static async readFile(abs: string): Promise<Build | null> {

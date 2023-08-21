@@ -1,12 +1,5 @@
 import { Writable } from 'node:stream';
 import { EventEmitter } from 'node:events';
-import { Build } from './Build';
-
-type ErrorCallback = (err: Error | null) => void;
-type Chunk = {
-	chunk: Buffer;
-	encoding: never;
-};
 
 const MAX_LEN = 1000000;
 
@@ -54,3 +47,9 @@ type BuildEventMap = {
 type BuildEvent = keyof BuildEventMap;
 
 type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
+
+type ErrorCallback = (err: Error | null) => void;
+type Chunk = {
+	chunk: Buffer;
+	encoding: never;
+};

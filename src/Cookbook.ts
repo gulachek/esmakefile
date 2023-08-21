@@ -2,7 +2,7 @@ import { IRecipe, RecipeBuildArgs, MappedPaths, SourcePaths } from './Recipe';
 import { mapShape } from './SimpleShape';
 import { Mutex, UnlockFunction } from './Mutex';
 import { IBuildPath, BuildPathLike, Path } from './Path';
-import { Build, RecipeID, RecipeInfo, isRecipeID } from './Build';
+import { Build, RecipeID, RecipeInfo, isRecipeID, IBuild } from './Build';
 
 import { FSWatcher } from 'node:fs';
 import { resolve } from 'node:path';
@@ -31,7 +31,7 @@ export class Cookbook {
 		this.buildRoot = resolve(opts.buildRoot || 'build');
 	}
 
-	add(recipe: IRecipe): void {
+	add(recipe: IRecipe): RecipeID {
 		const unlock = this._mutex.tryLock();
 		if (!unlock) {
 			throw new Error('Cannot add while build is in progress');
@@ -52,6 +52,8 @@ export class Cookbook {
 
 				this._targets.set(rel, id);
 			}
+
+			return id;
 		} finally {
 			unlock();
 		}
@@ -115,9 +117,13 @@ export class Cookbook {
 	/**
 	 * Top level build function. Runs exclusively
 	 * @param target The target to build
+	 * @param cb Callback to be invoked with IBuild observing the current build
 	 * @returns A promise that resolves when the build is done
 	 */
-	async build(target?: IBuildPath): Promise<boolean> {
+	async build(
+		target?: IBuildPath,
+		cb?: (build: IBuild) => void,
+	): Promise<boolean> {
 		let unlock: UnlockFunction | null = null;
 		if (!this._buildLock) {
 			unlock = await this._mutex.lockAsync();
@@ -141,6 +147,8 @@ export class Cookbook {
 				buildRoot: this.buildRoot,
 				srcRoot: this.srcRoot,
 			});
+
+			cb?.(curBuild);
 
 			result = await curBuild.runAll(recipes);
 
@@ -222,14 +230,9 @@ export class Cookbook {
 		};
 
 		const buildAsync = async (build: Build) => {
-			if (!build) {
-				throw new Error(
-					`Attempting to build ${targets} without initiating build.`,
-				);
-			}
-
 			const src = new Set<string>();
-			const buildArgs = new RecipeBuildArgs(mappedPaths, src);
+			const stream = build.createLogStream(id);
+			const buildArgs = new RecipeBuildArgs(mappedPaths, src, stream);
 			let result = false;
 			try {
 				result = await recipe.buildAsync(buildArgs);

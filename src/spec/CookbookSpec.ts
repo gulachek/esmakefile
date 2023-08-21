@@ -7,6 +7,8 @@ import {
 	Path,
 	PathLike,
 	RecipeBuildArgs,
+	IBuild,
+	RecipeID,
 } from '..';
 import {
 	writeFile,
@@ -21,7 +23,7 @@ import {
 
 import { expect } from 'chai';
 
-import path, { dirname, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { existsSync, Stats } from 'node:fs';
 
 class TestRecipe {
@@ -64,6 +66,8 @@ class WriteFileRecipe extends TestRecipe implements IRecipe {
 	}
 
 	override async onBuild(args: RecipeBuildArgs) {
+		args.logStream.write(`Writing ${this.path}`, 'utf8');
+
 		const { targets } = args.paths<WriteFileRecipe>();
 		await writeFile(targets, this.txt, 'utf8');
 		return true;
@@ -228,7 +232,6 @@ describe('Cookbook', () => {
 		});
 
 		it('builds a target', async () => {
-			debugger;
 			const path = Path.build('output.txt');
 			const write = new WriteFileRecipe(path, 'hello');
 			book.add(write);
@@ -529,6 +532,49 @@ describe('Cookbook', () => {
 			result = await book.build(outPath);
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
+		});
+
+		it('notifies caller of start and end time of recipe', async () => {
+			const out = Path.build('out.txt');
+			const write = new WriteFileRecipe(out, 'hello');
+			const id = book.add(write);
+			let startCalled = false;
+			let endCalled = false;
+
+			await book.build(out, (build: IBuild) => {
+				build.on('start-recipe', (rid: RecipeID) => {
+					expect(rid, 'start id').to.equal(id);
+					expect(endCalled, 'end not called b4 start').to.be.false;
+					startCalled = true;
+				});
+
+				build.on('end-recipe', (rid: RecipeID) => {
+					expect(rid, 'end id').to.equal(id);
+					expect(startCalled, 'start called before end').to.be.true;
+					endCalled = true;
+				});
+			});
+
+			expect(endCalled, 'end called').to.be.true;
+		});
+
+		it('notifies caller when recipe logs information', async () => {
+			const out = Path.build('out.txt');
+			const write = new WriteFileRecipe(out, 'hello');
+			const id = book.add(write);
+			let logCalled = false;
+
+			await book.build(out, (build: IBuild) => {
+				build.on('recipe-log', (rid: RecipeID, data: Buffer) => {
+					expect(rid).to.equal(id);
+					expect(data.toString('utf8')).to.match(/^Writing/);
+					debugger;
+					logCalled = true;
+				});
+			});
+
+			debugger;
+			expect(logCalled, 'log called').to.be.true;
 		});
 	});
 });

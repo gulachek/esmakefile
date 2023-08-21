@@ -1,6 +1,7 @@
 import { IBuildPath, Path } from './Path';
 import { SimpleShape, MappedShape } from './SimpleShape';
 import { isAbsolute } from 'node:path';
+import { Writable } from 'node:stream';
 
 export type SourcePaths = SimpleShape<Path>;
 
@@ -23,10 +24,16 @@ export type MappedPaths<T extends IRecipe> = 'sources' extends keyof T
 export class RecipeBuildArgs {
 	private _mappedPaths: MappedPaths<IRecipe>;
 	private _runtimeSrc: Set<string>;
+	readonly logStream: Writable;
 
-	constructor(mappedPaths: MappedPaths<IRecipe>, runtimeSrc: Set<string>) {
+	constructor(
+		mappedPaths: MappedPaths<IRecipe>,
+		runtimeSrc: Set<string>,
+		logStream: Writable,
+	) {
 		this._mappedPaths = mappedPaths;
 		this._runtimeSrc = runtimeSrc;
+		this.logStream = logStream;
 	}
 
 	paths<T extends IRecipe>(): MappedPaths<T> {

@@ -3,6 +3,21 @@ import { IBuildPath, Path, BuildPathLike } from './Path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { statSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { EventEmitter } from 'node:events';
+import { Writable } from 'node:stream';
+import { Vt100Stream } from './Vt100Stream';
+
+/**
+ * Public interface of build introspection
+ */
+export interface IBuild {
+	readonly buildRoot: string;
+	readonly srcRoot: string;
+
+	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
+
+	off<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
+}
 
 export type RecipeID = number;
 
@@ -29,16 +44,18 @@ interface IBuildOpts {
 	srcRoot: string;
 }
 
-export class Build {
+export class Build implements IBuild {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
+	private _event = new EventEmitter();
 	private _recipes: RecipeInfo[] = [];
 	private _prevBuild: Build | null;
 
 	private _targets = new Map<string, RecipeID>();
 	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
 	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
+	private _logs = new Map<RecipeID, Vt100Stream>();
 
 	constructor(opts?: IBuildOpts) {
 		if (opts) {
@@ -55,6 +72,18 @@ export class Build {
 		}
 	}
 
+	on<E extends BuildEvent>(e: E, l: Listener<E>): void {
+		this._event.on(e, l);
+	}
+
+	off<E extends BuildEvent>(e: E, l: Listener<E>): void {
+		this._event.off(e, l);
+	}
+
+	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
+		this._event.emit(e, ...data);
+	}
+
 	async runAll(recipes: Iterable<RecipeID>): Promise<boolean> {
 		for (const r of recipes) {
 			const result = await this._findOrStartBuild(r);
@@ -62,6 +91,15 @@ export class Build {
 		}
 
 		return true;
+	}
+
+	createLogStream(recipe: RecipeID): Writable {
+		const stream = new Vt100Stream();
+		stream.vtOn('data', (buf: Buffer) => {
+			this._emit('recipe-log', recipe, buf);
+		});
+		this._logs.set(recipe, stream);
+		return stream;
 	}
 
 	private async _findOrStartBuild(recipe: RecipeID | null): Promise<boolean> {
@@ -81,7 +119,7 @@ export class Build {
 			let result = false;
 
 			try {
-				result = await this._startBuild(info);
+				result = await this._startBuild(recipe, info);
 				resolve(result);
 			} catch (err) {
 				reject(err);
@@ -101,7 +139,7 @@ export class Build {
 		}
 	}
 
-	private async _startBuild(info: RecipeInfo): Promise<boolean> {
+	private async _startBuild(id: RecipeID, info: RecipeInfo): Promise<boolean> {
 		// build sources
 		for (const src of info.sources) {
 			if (src.isBuildPath()) {
@@ -123,11 +161,13 @@ export class Build {
 		if (recipeStatus === NeedsBuildValue.upToDate) return true;
 
 		for (const target of info.targets) {
-			console.log(target.rel());
 			await mkdir(target.dir().abs(this.buildRoot), { recursive: true });
 		}
 
-		return info.buildAsync(this);
+		this._emit('start-recipe', id);
+		const result = await info.buildAsync(this);
+		this._emit('end-recipe', id);
+		return result;
 	}
 
 	static async readFile(abs: string): Promise<Build | null> {
@@ -250,3 +290,13 @@ function makePromise<T>(): IPromisePieces<T> {
 	});
 	return { resolve, reject, promise };
 }
+
+type BuildEventMap = {
+	'start-recipe': [RecipeID];
+	'end-recipe': [RecipeID];
+	'recipe-log': [RecipeID, Buffer];
+};
+
+type BuildEvent = keyof BuildEventMap;
+
+type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;

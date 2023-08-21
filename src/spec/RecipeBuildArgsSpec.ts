@@ -1,8 +1,10 @@
 import { RecipeBuildArgs } from '..';
 import { expect } from 'chai';
+import { Vt100Stream } from '../Vt100Stream';
 
 function mkArgs(): RecipeBuildArgs {
-	return new RecipeBuildArgs(null, new Set<string>());
+	const stream = new Vt100Stream(); // dummy
+	return new RecipeBuildArgs(null, new Set<string>(), stream);
 }
 describe('RecipeBuildArgs', () => {
 	describe('addSrc', () => {

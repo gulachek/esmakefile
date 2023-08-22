@@ -3,8 +3,8 @@
  * @param obj The object to test
  * @returns true if the object is Iterable
  */
-export function isIterable(obj: any): obj is Iterable<any> {
-	return obj && typeof obj[Symbol.iterator] === 'function';
+export function isIterable(obj: unknown): obj is Iterable<unknown> {
+	return typeof obj === 'object' && Symbol.iterator in obj;
 }
 
 /**

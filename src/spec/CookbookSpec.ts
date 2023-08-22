@@ -26,7 +26,7 @@ import { expect } from 'chai';
 import { dirname, resolve } from 'node:path';
 import { existsSync, Stats } from 'node:fs';
 
-class TestRecipe {
+abstract class TestRecipe {
 	public buildCount: number = 0;
 	private _returnFalseOnBuild: boolean = false;
 	public _throwOnBuild: Error | null = null;
@@ -46,9 +46,7 @@ class TestRecipe {
 		this._throwOnBuild = err;
 	}
 
-	protected onBuild(_args: RecipeBuildArgs): Promise<boolean> {
-		return Promise.resolve(true);
-	}
+	protected abstract onBuild(args: RecipeBuildArgs): Promise<boolean>;
 }
 
 class WriteFileRecipe extends TestRecipe implements IRecipe {
@@ -224,7 +222,9 @@ describe('Cookbook', () => {
 			try {
 				await rm(srcRoot, { recursive: true });
 				expect(existsSync(srcRoot)).to.be.false;
-			} catch (_) {}
+			} catch {
+				// eslint:ignore no-empty
+			}
 
 			await mkdir(srcRoot, { recursive: true });
 
@@ -568,7 +568,6 @@ describe('Cookbook', () => {
 				build.on('recipe-log', (rid: RecipeID, data: Buffer) => {
 					expect(rid).to.equal(id);
 					expect(data.toString('utf8')).to.match(/^Writing/);
-					debugger;
 					logCalled = true;
 				});
 			});

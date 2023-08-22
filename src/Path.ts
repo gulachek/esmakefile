@@ -7,7 +7,7 @@ export enum PathType {
 
 export type PathLike = string | Path;
 
-export function isPathLike(p: any): p is PathLike {
+export function isPathLike(p: unknown): p is PathLike {
 	return typeof p === 'string' || p instanceof Path;
 }
 
@@ -129,7 +129,7 @@ export class Path {
 
 export type BuildPathLike = string | IBuildPath;
 
-export function isBuildPathLike(obj: any): obj is BuildPathLike {
+export function isBuildPathLike(obj: unknown): obj is BuildPathLike {
 	return (
 		typeof obj === 'string' ||
 		(obj instanceof Path && obj.type === PathType.build)

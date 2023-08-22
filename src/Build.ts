@@ -21,7 +21,7 @@ export interface IBuild {
 
 export type RecipeID = number;
 
-export function isRecipeID(id: any): id is RecipeID {
+export function isRecipeID(id: unknown): id is RecipeID {
 	return typeof id === 'number';
 }
 

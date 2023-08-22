@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { Cookbook } from './Cookbook';
 import { Path } from './Path';
 
@@ -6,6 +6,8 @@ interface ICliOptionTypeMap {
 	boolean: boolean;
 	string: string;
 }
+
+type OptionValues = ICliOptionTypeMap[keyof ICliOptionTypeMap];
 
 /**
  * The name of a type that a CLI option value can have
@@ -30,7 +32,7 @@ export interface ICliOptionDescription<
 	type: OptionValueType;
 }
 
-type CliOptionDescriptionOf<T extends CliOptionValueType> = T extends any
+type CliOptionDescriptionOf<T extends CliOptionValueType> = T extends unknown
 	? ICliOptionDescription<T>
 	: never;
 
@@ -135,27 +137,35 @@ function addOptions(
 	}
 }
 
+function options(cmd: Command): Option[] {
+	return (cmd as unknown as { options: Option[] }).options;
+}
+
 function parseOpts(
 	cmd: Command,
 	args: Map<string, ArgLookup>,
 	opts?: CliOptions,
 ): ExtBuildOpts<CliOptions> {
 	const parsedOpts = cmd.opts();
-	const out: any = {};
+	const out: Partial<ExtBuildOpts<CliOptions>> = {};
+
 	if (opts) {
 		out.ext = {};
 	}
 
-	for (const opt of (cmd as any).options) {
+	for (const opt of options(cmd)) {
 		const arg = opt.name();
 		const parsedValue = parsedOpts[opt.attributeName()];
 
+		type OptionHolder = Record<string, OptionValues>;
+
 		const { extKey, buildKey } = args.get(arg);
 		let optGroup: CliOptionGroup = stdOpts;
-		let obj = out;
+		let obj = out as OptionHolder;
 		if (extKey) {
 			optGroup = opts[extKey];
-			obj = out[extKey] = out[extKey] || {};
+			const extHolder = out as Record<string, OptionHolder>;
+			obj = extHolder[extKey] = extHolder[extKey] || {};
 		}
 
 		const cliOpt = optGroup[buildKey];
@@ -168,7 +178,9 @@ function parseOpts(
 				obj[buildKey] = !!parsedValue;
 				break;
 			default:
-				throw new Error(`Unhandled cli option type '${(cliOpt as any).type}'`);
+				throw new Error(
+					`Unhandled cli option type '${(cliOpt as { type: unknown }).type}'`,
+				);
 		}
 	}
 
@@ -180,7 +192,10 @@ export function cli<T extends CliOptions>(
 	fn: ExtBuildFn<ExtBuildOpts<T>>,
 	opts: T,
 ): void;
-export function cli(fn: Function, opts?: CliOptions): void {
+export function cli(
+	fn: StdBuildFn | ExtBuildFn<ExtBuildOpts<CliOptions>>,
+	opts?: CliOptions,
+): void {
 	const program = new Command();
 	const args = new Map<string, ArgLookup>();
 	addOptions(program, stdOpts, args);

@@ -1,32 +1,37 @@
 export type SimpleShape<T> = T | T[] | Record<string, T>;
 
-export type ElemOf<S extends SimpleShape<any>> = S extends SimpleShape<infer T>
+export type ElemOf<S extends SimpleShape<unknown>> = S extends SimpleShape<
+	infer T
+>
 	? T
 	: never;
 
-type MappedRecordType<S extends Record<string, any>, TNew> = {
+type MappedRecordType<S extends Record<string, unknown>, TNew> = {
 	[P in keyof S]: TNew;
 };
 
-export type MappedShape<S extends SimpleShape<any>, TNew> = S extends ElemOf<S>
+export type MappedShape<
+	S extends SimpleShape<unknown>,
+	TNew,
+> = S extends ElemOf<S>
 	? TNew
-	: S extends any[]
+	: S extends unknown[]
 	? TNew[]
-	: S extends Record<string, any>
+	: S extends Record<string, unknown>
 	? MappedRecordType<S, TNew>
 	: never;
 
-function isArray<T>(obj: any): obj is T[] {
+function isArray<T>(obj: unknown): obj is T[] {
 	return Array.isArray(obj);
 }
 
-type TypeGuard<T> = (obj: any) => obj is T;
+type TypeGuard<T> = (obj: unknown) => obj is T;
 
 function* iterateObj<T>(obj: Record<string, T>): Generator<[string, T]> {
 	for (const k in obj) yield [k, obj[k]];
 }
 
-export function* iterateShape<S extends SimpleShape<any>>(
+export function* iterateShape<S extends SimpleShape<unknown>>(
 	shape: S,
 	typeGuard: TypeGuard<ElemOf<S>>,
 ): Generator<ElemOf<S>> {
@@ -43,12 +48,12 @@ export function* iterateShape<S extends SimpleShape<any>>(
 	}
 
 	const recordShape = shape as Record<string, E>;
-	for (const [_, v] of iterateObj(recordShape)) {
-		yield v;
+	for (const entry of iterateObj(recordShape)) {
+		yield entry[1];
 	}
 }
 
-export function mapShape<S extends SimpleShape<any>, TNew>(
+export function mapShape<S extends SimpleShape<unknown>, TNew>(
 	shape: S,
 	typeGuard: TypeGuard<ElemOf<S>>,
 	fn: (elem: ElemOf<S>) => TNew,

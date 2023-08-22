@@ -44,7 +44,7 @@ describe('Path', () => {
 		});
 
 		it('throws when given an invalid type', () => {
-			expect(() => Path.src(false as any)).to.throw();
+			expect(() => Path.src(false as unknown as string)).to.throw();
 		});
 
 		it('normalizes .. as parent directory', () => {
@@ -86,7 +86,7 @@ describe('Path', () => {
 		});
 
 		it('throws when given an invalid type', () => {
-			expect(() => Path.build(false as any)).to.throw();
+			expect(() => Path.build(false as unknown as string)).to.throw();
 		});
 
 		it('normalizes the path', () => {

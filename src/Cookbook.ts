@@ -266,7 +266,7 @@ class SourceWatcher extends EventEmitter {
 		this._watcher.close();
 	}
 
-	private _onChange(type: string, _filename: string): void {
+	private _onChange(type: string): void {
 		if (type === 'rename') {
 			this._queueChange();
 		} else {

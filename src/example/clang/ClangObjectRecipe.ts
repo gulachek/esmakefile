@@ -55,8 +55,9 @@ export class ClangObjectRecipe implements IRecipe {
 		clangArgs.push('-I', join(dirname(sources), 'include'));
 		clangArgs.push('-MJ', cmds);
 
-		console.log(`c++ ${this.src}`);
 		const proc = spawn('c++', clangArgs);
+		proc.stdout.pipe(args.logStream);
+		proc.stderr.pipe(args.logStream);
 		const exitCode = await procClosed(proc);
 		if (exitCode !== 0) return false;
 

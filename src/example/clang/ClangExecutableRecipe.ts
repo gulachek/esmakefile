@@ -44,8 +44,9 @@ export class ClangExecutableRecipe implements IRecipe {
 		const clangArgs = ['-o', targets];
 		clangArgs.push(...sources);
 
-		console.log(`Linking executable ${this.exe}`);
 		const proc = spawn('c++', clangArgs);
+		proc.stdout.pipe(args.logStream);
+		proc.stderr.pipe(args.logStream);
 		const exitCode = await procClosed(proc);
 		if (exitCode !== 0) return false;
 

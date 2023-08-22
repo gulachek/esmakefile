@@ -1,6 +1,7 @@
 import { Command, Option } from 'commander';
 import { Cookbook } from './Cookbook';
 import { Path } from './Path';
+import { Vt100BuildInProgress } from './Vt100BuildInProgress';
 
 interface ICliOptionTypeMap {
 	boolean: boolean;
@@ -217,9 +218,17 @@ export function cli(
 		.command('build', { isDefault: true })
 		.description('Build a specified target')
 		.argument('[target]', 'The target to be built')
-		.action((target?: string) => {
+		.action(async (target?: string) => {
 			const book = makeCookbook();
-			book.build(target && Path.build(target));
+			const targetPath = target && Path.build(target);
+			let display: Vt100BuildInProgress | null = null;
+
+			await book.build(targetPath, (build) => {
+				display = new Vt100BuildInProgress(build);
+				display.start();
+			});
+
+			display.stop();
 		});
 
 	program

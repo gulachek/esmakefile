@@ -14,6 +14,8 @@ export interface IBuild {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
+	nameOf(recipe: RecipeID): string;
+
 	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 
 	off<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
@@ -79,6 +81,10 @@ export class Build implements IBuild {
 
 	off<E extends BuildEvent>(e: E, l: Listener<E>): void {
 		this._event.off(e, l);
+	}
+
+	nameOf(recipe: RecipeID): string {
+		return this._recipes[recipe].name;
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {

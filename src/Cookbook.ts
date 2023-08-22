@@ -243,7 +243,8 @@ export class Cookbook {
 			return result;
 		};
 
-		return { sources, targets, buildAsync };
+		const name = recipeName(recipe, targets);
+		return { sources, targets, buildAsync, name };
 	}
 }
 
@@ -281,4 +282,25 @@ class SourceWatcher extends EventEmitter {
 			}
 		}, this._debounceMs);
 	}
+}
+
+function defaultRecipeName(recipe: IRecipe, targets: IBuildPath[]): string {
+	const ctorName = recipe.constructor.name;
+	const targetNames = targets.map((p) => p.rel()).join(', ');
+	return `${ctorName}{${targetNames}}`;
+}
+
+function recipeName(recipe: IRecipe, targets: IBuildPath[]): string {
+	if (typeof recipe.toString === 'function') {
+		const str = recipe.toString();
+		if (typeof str !== 'string') {
+			const defaultName = defaultRecipeName(recipe, targets);
+			throw new Error(
+				`Recipe '${defaultName}' has a toString() method that returns '${str}' instead of a string.`,
+			);
+		}
+		return str;
+	}
+
+	return defaultRecipeName(recipe, targets);
 }

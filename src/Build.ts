@@ -26,6 +26,7 @@ export function isRecipeID(id: any): id is RecipeID {
 }
 
 export type RecipeInfo = {
+	name: string;
 	buildAsync(build: Build): Promise<boolean>;
 	sources: Path[];
 	targets: IBuildPath[];

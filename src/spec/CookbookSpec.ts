@@ -573,7 +573,6 @@ describe('Cookbook', () => {
 				});
 			});
 
-			debugger;
 			expect(logCalled, 'log called').to.be.true;
 		});
 	});

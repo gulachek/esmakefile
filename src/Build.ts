@@ -139,8 +139,6 @@ export class Build implements IBuild {
 			throw new Error(`Invalid recipe`);
 		}
 
-		const info = this._recipes[recipe];
-
 		const currentBuild = this._buildInProgress.get(recipe);
 		if (currentBuild) {
 			return currentBuild;
@@ -151,7 +149,7 @@ export class Build implements IBuild {
 			let result = false;
 
 			try {
-				result = await this._startBuild(recipe, info);
+				result = await this._startBuild(recipe);
 				resolve(result);
 			} catch (err) {
 				reject(err);
@@ -171,7 +169,9 @@ export class Build implements IBuild {
 		}
 	}
 
-	private async _startBuild(id: RecipeID, info: RecipeInfo): Promise<boolean> {
+	private async _startBuild(id: RecipeID): Promise<boolean> {
+		const info = this._recipes[id];
+
 		// build sources
 		const srcToBuild = [] as RecipeID[];
 		for (const src of info.sources) {

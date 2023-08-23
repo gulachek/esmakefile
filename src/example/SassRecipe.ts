@@ -10,7 +10,7 @@ import {
 
 import { isBuildPathLike } from '../Path.js';
 
-import sass from 'sass';
+import * as sass from 'sass';
 import { writeFile } from 'node:fs/promises';
 
 class ScssRecipe implements IRecipe {
@@ -40,7 +40,7 @@ class ScssRecipe implements IRecipe {
 
 	async buildAsync(args: RecipeBuildArgs) {
 		const { sources, targets } = args.paths<ScssRecipe>();
-		console.log(`sass ${this._srcPath}`);
+		args.logStream.write(`sass ${this._srcPath}`, 'utf8');
 		const result = sass.compile(sources);
 
 		// update dependencies

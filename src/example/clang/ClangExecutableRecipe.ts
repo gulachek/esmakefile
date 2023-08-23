@@ -121,7 +121,7 @@ class CatRecipe implements IRecipe {
 	}
 
 	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
-		console.log(`Generating ${this.out}`);
+		args.logStream.write(`Generating ${this.out}`, 'utf8');
 
 		const { targets, sources } = args.paths<CatRecipe>();
 		const stream = await open(targets, 'w');

@@ -1,13 +1,14 @@
 export {
 	Path,
 	PathLike,
+	PathType,
 	isPathLike,
 	IBuildPath,
 	BuildPathLike,
 	isBuildPathLike,
 	BuildPathGenOpts,
-} from './Path';
-export { cli } from './cli';
-export { Cookbook } from './Cookbook';
-export { IRecipe, RecipeBuildArgs, MappedPaths } from './Recipe';
-export { IBuild, RecipeID } from './Build';
+} from './Path.js';
+export { cli } from './cli.js';
+export { Cookbook } from './Cookbook.js';
+export { IRecipe, RecipeBuildArgs, MappedPaths } from './Recipe.js';
+export { IBuild, RecipeID } from './Build.js';

@@ -8,7 +8,7 @@ import {
 	Path,
 	Cookbook,
 	RecipeBuildArgs,
-} from '../..';
+} from '../../index.js';
 
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';

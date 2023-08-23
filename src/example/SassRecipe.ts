@@ -6,10 +6,12 @@ import {
 	PathLike,
 	RecipeBuildArgs,
 	Cookbook,
-} from '..';
+} from '../index.js';
+
+import { isBuildPathLike } from '../Path.js';
+
 import sass from 'sass';
 import { writeFile } from 'node:fs/promises';
-import { isBuildPathLike } from '../Path';
 
 class ScssRecipe implements IRecipe {
 	_srcPath: Path;

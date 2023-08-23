@@ -1,11 +1,11 @@
-import { IBuildPath, Path, BuildPathLike } from './Path';
+import { IBuildPath, Path, BuildPathLike } from './Path.js';
+import { Vt100Stream } from './Vt100Stream.js';
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { statSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { Writable } from 'node:stream';
-import { Vt100Stream } from './Vt100Stream';
 
 /**
  * Public interface of build introspection

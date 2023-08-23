@@ -4,6 +4,7 @@
 	"description": "Make and gulp inspired build system",
 	"main": "dist/index.js",
 	"types": "types/index.d.ts",
+	"type": "module",
 	"scripts": {
 		"build": "tsc",
 		"test": "nyc mocha",
@@ -17,11 +18,14 @@
 		"async-done": "^2.0.0",
 		"commander": "^9.5.0",
 		"fancy-log": "^2.0.0",
+		"ink": "^4.3.1",
+		"react": "^18.2.0",
 		"semver": "^7.3.7"
 	},
 	"devDependencies": {
 		"@types/chai": "^4.3.5",
 		"@types/mocha": "^10.0.1",
+		"@types/react": "^18.2.21",
 		"@typescript-eslint/eslint-plugin": "^6.4.1",
 		"chai": "^4.3.7",
 		"eslint": "^8.45.0",

@@ -1,9 +1,10 @@
 {
-	"include": ["src/**/*.ts"],
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
 	"compilerOptions": {
 		"target": "es6",
-		"module": "CommonJS",
-		"moduleResolution": "node",
+		"jsx": "react",
+		"module": "es6",
+		"moduleResolution": "node16",
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"outDir": "dist",

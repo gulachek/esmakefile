@@ -1,5 +1,5 @@
-import { IBuildPath, Path } from './Path';
-import { SimpleShape, MappedShape } from './SimpleShape';
+import { IBuildPath, Path } from './Path.js';
+import { SimpleShape, MappedShape } from './SimpleShape.js';
 import { isAbsolute } from 'node:path';
 import { Writable } from 'node:stream';
 

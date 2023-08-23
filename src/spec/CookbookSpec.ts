@@ -9,7 +9,7 @@ import {
 	RecipeBuildArgs,
 	IBuild,
 	RecipeID,
-} from '..';
+} from '../index.js';
 import {
 	writeFile,
 	copyFile,

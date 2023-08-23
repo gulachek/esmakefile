@@ -1,6 +1,6 @@
-import { Path, cli, Cookbook } from '..';
-import { addSass } from './SassRecipe';
-import { addClangExecutable } from './clang/ClangExecutableRecipe';
+import { Path, cli, Cookbook } from '../index.js';
+import { addSass } from './SassRecipe.js';
+import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
 
 cli((book: Cookbook) => {
 	const scssFile = Path.src('src/style.scss');

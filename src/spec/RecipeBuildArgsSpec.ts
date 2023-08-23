@@ -1,10 +1,10 @@
-import { RecipeBuildArgs } from '..';
+import { RecipeBuildArgs } from '../index.js';
+
 import { expect } from 'chai';
-import { Vt100Stream } from '../Vt100Stream';
+import { Writable } from 'node:stream';
 
 function mkArgs(): RecipeBuildArgs {
-	const stream = new Vt100Stream(); // dummy
-	return new RecipeBuildArgs(null, new Set<string>(), stream);
+	return new RecipeBuildArgs(null, new Set<string>(), new Writable());
 }
 describe('RecipeBuildArgs', () => {
 	describe('addSrc', () => {

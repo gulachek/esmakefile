@@ -1,4 +1,14 @@
-import { IBuild, RecipeID } from './Build';
+import { IBuild, RecipeID } from './Build.js';
+import { render, Text } from 'ink';
+import React from 'react';
+
+interface IBuildDisplayProps {
+	color: string;
+}
+
+function BuildDisplay(props: IBuildDisplayProps) {
+	return <Text color={props.color}> Hello ink! </Text>;
+}
 
 export class Vt100BuildInProgress {
 	private _build: IBuild;
@@ -12,7 +22,8 @@ export class Vt100BuildInProgress {
 	start(): void {
 		this._build.on('start-recipe', this.startRecipe.bind(this));
 		this._running = true;
-		setTimeout(() => this.tick(), 5);
+
+		render(<BuildDisplay color="green" />);
 	}
 
 	stop(): void {

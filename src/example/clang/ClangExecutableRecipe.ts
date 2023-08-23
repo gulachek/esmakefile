@@ -6,8 +6,8 @@ import {
 	Cookbook,
 	PathLike,
 	BuildPathLike,
-} from '../..';
-import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe';
+} from '../../index.js';
+import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe.js';
 import { spawn, ChildProcess } from 'node:child_process';
 import { open, readFile } from 'node:fs/promises';
 

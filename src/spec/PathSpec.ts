@@ -1,6 +1,12 @@
-import { isPathLike, Path, isBuildPathLike } from '..';
+import {
+	isPathLike,
+	Path,
+	isBuildPathLike,
+	IBuildPath,
+	PathType,
+} from '../index.js';
+
 import { expect } from 'chai';
-import { IBuildPath, PathType } from '../Path';
 
 describe('isPathLike', () => {
 	it('returns true for strings', () => {

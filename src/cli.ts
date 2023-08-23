@@ -1,7 +1,8 @@
+import { Cookbook } from './Cookbook.js';
+import { Path } from './Path.js';
+import { Vt100BuildInProgress } from './Vt100BuildInProgress.js';
+
 import { Command, Option } from 'commander';
-import { Cookbook } from './Cookbook';
-import { Path } from './Path';
-import { Vt100BuildInProgress } from './Vt100BuildInProgress';
 
 interface ICliOptionTypeMap {
 	boolean: boolean;

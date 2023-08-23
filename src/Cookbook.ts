@@ -1,8 +1,13 @@
-import { IRecipe, RecipeBuildArgs, MappedPaths, SourcePaths } from './Recipe';
-import { mapShape } from './SimpleShape';
-import { Mutex, UnlockFunction } from './Mutex';
-import { IBuildPath, BuildPathLike, Path } from './Path';
-import { Build, RecipeID, RecipeInfo, isRecipeID, IBuild } from './Build';
+import {
+	IRecipe,
+	RecipeBuildArgs,
+	MappedPaths,
+	SourcePaths,
+} from './Recipe.js';
+import { mapShape } from './SimpleShape.js';
+import { Mutex, UnlockFunction } from './Mutex.js';
+import { IBuildPath, BuildPathLike, Path } from './Path.js';
+import { Build, RecipeID, RecipeInfo, isRecipeID, IBuild } from './Build.js';
 
 import { FSWatcher } from 'node:fs';
 import { resolve } from 'node:path';

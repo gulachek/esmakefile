@@ -115,12 +115,14 @@ export class Build implements IBuild {
 	}
 
 	async runAll(recipes: Iterable<RecipeID>): Promise<boolean> {
+		const promises: Promise<boolean>[] = [];
+
 		for (const r of recipes) {
-			const result = await this._findOrStartBuild(r);
-			if (!result) return false;
+			promises.push(this._findOrStartBuild(r));
 		}
 
-		return true;
+		const results = await Promise.all(promises);
+		return results.every((b) => b);
 	}
 
 	createLogStream(recipe: RecipeID): Writable {
@@ -171,13 +173,14 @@ export class Build implements IBuild {
 
 	private async _startBuild(id: RecipeID, info: RecipeInfo): Promise<boolean> {
 		// build sources
+		const srcToBuild = [] as RecipeID[];
 		for (const src of info.sources) {
 			if (src.isBuildPath()) {
-				const srcId = this._recipe(src);
-				const result = await this._findOrStartBuild(srcId);
-				if (!result) return false;
+				srcToBuild.push(this._recipe(src));
 			}
 		}
+
+		if (!(await this.runAll(srcToBuild))) return false;
 
 		const runtimeSrc = this._prevBuild?.runtimeSrc(info.targets[0]);
 

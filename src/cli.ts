@@ -224,12 +224,12 @@ export function cli(
 			const targetPath = target && Path.build(target);
 			let display: Vt100BuildInProgress | null = null;
 
-			await book.build(targetPath, (build) => {
+			const result = await book.build(targetPath, (build) => {
 				display = new Vt100BuildInProgress(build);
 				display.start();
 			});
 
-			display.stop();
+			display.stop(result);
 		});
 
 	program

@@ -15,6 +15,7 @@ export interface IBuild {
 	readonly srcRoot: string;
 
 	nameOf(recipe: RecipeID): string;
+	elapsedMsOf(recipe: RecipeID, now?: number): number;
 
 	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 
@@ -32,6 +33,17 @@ export type RecipeInfo = {
 	buildAsync(build: Build): Promise<boolean>;
 	sources: Path[];
 	targets: IBuildPath[];
+};
+
+type BuildInfo = {
+	/** performance.now() when buildAsync was started */
+	startTime: number;
+
+	/** performance.now() when buildAsync resolved */
+	endTime?: number;
+
+	/** return val of buildAsync */
+	result?: boolean;
 };
 
 interface IBuildJson {
@@ -57,6 +69,7 @@ export class Build implements IBuild {
 
 	private _targets = new Map<string, RecipeID>();
 	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
+	private _info = new Map<RecipeID, BuildInfo>();
 	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
 	private _logs = new Map<RecipeID, Vt100Stream>();
 
@@ -85,6 +98,16 @@ export class Build implements IBuild {
 
 	nameOf(recipe: RecipeID): string {
 		return this._recipes[recipe].name;
+	}
+
+	elapsedMsOf(recipe: RecipeID, now?: number): number {
+		const info = this._info.get(recipe);
+		const { startTime, endTime } = info;
+		if (endTime) {
+			return endTime - startTime;
+		}
+
+		return (now || performance.now()) - startTime;
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
@@ -171,8 +194,18 @@ export class Build implements IBuild {
 			await mkdir(target.dir().abs(this.buildRoot), { recursive: true });
 		}
 
+		const buildInfo: BuildInfo = {
+			startTime: performance.now(),
+		};
+
+		this._info.set(id, buildInfo);
+
 		this._emit('start-recipe', id);
 		const result = await info.buildAsync(this);
+
+		buildInfo.endTime = performance.now();
+		buildInfo.result = result;
+
 		this._emit('end-recipe', id);
 		return result;
 	}

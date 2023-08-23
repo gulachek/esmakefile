@@ -1,42 +1,67 @@
 import { IBuild, RecipeID } from './Build.js';
 import { render, Text, Box } from 'ink';
-import React, { useState, useEffect, useMemo, Fragment } from 'react';
-
-import EventEmitter from 'node:events';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface IBuildDisplayProps {
-	inProgress: InProgressMap;
-	complete: CompleteMap;
-	events: EventEmitter;
+	build: IBuild;
+	result: boolean | null;
 }
 
 function BuildDisplay(props: IBuildDisplayProps) {
-	const { inProgress, complete, events } = props;
-	const tick = useRenderEvent(events);
+	const { build } = props;
+	const render = useRender();
+	const emptySet = new Set<RecipeID>();
+	const [inProgress, setInProgress] = useState(emptySet);
+	const [complete, setComplete] = useState([] as RecipeID[]);
+
+	useEffect(() => {
+		build.on('start-recipe', (id: RecipeID) => {
+			setInProgress((val) => {
+				const newVal = new Set(val);
+				newVal.add(id);
+				return newVal;
+			});
+		});
+
+		build.on('end-recipe', (id: RecipeID) => {
+			setInProgress((val) => {
+				const newVal = new Set(val);
+				newVal.delete(id);
+				return newVal;
+			});
+
+			setComplete((val) => {
+				const newVal = [...val];
+				newVal.push(id);
+				return newVal;
+			});
+		});
+	}, [build, render]);
+
 	useIntervalMs(25, inProgress.size > 0);
 	const now = performance.now();
 
 	return (
 		<Box flexDirection="column">
-			<CompletedBuilds tick={tick} complete={complete} />
-			<InProgressBuilds now={now} inProgress={inProgress} />
+			<CompletedBuilds build={build} complete={complete} />
+			<InProgressBuilds build={build} now={now} inProgress={inProgress} />
 		</Box>
 	);
 }
 
 interface ICompletedBuildsProps {
-	complete: CompleteMap;
-	tick: number;
+	build: IBuild;
+	complete: RecipeID[];
 }
 
 function CompletedBuilds(props: ICompletedBuildsProps) {
-	const { complete } = props;
+	const { complete, build } = props;
 
 	const times = [];
 	const names = [];
-	for (const [id, info] of complete) {
-		const { name, elapsedTimeMs } = info;
-		const elapsedMs = Math.round(elapsedTimeMs);
+	for (const id of complete) {
+		const name = build.nameOf(id);
+		const elapsedMs = Math.round(build.elapsedMsOf(id));
 		const elapsedTime = (
 			<Text key={id} color="cyan">
 				[{elapsedMs}ms]
@@ -61,17 +86,19 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 }
 
 interface IInProgressBuildsProps {
-	inProgress: InProgressMap;
+	build: IBuild;
+	inProgress: Set<RecipeID>;
 	now: number;
 }
 
 function InProgressBuilds(props: IInProgressBuildsProps) {
-	const { now, inProgress } = props;
+	const { inProgress, build, now } = props;
 	const times = [];
 	const names = [];
-	for (const [id, info] of inProgress) {
-		const { name, startTime } = info;
-		const elapsedMs = Math.round(now - startTime);
+
+	for (const id of inProgress) {
+		const name = build.nameOf(id);
+		const elapsedMs = Math.round(build.elapsedMsOf(id, now));
 		const elapsedTime = (
 			<Text key={id} color="cyan">
 				[{elapsedMs}ms]{' '}
@@ -97,53 +124,17 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 
 export class Vt100BuildInProgress {
 	private _build: IBuild;
-	private _events = new EventEmitter();
-	private _recipesInProgress = new Map<RecipeID, InProgressInfo>();
-	private _completeRecipes = new Map<RecipeID, CompleteInfo>();
 
 	constructor(build: IBuild) {
 		this._build = build;
 	}
 
 	start(): void {
-		this._build.on('start-recipe', this.startRecipe.bind(this));
-		this._build.on('end-recipe', this.stopRecipe.bind(this));
-
-		render(
-			<BuildDisplay
-				events={this._events}
-				inProgress={this._recipesInProgress}
-				complete={this._completeRecipes}
-			/>,
-		);
+		render(<BuildDisplay build={this._build} result={null} />);
 	}
 
-	stop(): void {
-		this.render();
-	}
-
-	private startRecipe(id: RecipeID): void {
-		this._recipesInProgress.set(id, {
-			startTime: performance.now(),
-			name: this._build.nameOf(id),
-		});
-
-		this.render();
-	}
-
-	private stopRecipe(id: RecipeID): void {
-		const info = this._recipesInProgress.get(id);
-		this._recipesInProgress.delete(id);
-
-		this._completeRecipes.set(id, {
-			name: info.name,
-			elapsedTimeMs: performance.now() - info.startTime,
-		});
-		this.render();
-	}
-
-	private render(): void {
-		this._events.emit('render');
+	stop(result: boolean): void {
+		render(<BuildDisplay build={this._build} result={result} />);
 	}
 }
 
@@ -160,21 +151,14 @@ type CompleteInfo = {
 	elapsedTimeMs: number;
 };
 
-function useRenderEvent(events: EventEmitter): number {
-	const [tick, setTick] = useState(1);
+function useRender(): () => void {
+	const [_, setTick] = useState(1);
 
-	useEffect(() => {
-		const doUpdate = () => {
-			setTick(tick + 1);
-		};
+	const render = useCallback(() => {
+		setTick((tick) => tick + 1);
+	}, []);
 
-		events.on('render', doUpdate);
-		return () => {
-			events.off('render', doUpdate);
-		};
-	}, [events]);
-
-	return tick;
+	return render;
 }
 
 function useIntervalMs(ms: number, keepGoing: boolean): number {

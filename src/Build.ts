@@ -16,6 +16,7 @@ export interface IBuild {
 
 	nameOf(recipe: RecipeID): string;
 	elapsedMsOf(recipe: RecipeID, now?: number): number;
+	resultOf(recipe: RecipeID): boolean | null;
 
 	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 
@@ -125,6 +126,15 @@ export class Build implements IBuild {
 		} else {
 			return (now || performance.now()) - info.startTime;
 		}
+	}
+
+	resultOf(recipe: RecipeID): boolean | null {
+		const info = this._info.get(recipe);
+		if (info.complete) {
+			return info.result;
+		}
+
+		return null;
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {

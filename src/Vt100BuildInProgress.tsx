@@ -61,6 +61,7 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 
 	const times = [];
 	const names = [];
+	const results = [];
 	for (const id of complete) {
 		const name = build.nameOf(id);
 		const elapsedMs = Math.round(build.elapsedMsOf(id));
@@ -75,14 +76,34 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 				{name}
 			</Text>,
 		);
+
+		const result = build.resultOf(id);
+		if (result) {
+			results.push(
+				<Text key={id} color="greenBright">
+					✔
+				</Text>,
+			);
+		} else {
+			results.push(
+				<Text key={id} color="redBright">
+					✘
+				</Text>,
+			);
+		}
 	}
 
 	return (
 		<Box flexDirection="row" flexWrap="nowrap" gap={1}>
-			<Box flexDirection="column" width={8}>
+			<Box flexDirection="column" flexBasis="fit-content" flexShrink={0}>
 				{times}
 			</Box>
-			<Box flexDirection="column">{names}</Box>
+			<Box flexDirection="column" flexBasis={1} flexShrink={0}>
+				{results}
+			</Box>
+			<Box flexDirection="column" flexGrow={1} flexShrink={1} flexBasis={1}>
+				{names}
+			</Box>
 		</Box>
 	);
 }
@@ -116,10 +137,12 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 
 	return (
 		<Box flexDirection="row" flexWrap="nowrap" gap={1}>
-			<Box flexDirection="column" width={8}>
+			<Box flexDirection="column" flexBasis="fit-content" flexShrink={0}>
 				{times}
 			</Box>
-			<Box flexDirection="column">{names}</Box>
+			<Box flexDirection="column" flexBasis={1} flexGrow={1} flexShrink={1}>
+				{names}
+			</Box>
 		</Box>
 	);
 }

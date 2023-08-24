@@ -17,6 +17,7 @@ export interface IBuild {
 	nameOf(recipe: RecipeID): string;
 	elapsedMsOf(recipe: RecipeID, now?: number): number;
 	resultOf(recipe: RecipeID): boolean | null;
+	contentOfLog(recipe: RecipeID): string | null;
 
 	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 
@@ -135,6 +136,12 @@ export class Build implements IBuild {
 		}
 
 		return null;
+	}
+
+	contentOfLog(recipe: RecipeID): string | null {
+		const stream = this._logs.get(recipe);
+		if (!stream) return null;
+		return stream.contents();
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {

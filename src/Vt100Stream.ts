@@ -27,6 +27,10 @@ export class Vt100Stream extends Writable {
 		callback(null);
 	}
 
+	contents() {
+		return this._chunks.map((b) => b.toString()).join('');
+	}
+
 	vtOn<E extends BuildEvent>(e: E, l: Listener<E>): void {
 		this._events.on(e, l);
 	}

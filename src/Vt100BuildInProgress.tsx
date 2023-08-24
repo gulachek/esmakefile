@@ -1,5 +1,5 @@
 import { IBuild, RecipeID } from './Build.js';
-import { render, Text, Box } from 'ink';
+import { render, Text, Box, Static } from 'ink';
 import React, { useState, useEffect } from 'react';
 
 interface IBuildDisplayProps {
@@ -9,7 +9,7 @@ interface IBuildDisplayProps {
 }
 
 function BuildDisplay(props: IBuildDisplayProps) {
-	const { build, continueBuild } = props;
+	const { build, continueBuild, result } = props;
 	const emptySet = new Set<RecipeID>();
 	const [inProgress, setInProgress] = useState(emptySet);
 	const [complete, setComplete] = useState([] as RecipeID[]);
@@ -45,8 +45,60 @@ function BuildDisplay(props: IBuildDisplayProps) {
 
 	return (
 		<Box flexDirection="column">
+			{result === false && <ErrorMessages build={build} complete={complete} />}
 			<CompletedBuilds build={build} complete={complete} />
-			<InProgressBuilds build={build} now={now} inProgress={inProgress} />
+			{result === null && (
+				<InProgressBuilds build={build} now={now} inProgress={inProgress} />
+			)}
+		</Box>
+	);
+}
+
+interface IErrorMessagesProps {
+	build: IBuild;
+	complete: RecipeID[];
+}
+
+function ErrorMessages(props: IErrorMessagesProps) {
+	const { build, complete } = props;
+	return (
+		<Static items={complete}>
+			{(item) => <ErrorMessage key={item} build={build} id={item} />}
+		</Static>
+	);
+}
+
+interface IErrorMessageProps {
+	build: IBuild;
+	id: RecipeID;
+}
+
+function ErrorMessage(props: IErrorMessageProps) {
+	const { build, id } = props;
+
+	const result = build.resultOf(id);
+	if (result !== false) return null;
+
+	const log = build.contentOfLog(id);
+	if (!log) return null;
+
+	return (
+		<Box flexDirection="column" borderStyle="double" marginBottom={1}>
+			<Box
+				borderStyle="single"
+				borderLeft={false}
+				borderRight={false}
+				borderTop={false}
+				borderBottom={true}
+				justifyContent="center"
+			>
+				<Text color="redBright" wrap="truncate-end">
+					{build.nameOf(id)}
+				</Text>
+			</Box>
+			<Box>
+				<Text> {log} </Text>
+			</Box>
 		</Box>
 	);
 }

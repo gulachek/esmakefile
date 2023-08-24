@@ -51,6 +51,7 @@ export class ClangObjectRecipe implements IRecipe {
 		const { obj, depfile, cmds } = targets;
 
 		const clangArgs = [sources, '-c', '-o', obj];
+		clangArgs.push('-fcolor-diagnostics');
 		clangArgs.push('-MMD', '-MF', depfile);
 		clangArgs.push('-I', join(dirname(sources), 'include'));
 		clangArgs.push('-MJ', cmds);

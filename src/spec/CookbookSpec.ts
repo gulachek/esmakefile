@@ -541,7 +541,7 @@ describe('Cookbook', () => {
 			let startCalled = false;
 			let endCalled = false;
 
-			await book.build(out, (build: IBuild) => {
+			await book.build(out, async (build: IBuild) => {
 				build.on('start-recipe', (rid: RecipeID) => {
 					expect(rid, 'start id').to.equal(id);
 					expect(endCalled, 'end not called b4 start').to.be.false;
@@ -564,7 +564,7 @@ describe('Cookbook', () => {
 			const id = book.add(write);
 			let logCalled = false;
 
-			await book.build(out, (build: IBuild) => {
+			await book.build(out, async (build: IBuild) => {
 				build.on('recipe-log', (rid: RecipeID, data: Buffer) => {
 					expect(rid).to.equal(id);
 					expect(data.toString('utf8')).to.match(/^Writing/);

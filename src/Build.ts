@@ -35,16 +35,34 @@ export type RecipeInfo = {
 	targets: IBuildPath[];
 };
 
-type BuildInfo = {
+type InProgressInfo = {
+	complete: false;
+
+	/** performance.now() when buildAsync was started */
+	startTime: number;
+};
+
+enum CompleteReason {
+	upToDate,
+	missingSrc,
+	built,
+}
+
+type CompleteInfo = {
+	complete: true;
+	completeReason: CompleteReason;
+
 	/** performance.now() when buildAsync was started */
 	startTime: number;
 
 	/** performance.now() when buildAsync resolved */
-	endTime?: number;
+	endTime: number;
 
 	/** return val of buildAsync */
-	result?: boolean;
+	result: boolean;
 };
+
+type RecipeBuildInfo = InProgressInfo | CompleteInfo;
 
 interface IBuildJson {
 	targets: [string, RecipeID][];
@@ -69,7 +87,7 @@ export class Build implements IBuild {
 
 	private _targets = new Map<string, RecipeID>();
 	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
-	private _info = new Map<RecipeID, BuildInfo>();
+	private _info = new Map<RecipeID, RecipeBuildInfo>();
 	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
 	private _logs = new Map<RecipeID, Vt100Stream>();
 
@@ -102,12 +120,11 @@ export class Build implements IBuild {
 
 	elapsedMsOf(recipe: RecipeID, now?: number): number {
 		const info = this._info.get(recipe);
-		const { startTime, endTime } = info;
-		if (endTime) {
-			return endTime - startTime;
+		if (info.complete) {
+			return info.endTime - info.startTime;
+		} else {
+			return (now || performance.now()) - info.startTime;
 		}
-
-		return (now || performance.now()) - startTime;
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
@@ -180,7 +197,17 @@ export class Build implements IBuild {
 			}
 		}
 
-		if (!(await this.runAll(srcToBuild))) return false;
+		if (!(await this.runAll(srcToBuild))) {
+			this._info.set(id, {
+				complete: true,
+				completeReason: CompleteReason.missingSrc,
+				result: false,
+				startTime: -1,
+				endTime: -1,
+			});
+			this._emit('end-recipe', id);
+			return false;
+		}
 
 		const runtimeSrc = this._prevBuild?.runtimeSrc(info.targets[0]);
 
@@ -190,14 +217,36 @@ export class Build implements IBuild {
 			runtimeSrc,
 		);
 
-		if (recipeStatus === NeedsBuildValue.error) return false;
-		if (recipeStatus === NeedsBuildValue.upToDate) return true;
+		if (recipeStatus === NeedsBuildValue.missingSrc) {
+			this._info.set(id, {
+				complete: true,
+				completeReason: CompleteReason.missingSrc,
+				result: false,
+				startTime: -1,
+				endTime: -1,
+			});
+			this._emit('end-recipe', id);
+			return false;
+		}
+
+		if (recipeStatus === NeedsBuildValue.upToDate) {
+			this._info.set(id, {
+				complete: true,
+				completeReason: CompleteReason.upToDate,
+				result: true,
+				startTime: -1,
+				endTime: -1,
+			});
+			this._emit('end-recipe', id);
+			return true;
+		}
 
 		for (const target of info.targets) {
 			await mkdir(target.dir().abs(this.buildRoot), { recursive: true });
 		}
 
-		const buildInfo: BuildInfo = {
+		const buildInfo: RecipeBuildInfo = {
+			complete: false,
 			startTime: performance.now(),
 		};
 
@@ -206,8 +255,15 @@ export class Build implements IBuild {
 		this._emit('start-recipe', id);
 		const result = await info.buildAsync(this);
 
-		buildInfo.endTime = performance.now();
-		buildInfo.result = result;
+		const completeInfo: CompleteInfo = {
+			...buildInfo,
+			complete: true,
+			completeReason: CompleteReason.built,
+			endTime: performance.now(),
+			result,
+		};
+
+		this._info.set(id, completeInfo);
 
 		this._emit('end-recipe', id);
 		return result;
@@ -284,7 +340,7 @@ export class Build implements IBuild {
 
 enum NeedsBuildValue {
 	stale,
-	error,
+	missingSrc,
 	upToDate,
 }
 
@@ -303,7 +359,7 @@ function needsBuild(
 	for (const src of sources) {
 		const srcStat = statSync(src, { throwIfNoEntry: false });
 		if (!srcStat) {
-			return NeedsBuildValue.error;
+			return NeedsBuildValue.missingSrc;
 		}
 		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
 	}

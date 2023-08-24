@@ -127,7 +127,7 @@ export class Cookbook {
 	 */
 	async build(
 		target?: IBuildPath,
-		cb?: (build: IBuild) => void,
+		cb?: (build: IBuild) => Promise<void>,
 	): Promise<boolean> {
 		let unlock: UnlockFunction | null = null;
 		if (!this._buildLock) {
@@ -153,7 +153,7 @@ export class Cookbook {
 				srcRoot: this.srcRoot,
 			});
 
-			cb?.(curBuild);
+			await cb?.(curBuild);
 
 			result = await curBuild.runAll(recipes);
 

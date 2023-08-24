@@ -1,15 +1,15 @@
 import { IBuild, RecipeID } from './Build.js';
 import { render, Text, Box } from 'ink';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface IBuildDisplayProps {
 	build: IBuild;
+	continueBuild?: () => void;
 	result: boolean | null;
 }
 
 function BuildDisplay(props: IBuildDisplayProps) {
-	const { build } = props;
-	const render = useRender();
+	const { build, continueBuild } = props;
 	const emptySet = new Set<RecipeID>();
 	const [inProgress, setInProgress] = useState(emptySet);
 	const [complete, setComplete] = useState([] as RecipeID[]);
@@ -36,7 +36,9 @@ function BuildDisplay(props: IBuildDisplayProps) {
 				return newVal;
 			});
 		});
-	}, [build, render]);
+
+		continueBuild?.();
+	}, [build, continueBuild]);
 
 	useIntervalMs(25, inProgress.size > 0);
 	const now = performance.now();
@@ -129,36 +131,19 @@ export class Vt100BuildInProgress {
 		this._build = build;
 	}
 
-	start(): void {
-		render(<BuildDisplay build={this._build} result={null} />);
+	start(continueBuild: () => void): void {
+		render(
+			<BuildDisplay
+				build={this._build}
+				result={null}
+				continueBuild={continueBuild}
+			/>,
+		);
 	}
 
 	stop(result: boolean): void {
 		render(<BuildDisplay build={this._build} result={result} />);
 	}
-}
-
-type InProgressMap = Map<RecipeID, InProgressInfo>;
-type CompleteMap = Map<RecipeID, CompleteInfo>;
-
-type InProgressInfo = {
-	name: string;
-	startTime: number;
-};
-
-type CompleteInfo = {
-	name: string;
-	elapsedTimeMs: number;
-};
-
-function useRender(): () => void {
-	const [_, setTick] = useState(1);
-
-	const render = useCallback(() => {
-		setTick((tick) => tick + 1);
-	}, []);
-
-	return render;
 }
 
 function useIntervalMs(ms: number, keepGoing: boolean): number {

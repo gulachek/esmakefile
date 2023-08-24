@@ -226,7 +226,7 @@ export function cli(
 
 			const result = await book.build(targetPath, (build) => {
 				display = new Vt100BuildInProgress(build);
-				display.start();
+				return new Promise<void>((res) => display.start(res));
 			});
 
 			display.stop(result);

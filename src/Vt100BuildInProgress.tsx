@@ -98,7 +98,7 @@ function ErrorMessage(props: IErrorMessageProps) {
 				</Text>
 			</Box>
 			<Box>
-				<Text> {err.stack || log} </Text>
+				<Text> {err?.stack || log} </Text>
 			</Box>
 		</Box>
 	);

@@ -79,8 +79,9 @@ function ErrorMessage(props: IErrorMessageProps) {
 	const result = build.resultOf(id);
 	if (result !== false) return null;
 
+	const err = build.thrownExceptionOf(id);
 	const log = build.contentOfLog(id);
-	if (!log) return null;
+	if (!(err || log)) return null;
 
 	return (
 		<Box flexDirection="column" borderStyle="double" marginBottom={1}>
@@ -97,7 +98,7 @@ function ErrorMessage(props: IErrorMessageProps) {
 				</Text>
 			</Box>
 			<Box>
-				<Text> {log} </Text>
+				<Text> {err.stack || log} </Text>
 			</Box>
 		</Box>
 	);

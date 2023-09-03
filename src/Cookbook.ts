@@ -238,13 +238,11 @@ export class Cookbook {
 			const src = new Set<string>();
 			const stream = build.createLogStream(id);
 			const buildArgs = new RecipeBuildArgs(mappedPaths, src, stream);
-			let result = false;
-			try {
-				result = await recipe.buildAsync(buildArgs);
-			} catch (ex) {
-				return false;
-			}
+
+			const result = await recipe.buildAsync(buildArgs);
+
 			build.addRuntimeSrc(id, src);
+
 			return result;
 		};
 

@@ -18,6 +18,7 @@ export interface IBuild {
 	elapsedMsOf(recipe: RecipeID, now?: number): number;
 	resultOf(recipe: RecipeID): boolean | null;
 	contentOfLog(recipe: RecipeID): string | null;
+	thrownExceptionOf(recipe: RecipeID): Error;
 
 	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 
@@ -62,6 +63,9 @@ type CompleteInfo = {
 
 	/** return val of buildAsync */
 	result: boolean;
+
+	/** if buildAsync threw an exception */
+	exception?: Error;
 };
 
 type RecipeBuildInfo = InProgressInfo | CompleteInfo;
@@ -142,6 +146,15 @@ export class Build implements IBuild {
 		const stream = this._logs.get(recipe);
 		if (!stream) return null;
 		return stream.contents();
+	}
+
+	thrownExceptionOf(recipe: number): Error | null {
+		const info = this._info.get(recipe);
+		if (info.complete) {
+			return info.exception || null;
+		}
+
+		return null;
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
@@ -270,20 +283,30 @@ export class Build implements IBuild {
 		this._info.set(id, buildInfo);
 
 		this._emit('start-recipe', id);
-		const result = await info.buildAsync(this);
 
-		const completeInfo: CompleteInfo = {
-			...buildInfo,
-			complete: true,
-			completeReason: CompleteReason.built,
-			endTime: performance.now(),
-			result,
-		};
-
-		this._info.set(id, completeInfo);
-
-		this._emit('end-recipe', id);
-		return result;
+		try {
+			const result = await info.buildAsync(this);
+			this._info.set(id, {
+				...buildInfo,
+				complete: true,
+				completeReason: CompleteReason.built,
+				endTime: performance.now(),
+				result,
+			});
+			return result;
+		} catch (err) {
+			this._info.set(id, {
+				...buildInfo,
+				complete: true,
+				completeReason: CompleteReason.built,
+				endTime: performance.now(),
+				result: false,
+				exception: err,
+			});
+			return false;
+		} finally {
+			this._emit('end-recipe', id);
+		}
 	}
 
 	static async readFile(abs: string): Promise<Build | null> {

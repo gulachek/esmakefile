@@ -8,7 +8,14 @@ import {
 } from './Rule.js';
 import { Mutex, UnlockFunction } from './Mutex.js';
 import { IBuildPath, BuildPathLike, Path } from './Path.js';
-import { Build, RecipeID, RuleInfo, isRecipeID, IBuild } from './Build.js';
+import {
+	Build,
+	RuleID,
+	RuleInfo,
+	TargetInfo,
+	isRuleID,
+	IBuild,
+} from './Build.js';
 
 import { FSWatcher } from 'node:fs';
 import { resolve } from 'node:path';
@@ -27,18 +34,13 @@ function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 	return 'targets' in ruleOrTargets;
 }
 
-type TargetInfo = {
-	rules: Set<RecipeID>;
-	recipeRule: RecipeID | null;
-};
-
 export class Cookbook {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
 	private _mutex = new Mutex();
 	private _buildLock: UnlockFunction | null = null;
-	private _rules: RuleInfo[] = []; // index is RecipeID
+	private _rules: RuleInfo[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
 
 	private _prevBuild: Build | null = null;
@@ -49,14 +51,14 @@ export class Cookbook {
 		this.buildRoot = resolve(opts.buildRoot || 'build');
 	}
 
-	add(rule: IRule): RecipeID;
-	add(targets: Targets, recipe: RecipeFunction): RecipeID;
-	add(targets: Targets, prereqs: Prereqs, recipe?: RecipeFunction): RecipeID;
+	add(rule: IRule): RuleID;
+	add(targets: Targets, recipe: RecipeFunction): RuleID;
+	add(targets: Targets, prereqs: Prereqs, recipe?: RecipeFunction): RuleID;
 	add(
 		ruleOrTargets: IRule | Targets,
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
-	): RecipeID {
+	): RuleID {
 		let rule: IRule;
 		if (recipeFn) {
 			// targets, prereqs, recipe
@@ -101,7 +103,7 @@ export class Cookbook {
 		}
 
 		try {
-			const id: RecipeID = this._rules.length;
+			const id: RuleID = this._rules.length;
 			const info = this.normalizeRecipe(id, rule);
 			const hasRecipe = !!info.recipe;
 			this._rules.push(info);
@@ -118,7 +120,7 @@ export class Cookbook {
 				}
 
 				if (hasRecipe) {
-					if (isRecipeID(targetInfo.recipeRule))
+					if (isRuleID(targetInfo.recipeRule))
 						throw new Error(
 							`Target '${rel}' already has a recipe specified. Cannot add another one.`,
 						);
@@ -183,16 +185,6 @@ export class Cookbook {
 		return closePromise;
 	}
 
-	private _recipe(target: BuildPathLike): RecipeID | null {
-		const rel = typeof target === 'string' ? target : target.rel();
-		const info = this._targets.get(rel);
-		if (!info) return null;
-
-		const { recipeRule } = info;
-		if (isRecipeID(recipeRule)) return recipeRule;
-		return null;
-	}
-
 	/**
 	 * Top level build function. Runs exclusively
 	 * @param target The target to build
@@ -215,13 +207,12 @@ export class Cookbook {
 				Path.build('__gulpachek__/previous-build.json'),
 			);
 
-			const recipe = target && this._recipe(target);
-
-			const recipes = isRecipeID(recipe) ? [recipe] : this.__topLevelRecipes();
+			target = target || this._firstTarget();
 
 			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
 			const curBuild = new Build({
 				rules: this._rules,
+				targets: this._targets,
 				prevBuild: this._prevBuild,
 				buildRoot: this.buildRoot,
 				srcRoot: this.srcRoot,
@@ -229,7 +220,7 @@ export class Cookbook {
 
 			await cb?.(curBuild);
 
-			result = await curBuild.runAll(recipes);
+			result = await curBuild.runAll([target]);
 
 			await curBuild.writeFile(prevBuildAbs);
 			this._prevBuild = curBuild;
@@ -240,35 +231,14 @@ export class Cookbook {
 		return result;
 	}
 
-	private *__topLevelRecipes(): Generator<RecipeID> {
-		// top level recipes are those that nobody depends on
-		const srcIds = new Set<RecipeID>();
-
+	private _firstTarget(): IBuildPath {
 		for (let id = 0; id < this._rules.length; ++id) {
 			const info = this._rules[id];
 
-			const prevBuild = this._prevBuild;
-			if (prevBuild) {
-				const runtimeSrc = prevBuild.runtimeSrc(info.targets[0]);
-				for (const src of runtimeSrc) {
-					const srcId = this._recipe(src);
-					if (isRecipeID(srcId)) srcIds.add(srcId);
-				}
-			}
-
-			const { sources } = info;
-			for (const s of sources) {
-				if (!s.isBuildPath()) continue;
-				const srcId = this._recipe(s);
-				if (isRecipeID(srcId)) srcIds.add(srcId);
-			}
+			for (const t of info.targets) return t;
 		}
 
-		for (let id = 0; id < this._rules.length; ++id) {
-			if (!srcIds.has(id)) {
-				yield id;
-			}
-		}
+		throw new Error('No targets exist in cookbook');
 	}
 
 	abs(path: Path): string {
@@ -278,7 +248,7 @@ export class Cookbook {
 		});
 	}
 
-	normalizeRecipe(id: RecipeID, rule: IRule): RuleInfo {
+	normalizeRecipe(id: RuleID, rule: IRule): RuleInfo {
 		const prereqs = rulePrereqs(rule);
 		const targets = ruleTargets(rule);
 		const innerRecipe = ruleRecipe(rule);
@@ -292,7 +262,7 @@ export class Cookbook {
 
 				const result = await innerRecipe(recipeArgs);
 
-				build.addRuntimeSrc(id, src);
+				build.addPostreq(id, src);
 
 				return result;
 			};

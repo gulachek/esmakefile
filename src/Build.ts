@@ -14,20 +14,20 @@ export interface IBuild {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
-	nameOf(recipe: RecipeID): string;
-	elapsedMsOf(recipe: RecipeID, now?: number): number;
-	resultOf(recipe: RecipeID): boolean | null;
-	contentOfLog(recipe: RecipeID): string | null;
-	thrownExceptionOf(recipe: RecipeID): Error;
+	nameOf(recipe: RuleID): string;
+	elapsedMsOf(recipe: RuleID, now?: number): number;
+	resultOf(recipe: RuleID): boolean | null;
+	contentOfLog(recipe: RuleID): string | null;
+	thrownExceptionOf(recipe: RuleID): Error;
 
 	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 
 	off<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 }
 
-export type RecipeID = number;
+export type RuleID = number;
 
-export function isRecipeID(id: unknown): id is RecipeID {
+export function isRuleID(id: unknown): id is RuleID {
 	return typeof id === 'number';
 }
 
@@ -36,6 +36,11 @@ export type RuleInfo = {
 	recipe: (build: Build) => Promise<boolean> | null;
 	sources: Path[];
 	targets: IBuildPath[];
+};
+
+export type TargetInfo = {
+	rules: Set<RuleID>;
+	recipeRule: RuleID | null;
 };
 
 type InProgressInfo = {
@@ -49,6 +54,7 @@ enum CompleteReason {
 	upToDate,
 	missingSrc,
 	built,
+	noRecipe,
 }
 
 type CompleteInfo = {
@@ -71,13 +77,14 @@ type CompleteInfo = {
 type RecipeBuildInfo = InProgressInfo | CompleteInfo;
 
 interface IBuildJson {
-	targets: [string, RecipeID][];
-	sources: [RecipeID, string[]][];
-	runtimeSrc: [RecipeID, string[]][];
+	targets: [string, number][];
+	prereqs: [number, string[]][];
+	postreqs: [number, string[]][];
 }
 
 interface IBuildOpts {
 	rules: RuleInfo[];
+	targets: Map<string, TargetInfo>;
 	prevBuild: Build | null;
 	buildRoot: string;
 	srcRoot: string;
@@ -91,24 +98,21 @@ export class Build implements IBuild {
 	private _rules: RuleInfo[] = [];
 	private _prevBuild: Build | null;
 
-	private _targets = new Map<string, RecipeID>();
-	private _buildInProgress = new Map<RecipeID, Promise<boolean>>();
-	private _info = new Map<RecipeID, RecipeBuildInfo>();
-	private _runtimeSrcMap = new Map<RecipeID, Set<string>>();
-	private _logs = new Map<RecipeID, Vt100Stream>();
+	private _targets = new Map<string, TargetInfo>();
+	private _buildInProgress = new Map<string, Promise<boolean>>();
+	private _info = new Map<RuleID, RecipeBuildInfo>();
+	private _postreqMap = new Map<RuleID, Set<string>>();
+	private _logs = new Map<RuleID, Vt100Stream>();
 
 	constructor(opts?: IBuildOpts) {
 		if (opts) {
-			const { rules } = opts;
+			const { rules, targets } = opts;
 
 			this.buildRoot = opts.buildRoot;
 			this.srcRoot = opts.srcRoot;
 			this._rules = rules;
 			this._prevBuild = opts.prevBuild;
-
-			for (let id = 0; id < rules.length; ++id) {
-				this.register(id);
-			}
+			this._targets = targets;
 		}
 	}
 
@@ -120,11 +124,11 @@ export class Build implements IBuild {
 		this._event.off(e, l);
 	}
 
-	nameOf(recipe: RecipeID): string {
+	nameOf(recipe: RuleID): string {
 		return this._rules[recipe].name;
 	}
 
-	elapsedMsOf(recipe: RecipeID, now?: number): number {
+	elapsedMsOf(recipe: RuleID, now?: number): number {
 		const info = this._info.get(recipe);
 		if (info.complete) {
 			return info.endTime - info.startTime;
@@ -133,7 +137,7 @@ export class Build implements IBuild {
 		}
 	}
 
-	resultOf(recipe: RecipeID): boolean | null {
+	resultOf(recipe: RuleID): boolean | null {
 		const info = this._info.get(recipe);
 		if (info.complete) {
 			return info.result;
@@ -142,7 +146,7 @@ export class Build implements IBuild {
 		return null;
 	}
 
-	contentOfLog(recipe: RecipeID): string | null {
+	contentOfLog(recipe: RuleID): string | null {
 		const stream = this._logs.get(recipe);
 		if (!stream) return null;
 		return stream.contents();
@@ -161,47 +165,44 @@ export class Build implements IBuild {
 		this._event.emit(e, ...data);
 	}
 
-	async runAll(recipes: Iterable<RecipeID>): Promise<boolean> {
+	async runAll(targets: Iterable<IBuildPath>): Promise<boolean> {
 		const promises: Promise<boolean>[] = [];
 
-		for (const r of recipes) {
-			promises.push(this._findOrStartBuild(r));
+		for (const t of targets) {
+			promises.push(this._findOrStartBuild(t));
 		}
 
 		const results = await Promise.all(promises);
 		return results.every((b) => b);
 	}
 
-	createLogStream(recipe: RecipeID): Writable {
+	createLogStream(rule: RuleID): Writable {
 		const stream = new Vt100Stream();
 		stream.vtOn('data', (buf: Buffer) => {
-			this._emit('recipe-log', recipe, buf);
+			this._emit('recipe-log', rule, buf);
 		});
-		this._logs.set(recipe, stream);
+		this._logs.set(rule, stream);
 		return stream;
 	}
 
-	private async _findOrStartBuild(recipe: RecipeID | null): Promise<boolean> {
-		if (!isRecipeID(recipe) || recipe >= this._rules.length) {
-			throw new Error(`Invalid recipe`);
-		}
-
-		const currentBuild = this._buildInProgress.get(recipe);
+	private async _findOrStartBuild(target: IBuildPath): Promise<boolean> {
+		const rel = target.rel();
+		const currentBuild = this._buildInProgress.get(rel);
 		if (currentBuild) {
 			return currentBuild;
 		} else {
 			const { promise, resolve, reject } = makePromise<boolean>();
-			this._buildInProgress.set(recipe, promise);
+			this._buildInProgress.set(rel, promise);
 
 			let result = false;
 
 			try {
-				result = await this._startBuild(recipe);
+				result = await this._startBuild(target);
 				resolve(result);
 			} catch (err) {
 				reject(err);
 			} finally {
-				this._buildInProgress.delete(recipe);
+				this._buildInProgress.delete(rel);
 			}
 
 			return result;
@@ -216,63 +217,88 @@ export class Build implements IBuild {
 		}
 	}
 
-	private async _startBuild(id: RecipeID): Promise<boolean> {
-		const info = this._rules[id];
+	private async _startBuild(target: IBuildPath): Promise<boolean> {
+		const rel = target.rel();
+		const info = this._targets.get(rel);
 
-		// build sources
-		const srcToBuild = [] as RecipeID[];
-		for (const src of info.sources) {
-			if (src.isBuildPath()) {
-				srcToBuild.push(this._recipe(src));
+		const { recipeRule, rules } = info;
+		if (!isRuleID(recipeRule)) {
+			throw new Error('_startBuild no rule: Not implemented');
+			/*
+			this._info.set(0, {
+				complete: true,
+				completeReason: CompleteReason.noRecipe,
+				result: false,
+				startTime: -1,
+				endTime: -1,
+			});
+			this._emit('end-recipe', 0);
+			return false;
+		 */
+		}
+
+		const srcToBuild: IBuildPath[] = [];
+		const allSrc: Path[] = [];
+
+		for (const ruleId of rules) {
+			const ruleInfo = this._rules[ruleId];
+
+			// build sources
+			for (const src of ruleInfo.sources) {
+				allSrc.push(src);
+				if (src.isBuildPath()) {
+					srcToBuild.push(src);
+				}
 			}
 		}
 
 		if (!(await this.runAll(srcToBuild))) {
-			this._info.set(id, {
+			this._info.set(recipeRule, {
 				complete: true,
 				completeReason: CompleteReason.missingSrc,
 				result: false,
 				startTime: -1,
 				endTime: -1,
 			});
-			this._emit('end-recipe', id);
+			this._emit('end-recipe', recipeRule);
 			return false;
 		}
 
-		const runtimeSrc = this._prevBuild?.runtimeSrc(info.targets[0]);
+		const postreqs = this._prevBuild?.postreqs(target);
 
-		const recipeStatus = needsBuild(
-			info.targets.map((p) => this.abs(p)),
-			info.sources.map((p) => this.abs(p)),
-			runtimeSrc,
+		const targetStatus = needsBuild(
+			[this.abs(target)],
+			allSrc.map((p) => this.abs(p)),
+			postreqs,
 		);
 
-		if (recipeStatus === NeedsBuildValue.missingSrc) {
-			this._info.set(id, {
+		if (targetStatus === NeedsBuildValue.missingSrc) {
+			this._info.set(recipeRule, {
 				complete: true,
 				completeReason: CompleteReason.missingSrc,
 				result: false,
 				startTime: -1,
 				endTime: -1,
 			});
-			this._emit('end-recipe', id);
+			this._emit('end-recipe', recipeRule);
 			return false;
 		}
 
-		if (recipeStatus === NeedsBuildValue.upToDate) {
-			this._info.set(id, {
+		if (targetStatus === NeedsBuildValue.upToDate) {
+			this._info.set(recipeRule, {
 				complete: true,
 				completeReason: CompleteReason.upToDate,
 				result: true,
 				startTime: -1,
 				endTime: -1,
 			});
-			this._emit('end-recipe', id);
+			this._emit('end-recipe', recipeRule);
 			return true;
 		}
 
-		for (const target of info.targets) {
-			await mkdir(target.dir().abs(this.buildRoot), { recursive: true });
+		const recipeInfo = this._rules[recipeRule];
+		for (const peer of recipeInfo.targets) {
+			await mkdir(peer.dir().abs(this.buildRoot), { recursive: true });
 		}
 
 		const buildInfo: RecipeBuildInfo = {
@@ -280,13 +306,13 @@ export class Build implements IBuild {
 			startTime: performance.now(),
 		};
 
-		this._info.set(id, buildInfo);
+		this._info.set(recipeRule, buildInfo);
 
-		this._emit('start-recipe', id);
+		this._emit('start-recipe', recipeRule);
 
 		try {
-			const result = await info.recipe(this);
-			this._info.set(id, {
+			const result = await recipeInfo.recipe(this);
+			this._info.set(recipeRule, {
 				...buildInfo,
 				complete: true,
 				completeReason: CompleteReason.built,
@@ -295,7 +321,7 @@ export class Build implements IBuild {
 			});
 			return result;
 		} catch (err) {
-			this._info.set(id, {
+			this._info.set(recipeRule, {
 				...buildInfo,
 				complete: true,
 				completeReason: CompleteReason.built,
@@ -305,7 +331,7 @@ export class Build implements IBuild {
 			});
 			return false;
 		} finally {
-			this._emit('end-recipe', id);
+			this._emit('end-recipe', recipeRule);
 		}
 	}
 
@@ -316,11 +342,14 @@ export class Build implements IBuild {
 			const results = new Build();
 
 			for (const [rel, id] of json.targets) {
-				results._targets.set(rel, id);
+				results._targets.set(rel, {
+					rules: new Set<RuleID>([id]),
+					recipeRule: id,
+				});
 			}
 
-			for (const [recipe, src] of json.runtimeSrc) {
-				results._runtimeSrcMap.set(recipe, new Set<string>(src));
+			for (const [id, postreqs] of json.postreqs) {
+				results._postreqMap.set(id, new Set<string>(postreqs));
 			}
 
 			return results;
@@ -331,50 +360,41 @@ export class Build implements IBuild {
 
 	async writeFile(abs: string): Promise<void> {
 		const json: IBuildJson = {
-			runtimeSrc: [],
 			targets: [],
-			sources: [],
+			prereqs: [],
+			postreqs: [],
 		};
 
-		for (const [recipe, src] of this._runtimeSrcMap) {
-			json.runtimeSrc.push([recipe, [...src]]);
+		for (const [id, src] of this._postreqMap) {
+			json.postreqs.push([id, [...src]]);
 		}
 
 		for (let id = 0; id < this._rules.length; ++id) {
 			const rel = this._rules[id].sources.map((p) => this.abs(p));
-			json.sources.push([id, rel]);
+			json.prereqs.push([id, rel]);
 		}
 
-		for (const [target, recipe] of this._targets) {
-			json.targets.push([target, recipe]);
+		for (const [target, info] of this._targets) {
+			if (isRuleID(info.recipeRule)) {
+				json.targets.push([target, info.recipeRule]);
+			}
 		}
 
 		await mkdir(dirname(abs), { recursive: true });
 		await writeFile(abs, JSON.stringify(json), 'utf8');
 	}
 
-	addRuntimeSrc(recipe: RecipeID, srcAbs: Set<string>): void {
-		this._runtimeSrcMap.set(recipe, srcAbs);
+	addPostreq(recipe: RuleID, srcAbs: Set<string>): void {
+		this._postreqMap.set(recipe, srcAbs);
 	}
 
-	private _recipe(target: BuildPathLike): RecipeID | null {
-		const rel = typeof target === 'string' ? target : target.rel();
-		const recipe = this._targets.get(rel);
-		if (isRecipeID(recipe)) return recipe;
-		return null;
-	}
+	postreqs(target: IBuildPath): Set<string> {
+		const info = this._targets.get(target.rel());
+		if (!info) return new Set<string>();
 
-	private register(recipe: RecipeID): void {
-		for (const t of this._rules[recipe].targets) {
-			this._targets.set(t.rel(), recipe);
-		}
-	}
-
-	runtimeSrc(target: IBuildPath): Set<string> {
-		const recipe = this._targets.get(target.rel());
-		const src = isRecipeID(recipe) && this._runtimeSrcMap.get(recipe);
-		if (src) return src;
-		return new Set<string>();
+		const { recipeRule } = info;
+		const src = isRuleID(recipeRule) && this._postreqMap.get(recipeRule);
+		return src || new Set<string>();
 	}
 }
 
@@ -387,7 +407,7 @@ enum NeedsBuildValue {
 function needsBuild(
 	targets: string[],
 	sources: string[],
-	runtimeSrc: Set<string> | null,
+	postreqs: Set<string> | null,
 ): NeedsBuildValue {
 	let oldestTargetMtimeMs = Infinity;
 	for (const t of targets) {
@@ -404,8 +424,8 @@ function needsBuild(
 		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
 	}
 
-	if (runtimeSrc) {
-		for (const src of runtimeSrc) {
+	if (postreqs) {
+		for (const src of postreqs) {
 			const srcStat = statSync(src, { throwIfNoEntry: false });
 			if (!srcStat) return NeedsBuildValue.stale; // need to see if still needed
 			if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
@@ -431,9 +451,9 @@ function makePromise<T>(): IPromisePieces<T> {
 }
 
 type BuildEventMap = {
-	'start-recipe': [RecipeID];
-	'end-recipe': [RecipeID];
-	'recipe-log': [RecipeID, Buffer];
+	'start-recipe': [RuleID];
+	'end-recipe': [RuleID];
+	'recipe-log': [RuleID, Buffer];
 };
 
 type BuildEvent = keyof BuildEventMap;

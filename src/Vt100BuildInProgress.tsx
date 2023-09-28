@@ -1,4 +1,4 @@
-import { IBuild, RecipeID } from './Build.js';
+import { IBuild, RuleID } from './Build.js';
 import { render, Text, Box, Static } from 'ink';
 import React, { useState, useEffect } from 'react';
 
@@ -10,12 +10,12 @@ interface IBuildDisplayProps {
 
 function BuildDisplay(props: IBuildDisplayProps) {
 	const { build, continueBuild, result } = props;
-	const emptySet = new Set<RecipeID>();
+	const emptySet = new Set<RuleID>();
 	const [inProgress, setInProgress] = useState(emptySet);
-	const [complete, setComplete] = useState([] as RecipeID[]);
+	const [complete, setComplete] = useState([] as RuleID[]);
 
 	useEffect(() => {
-		build.on('start-recipe', (id: RecipeID) => {
+		build.on('start-recipe', (id: RuleID) => {
 			setInProgress((val) => {
 				const newVal = new Set(val);
 				newVal.add(id);
@@ -23,7 +23,7 @@ function BuildDisplay(props: IBuildDisplayProps) {
 			});
 		});
 
-		build.on('end-recipe', (id: RecipeID) => {
+		build.on('end-recipe', (id: RuleID) => {
 			setInProgress((val) => {
 				const newVal = new Set(val);
 				newVal.delete(id);
@@ -56,7 +56,7 @@ function BuildDisplay(props: IBuildDisplayProps) {
 
 interface IErrorMessagesProps {
 	build: IBuild;
-	complete: RecipeID[];
+	complete: RuleID[];
 }
 
 function ErrorMessages(props: IErrorMessagesProps) {
@@ -70,7 +70,7 @@ function ErrorMessages(props: IErrorMessagesProps) {
 
 interface IErrorMessageProps {
 	build: IBuild;
-	id: RecipeID;
+	id: RuleID;
 }
 
 function ErrorMessage(props: IErrorMessageProps) {
@@ -106,7 +106,7 @@ function ErrorMessage(props: IErrorMessageProps) {
 
 interface ICompletedBuildsProps {
 	build: IBuild;
-	complete: RecipeID[];
+	complete: RuleID[];
 }
 
 function CompletedBuilds(props: ICompletedBuildsProps) {
@@ -163,7 +163,7 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 
 interface IInProgressBuildsProps {
 	build: IBuild;
-	inProgress: Set<RecipeID>;
+	inProgress: Set<RuleID>;
 	now: number;
 }
 

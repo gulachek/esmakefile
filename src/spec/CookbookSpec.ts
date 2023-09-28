@@ -8,7 +8,7 @@ import {
 	PathLike,
 	RecipeArgs,
 	IBuild,
-	RecipeID,
+	RuleID,
 } from '../index.js';
 import {
 	writeFile,
@@ -273,7 +273,7 @@ describe('Cookbook', () => {
 			expect(result).to.be.false;
 		});
 
-		it('builds all targets by default', async () => {
+		it('builds first target by default', async () => {
 			const pOne = Path.build('one.txt');
 			const pTwo = Path.build('two.txt');
 			const writeOne = new WriteFileRule(pOne, 'one');
@@ -283,8 +283,8 @@ describe('Cookbook', () => {
 
 			const result = await book.build();
 			expect(result).to.be.true;
-			expect(await readPath(pOne)).to.equal('one');
-			expect(await readPath(pTwo)).to.equal('two');
+			expect(writeOne.buildCount).to.equal(1);
+			expect(writeTwo.buildCount).to.equal(0);
 		});
 
 		it('does not build all targets when one is specified', async () => {
@@ -301,7 +301,7 @@ describe('Cookbook', () => {
 			expect(writeTwo.buildCount).to.equal(0);
 		});
 
-		it("builds a target's dependency", async () => {
+		it("builds a target's prereq", async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
 			book.add(write);
@@ -364,6 +364,28 @@ describe('Cookbook', () => {
 			expect(cp.buildCount).to.equal(2);
 			const contents = await readPath(cpPath);
 			expect(contents).to.equal('update');
+		});
+
+		it('rebuilds target if older than prereqs in non-recipe rules', async () => {
+			const srcPath = Path.src('src.txt');
+			const otherPath = Path.src('other.txt');
+			await writePath(srcPath, 'hello');
+			await writePath(otherPath, 'other');
+
+			const cpPath = Path.build('cp.txt');
+			const cp = new CopyFileRule(srcPath, cpPath);
+			book.add(cp);
+			book.add(cpPath, otherPath);
+
+			await book.build(cpPath);
+
+			await writePath(otherPath, 'update');
+
+			await book.build(cpPath);
+
+			expect(cp.buildCount).to.equal(2);
+			const contents = await readPath(cpPath);
+			expect(contents).to.equal('hello');
 		});
 
 		it('y0b0: you only build once. calling build while building results in one build', async () => {
@@ -553,13 +575,13 @@ describe('Cookbook', () => {
 			let endCalled = false;
 
 			await book.build(out, async (build: IBuild) => {
-				build.on('start-recipe', (rid: RecipeID) => {
+				build.on('start-recipe', (rid: RuleID) => {
 					expect(rid, 'start id').to.equal(id);
 					expect(endCalled, 'end not called b4 start').to.be.false;
 					startCalled = true;
 				});
 
-				build.on('end-recipe', (rid: RecipeID) => {
+				build.on('end-recipe', (rid: RuleID) => {
 					expect(rid, 'end id').to.equal(id);
 					expect(startCalled, 'start called before end').to.be.true;
 					endCalled = true;
@@ -576,7 +598,7 @@ describe('Cookbook', () => {
 			let logCalled = false;
 
 			await book.build(out, async (build: IBuild) => {
-				build.on('recipe-log', (rid: RecipeID, data: Buffer) => {
+				build.on('recipe-log', (rid: RuleID, data: Buffer) => {
 					expect(rid).to.equal(id);
 					expect(data.toString('utf8')).to.match(/^Writing/);
 					logCalled = true;

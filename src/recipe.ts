@@ -2,6 +2,7 @@ import { IBuildPath, Path } from './Path.js';
 import { SimpleShape, MappedShape } from './SimpleShape.js';
 import { isAbsolute } from 'node:path';
 import { Writable } from 'node:stream';
+import { spawn } from 'node:child_process';
 
 export type SourcePaths = SimpleShape<Path>;
 
@@ -47,6 +48,19 @@ export class RecipeBuildArgs {
 			);
 
 		this._runtimeSrc.add(abs);
+	}
+
+	async spawn(cmd: string, cmdArgs: string[]): Promise<boolean> {
+		const proc = spawn(cmd, cmdArgs, { stdio: 'pipe' });
+
+		proc.stdout.pipe(this.logStream);
+		proc.stderr.pipe(this.logStream);
+
+		return new Promise<boolean>((res) => {
+			proc.on('close', (code) => {
+				res(code === 0);
+			});
+		});
 	}
 }
 

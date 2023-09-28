@@ -187,7 +187,7 @@ describe('Cookbook', () => {
 			await prom;
 		});
 
-		it('throws if a target is already built', async () => {
+		it('throws if two recipes are given for a target', async () => {
 			const book = new Cookbook();
 			const path = Path.build('conflict.txt');
 			const write = new WriteFileRule(path, 'hello');
@@ -195,6 +195,15 @@ describe('Cookbook', () => {
 
 			book.add(write);
 			expect(() => book.add(copy)).to.throw();
+		});
+
+		it('can add multiple rules for the same target', async () => {
+			const book = new Cookbook();
+			const target = Path.build('target.txt');
+			const anotherDep = Path.src('dep.txt');
+			const write = new WriteFileRule(target, 'hello');
+			book.add(write);
+			expect(() => book.add(target, anotherDep)).not.to.throw();
 		});
 	});
 

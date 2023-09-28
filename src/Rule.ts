@@ -9,19 +9,19 @@ import { spawn } from 'node:child_process';
  */
 export interface IRule {
 	/**
-	 * Files that the rule needs to build recipe
-	 */
-	prereqs?(): Path | Path[];
-
-	/**
 	 * Target files that are outputs of the rule's build
 	 */
 	targets(): IBuildPath | IBuildPath[];
 
 	/**
+	 * Files that the rule needs to build recipe
+	 */
+	prereqs?(): Path | Path[];
+
+	/**
 	 * Generate targets from sources
 	 */
-	recipe(args: RecipeArgs): Promise<boolean>;
+	recipe?(args: RecipeArgs): Promise<boolean>;
 }
 
 export class RecipeArgs {
@@ -78,6 +78,13 @@ export function rulePrereqs(rule: IRule): Path[] {
 
 export function ruleTargets(rule: IRule): IBuildPath[] {
 	return normalize(rule.targets());
+}
+
+export type RecipeFunction = (args: RecipeArgs) => Promise<boolean>;
+
+export function ruleRecipe(rule: IRule): RecipeFunction | null {
+	if (rule.recipe) return rule.recipe.bind(rule);
+	return null;
 }
 
 type OneOrMany<T> = T | T[];

@@ -31,9 +31,9 @@ export function isRecipeID(id: unknown): id is RecipeID {
 	return typeof id === 'number';
 }
 
-export type RecipeInfo = {
+export type RuleInfo = {
 	name: string;
-	recipe(build: Build): Promise<boolean>;
+	recipe: (build: Build) => Promise<boolean> | null;
 	sources: Path[];
 	targets: IBuildPath[];
 };
@@ -77,7 +77,7 @@ interface IBuildJson {
 }
 
 interface IBuildOpts {
-	recipes: RecipeInfo[];
+	rules: RuleInfo[];
 	prevBuild: Build | null;
 	buildRoot: string;
 	srcRoot: string;
@@ -88,7 +88,7 @@ export class Build implements IBuild {
 	readonly srcRoot: string;
 
 	private _event = new EventEmitter();
-	private _recipes: RecipeInfo[] = [];
+	private _rules: RuleInfo[] = [];
 	private _prevBuild: Build | null;
 
 	private _targets = new Map<string, RecipeID>();
@@ -99,14 +99,14 @@ export class Build implements IBuild {
 
 	constructor(opts?: IBuildOpts) {
 		if (opts) {
-			const { recipes } = opts;
+			const { rules } = opts;
 
 			this.buildRoot = opts.buildRoot;
 			this.srcRoot = opts.srcRoot;
-			this._recipes = recipes;
+			this._rules = rules;
 			this._prevBuild = opts.prevBuild;
 
-			for (let id = 0; id < recipes.length; ++id) {
+			for (let id = 0; id < rules.length; ++id) {
 				this.register(id);
 			}
 		}
@@ -121,7 +121,7 @@ export class Build implements IBuild {
 	}
 
 	nameOf(recipe: RecipeID): string {
-		return this._recipes[recipe].name;
+		return this._rules[recipe].name;
 	}
 
 	elapsedMsOf(recipe: RecipeID, now?: number): number {
@@ -182,7 +182,7 @@ export class Build implements IBuild {
 	}
 
 	private async _findOrStartBuild(recipe: RecipeID | null): Promise<boolean> {
-		if (!isRecipeID(recipe) || recipe >= this._recipes.length) {
+		if (!isRecipeID(recipe) || recipe >= this._rules.length) {
 			throw new Error(`Invalid recipe`);
 		}
 
@@ -217,7 +217,7 @@ export class Build implements IBuild {
 	}
 
 	private async _startBuild(id: RecipeID): Promise<boolean> {
-		const info = this._recipes[id];
+		const info = this._rules[id];
 
 		// build sources
 		const srcToBuild = [] as RecipeID[];
@@ -340,8 +340,8 @@ export class Build implements IBuild {
 			json.runtimeSrc.push([recipe, [...src]]);
 		}
 
-		for (let id = 0; id < this._recipes.length; ++id) {
-			const rel = this._recipes[id].sources.map((p) => this.abs(p));
+		for (let id = 0; id < this._rules.length; ++id) {
+			const rel = this._rules[id].sources.map((p) => this.abs(p));
 			json.sources.push([id, rel]);
 		}
 
@@ -365,7 +365,7 @@ export class Build implements IBuild {
 	}
 
 	private register(recipe: RecipeID): void {
-		for (const t of this._recipes[recipe].targets) {
+		for (const t of this._rules[recipe].targets) {
 			this._targets.set(t.rel(), recipe);
 		}
 	}

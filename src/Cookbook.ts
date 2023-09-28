@@ -1,7 +1,14 @@
-import { IRule, RecipeArgs, rulePrereqs, ruleTargets } from './Rule.js';
+import {
+	IRule,
+	RecipeArgs,
+	RecipeFunction,
+	rulePrereqs,
+	ruleRecipe,
+	ruleTargets,
+} from './Rule.js';
 import { Mutex, UnlockFunction } from './Mutex.js';
 import { IBuildPath, BuildPathLike, Path } from './Path.js';
-import { Build, RecipeID, RecipeInfo, isRecipeID, IBuild } from './Build.js';
+import { Build, RecipeID, RuleInfo, isRecipeID, IBuild } from './Build.js';
 
 import { FSWatcher } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,14 +20,26 @@ export interface ICookbookOpts {
 	srcRoot?: string;
 }
 
+type Prereqs = Path | Path[];
+type Targets = IBuildPath | IBuildPath[];
+
+function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
+	return 'targets' in ruleOrTargets;
+}
+
+type TargetInfo = {
+	rules: Set<RecipeID>;
+	recipeRule: RecipeID | null;
+};
+
 export class Cookbook {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
 	private _mutex = new Mutex();
 	private _buildLock: UnlockFunction | null = null;
-	private _recipes: RecipeInfo[] = []; // index is RecipeID
-	private _targets = new Map<string, RecipeID>();
+	private _rules: RuleInfo[] = []; // index is RecipeID
+	private _targets = new Map<string, TargetInfo>();
 
 	private _prevBuild: Build | null = null;
 
@@ -30,26 +49,84 @@ export class Cookbook {
 		this.buildRoot = resolve(opts.buildRoot || 'build');
 	}
 
-	add(recipe: IRule): RecipeID {
+	add(rule: IRule): RecipeID;
+	add(targets: Targets, recipe: RecipeFunction): RecipeID;
+	add(targets: Targets, prereqs: Prereqs, recipe?: RecipeFunction): RecipeID;
+	add(
+		ruleOrTargets: IRule | Targets,
+		prereqsOrRecipe?: Prereqs | RecipeFunction,
+		recipeFn?: RecipeFunction,
+	): RecipeID {
+		let rule: IRule;
+		if (recipeFn) {
+			// targets, prereqs, recipe
+			rule = {
+				targets() {
+					return ruleOrTargets as Targets;
+				},
+				prereqs() {
+					return prereqsOrRecipe as Prereqs;
+				},
+				recipe: recipeFn,
+			};
+		} else if (typeof prereqsOrRecipe === 'function') {
+			// targets, recipe
+			rule = {
+				targets() {
+					return ruleOrTargets as Targets;
+				},
+				recipe: prereqsOrRecipe,
+			};
+		} else if (prereqsOrRecipe) {
+			// targets, prereqs
+			rule = {
+				targets() {
+					return ruleOrTargets as Targets;
+				},
+				prereqs() {
+					return prereqsOrRecipe;
+				},
+			};
+		} else if (isRule(ruleOrTargets)) {
+			// rule
+			rule = ruleOrTargets;
+		} else {
+			// targets
+			throw new Error(`Added targets without any prereqs or recipe`);
+		}
+
 		const unlock = this._mutex.tryLock();
 		if (!unlock) {
 			throw new Error('Cannot add while build is in progress');
 		}
 
 		try {
-			const id: RecipeID = this._recipes.length;
-			const info = this.normalizeRecipe(id, recipe);
-			this._recipes.push(info);
+			const id: RecipeID = this._rules.length;
+			const info = this.normalizeRecipe(id, rule);
+			const hasRecipe = !!info.recipe;
+			this._rules.push(info);
 
 			for (const p of info.targets) {
 				const rel = p.rel();
-				if (this._targets.has(rel)) {
-					throw new Error(
-						`Target '${rel}' is already built by another recipe. Cannot add.`,
-					);
+				let targetInfo = this._targets.get(rel);
+				if (!targetInfo) {
+					targetInfo = {
+						rules: new Set(),
+						recipeRule: null,
+					};
+					this._targets.set(rel, targetInfo);
 				}
 
-				this._targets.set(rel, id);
+				if (hasRecipe) {
+					if (isRecipeID(targetInfo.recipeRule))
+						throw new Error(
+							`Target '${rel}' already has a recipe specified. Cannot add another one.`,
+						);
+
+					targetInfo.recipeRule = id;
+				}
+
+				targetInfo.rules.add(id);
 			}
 
 			return id;
@@ -108,8 +185,11 @@ export class Cookbook {
 
 	private _recipe(target: BuildPathLike): RecipeID | null {
 		const rel = typeof target === 'string' ? target : target.rel();
-		const recipe = this._targets.get(rel);
-		if (isRecipeID(recipe)) return recipe;
+		const info = this._targets.get(rel);
+		if (!info) return null;
+
+		const { recipeRule } = info;
+		if (isRecipeID(recipeRule)) return recipeRule;
 		return null;
 	}
 
@@ -141,7 +221,7 @@ export class Cookbook {
 
 			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
 			const curBuild = new Build({
-				recipes: this._recipes,
+				rules: this._rules,
 				prevBuild: this._prevBuild,
 				buildRoot: this.buildRoot,
 				srcRoot: this.srcRoot,
@@ -164,8 +244,8 @@ export class Cookbook {
 		// top level recipes are those that nobody depends on
 		const srcIds = new Set<RecipeID>();
 
-		for (let id = 0; id < this._recipes.length; ++id) {
-			const info = this._recipes[id];
+		for (let id = 0; id < this._rules.length; ++id) {
+			const info = this._rules[id];
 
 			const prevBuild = this._prevBuild;
 			if (prevBuild) {
@@ -184,7 +264,7 @@ export class Cookbook {
 			}
 		}
 
-		for (let id = 0; id < this._recipes.length; ++id) {
+		for (let id = 0; id < this._rules.length; ++id) {
 			if (!srcIds.has(id)) {
 				yield id;
 			}
@@ -198,21 +278,25 @@ export class Cookbook {
 		});
 	}
 
-	normalizeRecipe(id: RecipeID, rule: IRule): RecipeInfo {
+	normalizeRecipe(id: RecipeID, rule: IRule): RuleInfo {
 		const prereqs = rulePrereqs(rule);
 		const targets = ruleTargets(rule);
+		const innerRecipe = ruleRecipe(rule);
 
-		const recipe = async (build: Build) => {
-			const src = new Set<string>();
-			const stream = build.createLogStream(id);
-			const recipeArgs = new RecipeArgs(this, src, stream);
+		let recipe: (build: Build) => Promise<boolean> | null = null;
+		if (innerRecipe) {
+			recipe = async (build: Build) => {
+				const src = new Set<string>();
+				const stream = build.createLogStream(id);
+				const recipeArgs = new RecipeArgs(this, src, stream);
 
-			const result = await rule.recipe(recipeArgs);
+				const result = await innerRecipe(recipeArgs);
 
-			build.addRuntimeSrc(id, src);
+				build.addRuntimeSrc(id, src);
 
-			return result;
-		};
+				return result;
+			};
+		}
 
 		const name = recipeName(rule, targets);
 		return { sources: prereqs, targets, recipe, name };

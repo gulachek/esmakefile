@@ -21,7 +21,7 @@ export interface IRule {
 	/**
 	 * Generate targets from sources
 	 */
-	buildAsync(args: RecipeBuildArgs): Promise<boolean>;
+	recipe(args: RecipeArgs): Promise<boolean>;
 }
 
 export type SourcePaths = SimpleShape<Path>;
@@ -42,7 +42,7 @@ export type MappedPaths<T extends IRule> = 'sources' extends keyof T
 	? MappedPathsWithSources<T>
 	: MappedPathsWithoutSources<T>;
 
-export class RecipeBuildArgs {
+export class RecipeArgs {
 	private _mappedPaths: MappedPaths<IRule>;
 	private _runtimeSrc: Set<string>;
 	readonly logStream: Writable;

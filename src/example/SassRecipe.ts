@@ -4,7 +4,7 @@ import {
 	IRule,
 	BuildPathGenOpts,
 	PathLike,
-	RecipeBuildArgs,
+	RecipeArgs,
 	Cookbook,
 } from '../index.js';
 
@@ -38,7 +38,7 @@ class ScssRecipe implements IRule {
 		return this._destPath;
 	}
 
-	async buildAsync(args: RecipeBuildArgs) {
+	async recipe(args: RecipeArgs) {
 		const { sources, targets } = args.paths<ScssRecipe>();
 		args.logStream.write(`sass ${this._srcPath}`, 'utf8');
 		const result = sass.compile(sources);

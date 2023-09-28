@@ -7,7 +7,7 @@ import {
 	BuildPathGenOpts,
 	Path,
 	Cookbook,
-	RecipeBuildArgs,
+	RecipeArgs,
 } from '../../index.js';
 
 import { readFile } from 'node:fs/promises';
@@ -46,7 +46,7 @@ export class ClangObjectRecipe implements IRule {
 		return this.src;
 	}
 
-	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+	async recipe(args: RecipeArgs): Promise<boolean> {
 		const { sources, targets } = args.paths<ClangObjectRecipe>();
 		const { obj, depfile, cmds } = targets;
 

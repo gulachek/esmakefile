@@ -33,7 +33,7 @@ export function isRecipeID(id: unknown): id is RecipeID {
 
 export type RecipeInfo = {
 	name: string;
-	buildAsync(build: Build): Promise<boolean>;
+	recipe(build: Build): Promise<boolean>;
 	sources: Path[];
 	targets: IBuildPath[];
 };
@@ -41,7 +41,7 @@ export type RecipeInfo = {
 type InProgressInfo = {
 	complete: false;
 
-	/** performance.now() when buildAsync was started */
+	/** performance.now() when recipe() was started */
 	startTime: number;
 };
 
@@ -55,16 +55,16 @@ type CompleteInfo = {
 	complete: true;
 	completeReason: CompleteReason;
 
-	/** performance.now() when buildAsync was started */
+	/** performance.now() when recipe() was started */
 	startTime: number;
 
-	/** performance.now() when buildAsync resolved */
+	/** performance.now() when recipe() resolved */
 	endTime: number;
 
-	/** return val of buildAsync */
+	/** return val of recipe() */
 	result: boolean;
 
-	/** if buildAsync threw an exception */
+	/** if recipe() threw an exception */
 	exception?: Error;
 };
 
@@ -285,7 +285,7 @@ export class Build implements IBuild {
 		this._emit('start-recipe', id);
 
 		try {
-			const result = await info.buildAsync(this);
+			const result = await info.recipe(this);
 			this._info.set(id, {
 				...buildInfo,
 				complete: true,

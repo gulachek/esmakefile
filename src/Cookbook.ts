@@ -1,4 +1,4 @@
-import { IRule, RecipeBuildArgs, MappedPaths, SourcePaths } from './Rule.js';
+import { IRule, RecipeArgs, MappedPaths, SourcePaths } from './Rule.js';
 import { mapShape } from './SimpleShape.js';
 import { Mutex, UnlockFunction } from './Mutex.js';
 import { IBuildPath, BuildPathLike, Path } from './Path.js';
@@ -199,12 +199,12 @@ export class Cookbook {
 		});
 	}
 
-	normalizeRecipe(id: RecipeID, recipe: IRule): RecipeInfo {
+	normalizeRecipe(id: RecipeID, rule: IRule): RecipeInfo {
 		const sources: Path[] = [];
 		const targets: IBuildPath[] = [];
 
-		const rawSources: SourcePaths | undefined = recipe.sources?.();
-		const rawTargets = recipe.targets();
+		const rawSources: SourcePaths | undefined = rule.sources?.();
+		const rawTargets = rule.targets();
 
 		const mappedPaths: MappedPaths<IRule> = {
 			sources:
@@ -229,20 +229,20 @@ export class Cookbook {
 			),
 		};
 
-		const buildAsync = async (build: Build) => {
+		const recipe = async (build: Build) => {
 			const src = new Set<string>();
 			const stream = build.createLogStream(id);
-			const buildArgs = new RecipeBuildArgs(mappedPaths, src, stream);
+			const buildArgs = new RecipeArgs(mappedPaths, src, stream);
 
-			const result = await recipe.buildAsync(buildArgs);
+			const result = await rule.recipe(buildArgs);
 
 			build.addRuntimeSrc(id, src);
 
 			return result;
 		};
 
-		const name = recipeName(recipe, targets);
-		return { sources, targets, buildAsync, name };
+		const name = recipeName(rule, targets);
+		return { sources, targets, recipe, name };
 	}
 }
 

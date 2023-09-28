@@ -2,7 +2,7 @@ import {
 	IRule,
 	IBuildPath,
 	Path,
-	RecipeBuildArgs,
+	RecipeArgs,
 	Cookbook,
 	PathLike,
 	BuildPathLike,
@@ -38,7 +38,7 @@ export class ClangExecutableRecipe implements IRule {
 		this.objs.push(obj.obj);
 	}
 
-	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+	async recipe(args: RecipeArgs): Promise<boolean> {
 		const { sources, targets } = args.paths<ClangExecutableRecipe>();
 
 		const clangArgs = ['-o', targets];
@@ -120,7 +120,7 @@ class CatRecipe implements IRule {
 		this._elems.push({ type: 'string', value: text });
 	}
 
-	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+	async recipe(args: RecipeArgs): Promise<boolean> {
 		args.logStream.write(`Generating ${this.out}`, 'utf8');
 
 		const { targets, sources } = args.paths<CatRecipe>();

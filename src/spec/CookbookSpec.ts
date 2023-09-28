@@ -6,7 +6,7 @@ import {
 	BuildPathGenOpts,
 	Path,
 	PathLike,
-	RecipeBuildArgs,
+	RecipeArgs,
 	IBuild,
 	RecipeID,
 } from '../index.js';
@@ -31,7 +31,7 @@ abstract class TestRecipe {
 	private _returnFalseOnBuild: boolean = false;
 	public _throwOnBuild: Error | null = null;
 
-	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+	async recipe(args: RecipeArgs): Promise<boolean> {
 		++this.buildCount;
 		if (this._throwOnBuild) throw this._throwOnBuild;
 		if (this._returnFalseOnBuild) return false;
@@ -46,7 +46,7 @@ abstract class TestRecipe {
 		this._throwOnBuild = err;
 	}
 
-	protected abstract onBuild(args: RecipeBuildArgs): Promise<boolean>;
+	protected abstract onBuild(args: RecipeArgs): Promise<boolean>;
 }
 
 class WriteFileRecipe extends TestRecipe implements IRule {
@@ -63,7 +63,7 @@ class WriteFileRecipe extends TestRecipe implements IRule {
 		return this.path;
 	}
 
-	override async onBuild(args: RecipeBuildArgs) {
+	override async onBuild(args: RecipeArgs) {
 		args.logStream.write(`Writing ${this.path}`, 'utf8');
 
 		const { targets } = args.paths<WriteFileRecipe>();
@@ -90,7 +90,7 @@ class CopyFileRecipe extends TestRecipe implements IRule {
 		return this.dest;
 	}
 
-	override async onBuild(args: RecipeBuildArgs): Promise<boolean> {
+	override async onBuild(args: RecipeArgs): Promise<boolean> {
 		const { sources, targets } = args.paths<CopyFileRecipe>();
 		try {
 			await copyFile(sources, targets);
@@ -118,7 +118,7 @@ class CatFilesRecipe implements IRule {
 		return this.src;
 	}
 
-	async buildAsync(args: RecipeBuildArgs): Promise<boolean> {
+	async recipe(args: RecipeArgs): Promise<boolean> {
 		const { sources, targets } = args.paths<CatFilesRecipe>();
 		const srcDir = dirname(sources);
 		++this.buildCount;
@@ -196,7 +196,7 @@ describe('Cookbook', () => {
 		});
 	});
 
-	describe('buildAsync', () => {
+	describe('recipe', () => {
 		let book: Cookbook;
 
 		function writePath(path: Path, contents: string): Promise<void> {
@@ -510,7 +510,7 @@ describe('Cookbook', () => {
 				targets() {
 					return outPath;
 				},
-				buildAsync: async (args: RecipeBuildArgs) => {
+				recipe: async (args: RecipeArgs) => {
 					++buildCount;
 					await writePath(outPath, 'test');
 					// only after build

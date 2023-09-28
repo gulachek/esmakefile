@@ -1,17 +1,36 @@
 import { IBuildPath, Path } from './Path.js';
+import { Cookbook } from './Cookbook.js';
 import { SimpleShape, MappedShape } from './SimpleShape.js';
 import { isAbsolute } from 'node:path';
 import { Writable } from 'node:stream';
 import { spawn } from 'node:child_process';
+
+type OneOrMany<T> = T | T[];
+
+function normalize<T>(val: OneOrMany<T>): T[] {
+	if (Array.isArray(val)) {
+		return val;
+	}
+
+	return [val];
+}
+
+export function rulePrereqs(rule: IRule): Path[] {
+	if (typeof rule.prereqs === 'function') {
+		return normalize(rule.prereqs());
+	}
+
+	return [];
+}
 
 /**
  * A rule to build targets from sources
  */
 export interface IRule {
 	/**
-	 * Source files that the rule needs to build
+	 * Files that the rule needs to build recipe
 	 */
-	sources?(): SourcePaths;
+	prereqs?(): Path | Path[];
 
 	/**
 	 * Target files that are outputs of the rule's build
@@ -29,29 +48,23 @@ export type SourcePaths = SimpleShape<Path>;
 // doesn't make sense to have a null target - would never be built
 export type TargetPaths = SimpleShape<IBuildPath>;
 
-type MappedPathsWithSources<T extends IRule> = {
-	sources: MappedShape<ReturnType<T['sources']>, string>;
+export type MappedPaths<T extends IRule> = {
 	targets: MappedShape<ReturnType<T['targets']>, string>;
 };
-
-type MappedPathsWithoutSources<T extends IRule> = {
-	targets: MappedShape<ReturnType<T['targets']>, string>;
-};
-
-export type MappedPaths<T extends IRule> = 'sources' extends keyof T
-	? MappedPathsWithSources<T>
-	: MappedPathsWithoutSources<T>;
 
 export class RecipeArgs {
+	private _book: Cookbook;
 	private _mappedPaths: MappedPaths<IRule>;
 	private _runtimeSrc: Set<string>;
 	readonly logStream: Writable;
 
 	constructor(
+		book: Cookbook,
 		mappedPaths: MappedPaths<IRule>,
 		runtimeSrc: Set<string>,
 		logStream: Writable,
 	) {
+		this._book = book;
 		this._mappedPaths = mappedPaths;
 		this._runtimeSrc = runtimeSrc;
 		this.logStream = logStream;
@@ -59,6 +72,16 @@ export class RecipeArgs {
 
 	paths<T extends IRule>(): MappedPaths<T> {
 		return this._mappedPaths as MappedPaths<T>;
+	}
+
+	abs(path: Path): string;
+	abs(...paths: Path[]): string[];
+	abs(...paths: Path[]): string | string[] {
+		if (paths.length === 1) {
+			return this._book.abs(paths[0]);
+		}
+
+		return paths.map((p) => this._book.abs(p));
 	}
 
 	addSrc(abs: string): void {

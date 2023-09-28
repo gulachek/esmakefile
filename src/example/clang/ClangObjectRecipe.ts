@@ -1,4 +1,3 @@
-import { spawn, ChildProcess } from 'node:child_process';
 import {
 	IRule,
 	PathLike,
@@ -12,12 +11,6 @@ import {
 
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-
-function procClosed(proc: ChildProcess): Promise<number> {
-	return new Promise<number>((res) => {
-		proc.on('close', (code: number) => res(code));
-	});
-}
 
 export class ClangObjectRecipe implements IRule {
 	public src: Path;
@@ -42,25 +35,24 @@ export class ClangObjectRecipe implements IRule {
 		};
 	}
 
-	sources() {
+	prereqs() {
 		return this.src;
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const { sources, targets } = args.paths<ClangObjectRecipe>();
+		const { targets } = args.paths<ClangObjectRecipe>();
 		const { obj, depfile, cmds } = targets;
 
-		const clangArgs = [sources, '-c', '-o', obj];
+		const src = args.abs(this.src);
+
+		const clangArgs = [src, '-c', '-o', obj];
 		clangArgs.push('-fcolor-diagnostics');
 		clangArgs.push('-MMD', '-MF', depfile);
-		clangArgs.push('-I', join(dirname(sources), 'include'));
+		clangArgs.push('-I', join(dirname(src), 'include'));
 		clangArgs.push('-MJ', cmds);
 
-		const proc = spawn('c++', clangArgs);
-		proc.stdout.pipe(args.logStream);
-		proc.stderr.pipe(args.logStream);
-		const exitCode = await procClosed(proc);
-		if (exitCode !== 0) return false;
+		const result = await args.spawn('c++', clangArgs);
+		if (!result) return false;
 
 		const depfileContents = await readFile(depfile, 'utf8');
 		const depfileLines = depfileContents.split('\n');

@@ -26,7 +26,7 @@ import { expect } from 'chai';
 import { dirname, resolve } from 'node:path';
 import { existsSync, Stats } from 'node:fs';
 
-abstract class TestRecipe {
+abstract class TestRule {
 	public buildCount: number = 0;
 	private _returnFalseOnBuild: boolean = false;
 	public _throwOnBuild: Error | null = null;
@@ -49,7 +49,7 @@ abstract class TestRecipe {
 	protected abstract onBuild(args: RecipeArgs): Promise<boolean>;
 }
 
-class WriteFileRecipe extends TestRecipe implements IRule {
+class WriteFileRule extends TestRule implements IRule {
 	readonly path: IBuildPath;
 	public txt: string;
 
@@ -66,13 +66,13 @@ class WriteFileRecipe extends TestRecipe implements IRule {
 	override async onBuild(args: RecipeArgs) {
 		args.logStream.write(`Writing ${this.path}`, 'utf8');
 
-		const { targets } = args.paths<WriteFileRecipe>();
+		const { targets } = args.paths<WriteFileRule>();
 		await writeFile(targets, this.txt, 'utf8');
 		return true;
 	}
 }
 
-class CopyFileRecipe extends TestRecipe implements IRule {
+class CopyFileRule extends TestRule implements IRule {
 	readonly src: Path;
 	readonly dest: IBuildPath;
 
@@ -82,7 +82,7 @@ class CopyFileRecipe extends TestRecipe implements IRule {
 		this.dest = Path.gen(this.src, genOpts);
 	}
 
-	sources() {
+	prereqs() {
 		return this.src;
 	}
 
@@ -91,9 +91,10 @@ class CopyFileRecipe extends TestRecipe implements IRule {
 	}
 
 	override async onBuild(args: RecipeArgs): Promise<boolean> {
-		const { sources, targets } = args.paths<CopyFileRecipe>();
+		const [src, dest] = args.abs(this.src, this.dest);
+
 		try {
-			await copyFile(sources, targets);
+			await copyFile(src, dest);
 			return true;
 		} catch {
 			return false;
@@ -114,17 +115,18 @@ class CatFilesRecipe implements IRule {
 	targets() {
 		return this.dest;
 	}
-	sources() {
+	prereqs() {
 		return this.src;
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const { sources, targets } = args.paths<CatFilesRecipe>();
-		const srcDir = dirname(sources);
+		const [src, dest] = args.abs(this.src, this.dest);
+
+		const srcDir = dirname(src);
 		++this.buildCount;
 		let catSrc: string;
 		try {
-			catSrc = await readFile(sources, 'utf8');
+			catSrc = await readFile(src, 'utf8');
 		} catch {
 			return false;
 		}
@@ -133,7 +135,7 @@ class CatFilesRecipe implements IRule {
 
 		let handle: FileHandle;
 		try {
-			handle = await open(targets, 'w');
+			handle = await open(dest, 'w');
 		} catch {
 			return false;
 		}
@@ -163,8 +165,8 @@ describe('Cookbook', () => {
 	describe('targets', () => {
 		it('lists targets by path relative to build dir', () => {
 			const book = new Cookbook();
-			book.add(new WriteFileRecipe('write.txt', 'hello'));
-			book.add(new CopyFileRecipe('src.txt', '/sub/dest.txt'));
+			book.add(new WriteFileRule('write.txt', 'hello'));
+			book.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
 
 			const targets = new Set(book.targets());
 
@@ -177,10 +179,10 @@ describe('Cookbook', () => {
 	describe('add', () => {
 		it('cannot add while build is in progress', async () => {
 			const book = new Cookbook();
-			book.add(new WriteFileRecipe('write.txt', 'hello'));
+			book.add(new WriteFileRule('write.txt', 'hello'));
 			const prom = book.build();
 			expect(() =>
-				book.add(new CopyFileRecipe('src.txt', '/sub/dest.txt')),
+				book.add(new CopyFileRule('src.txt', '/sub/dest.txt')),
 			).to.throw();
 			await prom;
 		});
@@ -188,8 +190,8 @@ describe('Cookbook', () => {
 		it('throws if a target is already built', async () => {
 			const book = new Cookbook();
 			const path = Path.build('conflict.txt');
-			const write = new WriteFileRecipe(path, 'hello');
-			const copy = new CopyFileRecipe('something.txt', path);
+			const write = new WriteFileRule(path, 'hello');
+			const copy = new CopyFileRule('something.txt', path);
 
 			book.add(write);
 			expect(() => book.add(copy)).to.throw();
@@ -233,7 +235,7 @@ describe('Cookbook', () => {
 
 		it('builds a target', async () => {
 			const path = Path.build('output.txt');
-			const write = new WriteFileRecipe(path, 'hello');
+			const write = new WriteFileRule(path, 'hello');
 			book.add(write);
 
 			const result = await book.build(path);
@@ -244,7 +246,7 @@ describe('Cookbook', () => {
 
 		it('fails if recipe returns false', async () => {
 			const path = Path.build('test.txt');
-			const write = new WriteFileRecipe(path, 'test');
+			const write = new WriteFileRule(path, 'test');
 			write.returnFalseOnBuild();
 			book.add(write);
 
@@ -254,7 +256,7 @@ describe('Cookbook', () => {
 
 		it('fails if recipe throws', async () => {
 			const path = Path.build('test.txt');
-			const write = new WriteFileRecipe(path, 'test');
+			const write = new WriteFileRule(path, 'test');
 			write.throwOnBuild(new Error('test'));
 			book.add(write);
 
@@ -265,8 +267,8 @@ describe('Cookbook', () => {
 		it('builds all targets by default', async () => {
 			const pOne = Path.build('one.txt');
 			const pTwo = Path.build('two.txt');
-			const writeOne = new WriteFileRecipe(pOne, 'one');
-			const writeTwo = new WriteFileRecipe(pTwo, 'two');
+			const writeOne = new WriteFileRule(pOne, 'one');
+			const writeTwo = new WriteFileRule(pTwo, 'two');
 			book.add(writeOne);
 			book.add(writeTwo);
 
@@ -279,8 +281,8 @@ describe('Cookbook', () => {
 		it('does not build all targets when one is specified', async () => {
 			const pOne = Path.build('one.txt');
 			const pTwo = Path.build('two.txt');
-			const writeOne = new WriteFileRecipe(pOne, 'one');
-			const writeTwo = new WriteFileRecipe(pTwo, 'two');
+			const writeOne = new WriteFileRule(pOne, 'one');
+			const writeTwo = new WriteFileRule(pTwo, 'two');
 			book.add(writeOne);
 			book.add(writeTwo);
 
@@ -292,11 +294,11 @@ describe('Cookbook', () => {
 
 		it("builds a target's dependency", async () => {
 			const srcPath = Path.build('src.txt');
-			const write = new WriteFileRecipe(srcPath, 'hello');
+			const write = new WriteFileRule(srcPath, 'hello');
 			book.add(write);
 
 			const cpPath = Path.build('cp.txt');
-			const cp = new CopyFileRecipe(srcPath, cpPath);
+			const cp = new CopyFileRule(srcPath, cpPath);
 			book.add(cp);
 
 			await book.build(cpPath);
@@ -308,11 +310,11 @@ describe('Cookbook', () => {
 
 		it('ensures a target directory exists before building', async () => {
 			const srcPath = Path.build('src.txt');
-			const write = new WriteFileRecipe(srcPath, 'hello');
+			const write = new WriteFileRule(srcPath, 'hello');
 			book.add(write);
 
 			const cpPath = Path.build('sub/cp.txt');
-			const cp = new CopyFileRecipe(srcPath, cpPath);
+			const cp = new CopyFileRule(srcPath, cpPath);
 			book.add(cp);
 
 			await book.build(cpPath);
@@ -321,13 +323,13 @@ describe('Cookbook', () => {
 			expect(dirStat.isDirectory()).to.be.true;
 		});
 
-		it('skips building target if newer than sources', async () => {
+		it('skips building target if newer than prereqs', async () => {
 			const srcPath = Path.build('src.txt');
-			const write = new WriteFileRecipe(srcPath, 'hello');
+			const write = new WriteFileRule(srcPath, 'hello');
 			book.add(write);
 
 			const cpPath = Path.build('cp.txt');
-			const cp = new CopyFileRecipe(srcPath, cpPath);
+			const cp = new CopyFileRule(srcPath, cpPath);
 			book.add(cp);
 
 			await book.build(cpPath);
@@ -336,12 +338,12 @@ describe('Cookbook', () => {
 			expect(cp.buildCount).to.equal(1);
 		});
 
-		it('rebuilds target if older than sources', async () => {
+		it('rebuilds target if older than prereqs', async () => {
 			const srcPath = Path.src('src.txt');
 			await writePath(srcPath, 'hello');
 
 			const cpPath = Path.build('cp.txt');
-			const cp = new CopyFileRecipe(srcPath, cpPath);
+			const cp = new CopyFileRule(srcPath, cpPath);
 			book.add(cp);
 
 			await book.build(cpPath);
@@ -357,11 +359,11 @@ describe('Cookbook', () => {
 
 		it('y0b0: you only build once. calling build while building results in one build', async () => {
 			const srcPath = Path.build('src.txt');
-			const write = new WriteFileRecipe(srcPath, 'hello');
+			const write = new WriteFileRule(srcPath, 'hello');
 			book.add(write);
 
 			const cpPath = Path.build('cp.txt');
-			const cp = new CopyFileRecipe(srcPath, cpPath);
+			const cp = new CopyFileRule(srcPath, cpPath);
 			book.add(cp);
 
 			const first = book.build(cpPath);
@@ -374,12 +376,12 @@ describe('Cookbook', () => {
 
 		it('does not build a target if a source fails to build', async () => {
 			const srcPath = Path.build('src.txt');
-			const write = new WriteFileRecipe(srcPath, 'hello');
+			const write = new WriteFileRule(srcPath, 'hello');
 			write.returnFalseOnBuild();
 			book.add(write);
 
 			const cpPath = Path.build('cp.txt');
-			const cp = new CopyFileRecipe(srcPath, cpPath);
+			const cp = new CopyFileRule(srcPath, cpPath);
 			book.add(cp);
 
 			const result = await book.build(cpPath);
@@ -394,7 +396,7 @@ describe('Cookbook', () => {
 
 			await writePath(srcPath, 'contents');
 
-			const copy = new CopyFileRecipe(srcPath, outPath);
+			const copy = new CopyFileRule(srcPath, outPath);
 			book.add(copy);
 
 			let result = await book.build(outPath);
@@ -451,7 +453,7 @@ describe('Cookbook', () => {
 				expect(cat.buildCount).to.equal(1);
 			});
 
-			it('tracks runtime sources across runs', async () => {
+			it('tracks runtime prereqs across runs', async () => {
 				let result = await book.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
@@ -487,19 +489,19 @@ describe('Cookbook', () => {
 		 * how this would be a stable build. Seems circular to need to
 		 * build a target to discover a dependency so it should be
 		 * built.  To make the first build successful, build script
-		 * should be designed to know which sources are necessary for
+		 * should be designed to know which prereqs are necessary for
 		 * build. Runtime src is only meant for detecting updates.
 		 *
 		 * Open to a valid use case pointing out how its stable, but
 		 * for now, this seems correct.
 		 */
-		it('does not build runtime sources that are build paths', async () => {
+		it('does not build runtime prereqs that are build paths', async () => {
 			const srcPath = Path.src('src.txt');
 			const cpPath = Path.build('copy.txt');
 			const outPath = Path.build('out.txt');
 
 			await writePath(srcPath, 'src');
-			const copy = new CopyFileRecipe(srcPath, cpPath);
+			const copy = new CopyFileRule(srcPath, cpPath);
 			let buildCount = 0;
 			book.add(copy);
 
@@ -536,7 +538,7 @@ describe('Cookbook', () => {
 
 		it('notifies caller of start and end time of recipe', async () => {
 			const out = Path.build('out.txt');
-			const write = new WriteFileRecipe(out, 'hello');
+			const write = new WriteFileRule(out, 'hello');
 			const id = book.add(write);
 			let startCalled = false;
 			let endCalled = false;
@@ -560,7 +562,7 @@ describe('Cookbook', () => {
 
 		it('notifies caller when recipe logs information', async () => {
 			const out = Path.build('out.txt');
-			const write = new WriteFileRecipe(out, 'hello');
+			const write = new WriteFileRule(out, 'hello');
 			const id = book.add(write);
 			let logCalled = false;
 

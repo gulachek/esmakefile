@@ -8,14 +8,7 @@ import {
 	BuildPathLike,
 } from '../../index.js';
 import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe.js';
-import { spawn, ChildProcess } from 'node:child_process';
 import { open, readFile } from 'node:fs/promises';
-
-function procClosed(proc: ChildProcess): Promise<number> {
-	return new Promise<number>((res) => {
-		proc.on('close', (code: number) => res(code));
-	});
-}
 
 export class ClangExecutableRecipe implements IRule {
 	exe: IBuildPath;
@@ -30,7 +23,7 @@ export class ClangExecutableRecipe implements IRule {
 		return this.exe;
 	}
 
-	sources() {
+	prereqs() {
 		return this.objs;
 	}
 
@@ -39,18 +32,13 @@ export class ClangExecutableRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const { sources, targets } = args.paths<ClangExecutableRecipe>();
+		const { targets } = args.paths<ClangExecutableRecipe>();
+		const sources = args.abs(...this.objs);
 
 		const clangArgs = ['-o', targets];
 		clangArgs.push(...sources);
 
-		const proc = spawn('c++', clangArgs);
-		proc.stdout.pipe(args.logStream);
-		proc.stderr.pipe(args.logStream);
-		const exitCode = await procClosed(proc);
-		if (exitCode !== 0) return false;
-
-		return true;
+		return args.spawn('c++', clangArgs);
 	}
 }
 
@@ -106,7 +94,7 @@ class CatRecipe implements IRule {
 		return this.out;
 	}
 
-	sources() {
+	prereqs() {
 		return this._src;
 	}
 
@@ -123,7 +111,9 @@ class CatRecipe implements IRule {
 	async recipe(args: RecipeArgs): Promise<boolean> {
 		args.logStream.write(`Generating ${this.out}`, 'utf8');
 
-		const { targets, sources } = args.paths<CatRecipe>();
+		const { targets } = args.paths<CatRecipe>();
+		const sources = args.abs(...this._src);
+
 		const stream = await open(targets, 'w');
 		for (const elem of this._elems) {
 			if (elem.type === 'string') {

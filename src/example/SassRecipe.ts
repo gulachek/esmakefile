@@ -30,7 +30,7 @@ class ScssRecipe implements IRule {
 		}
 	}
 
-	sources() {
+	prereqs() {
 		return this._srcPath;
 	}
 
@@ -39,9 +39,11 @@ class ScssRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs) {
-		const { sources, targets } = args.paths<ScssRecipe>();
+		const { targets } = args.paths<ScssRecipe>();
+		const src = args.abs(this._srcPath);
+
 		args.logStream.write(`sass ${this._srcPath}`, 'utf8');
-		const result = sass.compile(sources);
+		const result = sass.compile(src);
 
 		// update dependencies
 		for (const url of result.loadedUrls) {

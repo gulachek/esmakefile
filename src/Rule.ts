@@ -26,12 +26,12 @@ export interface IRule {
 
 export class RecipeArgs {
 	private _book: Cookbook;
-	private _runtimeSrc: Set<string>;
+	private _postreqs: Set<string>;
 	readonly logStream: Writable;
 
-	constructor(book: Cookbook, runtimeSrc: Set<string>, logStream: Writable) {
+	constructor(book: Cookbook, postreqs: Set<string>, logStream: Writable) {
 		this._book = book;
-		this._runtimeSrc = runtimeSrc;
+		this._postreqs = postreqs;
 		this.logStream = logStream;
 	}
 
@@ -45,13 +45,13 @@ export class RecipeArgs {
 		return paths.map((p) => this._book.abs(p));
 	}
 
-	addSrc(abs: string): void {
+	addPostreq(abs: string): void {
 		if (!isAbsolute(abs))
 			throw new Error(
-				`addSrc: argument must be an absolute path. '${abs}' given.`,
+				`addPostreq: argument must be an absolute path. '${abs}' given.`,
 			);
 
-		this._runtimeSrc.add(abs);
+		this._postreqs.add(abs);
 	}
 
 	async spawn(cmd: string, cmdArgs: string[]): Promise<boolean> {

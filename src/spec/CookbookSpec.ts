@@ -143,7 +143,7 @@ class CatFilesRecipe implements IRule {
 		for (const line of lines) {
 			if (!line) continue;
 			const path = resolve(srcDir, line);
-			args.addSrc(path);
+			args.addPostreq(path);
 			try {
 				const contents = await readFile(path, 'utf8');
 				await handle.appendFile(contents);
@@ -411,7 +411,7 @@ describe('Cookbook', () => {
 			expect(copy.buildCount).to.equal(1);
 		});
 
-		describe('with runtime dependencies', () => {
+		describe('with postreqs', () => {
 			const aPath = Path.src('a.txt');
 			const bPath = Path.src('b.txt');
 			const indexPath = Path.src('index.txt');
@@ -427,7 +427,7 @@ describe('Cookbook', () => {
 				book.add(cat);
 			});
 
-			it('rebuilds when runtime dependency changes', async () => {
+			it('rebuilds when postreq changes', async () => {
 				let result = await book.build(catPath); // build once
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
@@ -442,7 +442,7 @@ describe('Cookbook', () => {
 				expect(await readPath(catPath)).to.equal('A change\nB\n');
 			});
 
-			it('does not rebuild if runtime dependency does not change', async () => {
+			it('does not rebuild if postreq does not change', async () => {
 				let result = await book.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
@@ -453,7 +453,7 @@ describe('Cookbook', () => {
 				expect(cat.buildCount).to.equal(1);
 			});
 
-			it('tracks runtime prereqs across runs', async () => {
+			it('tracks postreq across runs', async () => {
 				let result = await book.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
@@ -471,7 +471,7 @@ describe('Cookbook', () => {
 				expect(await readPath(catPath)).to.equal('A changed\nB\n');
 			});
 
-			it('attempts to build target if static runtime source does not exist', async () => {
+			it('attempts to build target if static postreq does not exist', async () => {
 				let result = await book.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
@@ -495,7 +495,7 @@ describe('Cookbook', () => {
 		 * Open to a valid use case pointing out how its stable, but
 		 * for now, this seems correct.
 		 */
-		it('does not build runtime prereqs that are build paths', async () => {
+		it('does not build postreq that are build paths', async () => {
 			const srcPath = Path.src('src.txt');
 			const cpPath = Path.build('copy.txt');
 			const outPath = Path.build('out.txt');
@@ -516,7 +516,7 @@ describe('Cookbook', () => {
 					++buildCount;
 					await writePath(outPath, 'test');
 					// only after build
-					args.addSrc(book.abs(cpPath));
+					args.addPostreq(book.abs(cpPath));
 					return true;
 				},
 			};
@@ -528,7 +528,7 @@ describe('Cookbook', () => {
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
 
-			// now presumably knows runtime src
+			// now presumably knows postreqs
 
 			await writePath(srcPath, 'update');
 			result = await book.build(outPath);

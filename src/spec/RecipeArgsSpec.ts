@@ -7,10 +7,10 @@ function mkArgs(): RecipeArgs {
 	return new RecipeArgs(null, new Set<string>(), new Writable());
 }
 describe('RecipeArgs', () => {
-	describe('addSrc', () => {
+	describe('addPostreq', () => {
 		it('throws when relative path is given', () => {
 			const args = mkArgs();
-			expect(() => args.addSrc('relative/path')).to.throw();
+			expect(() => args.addPostreq('relative/path')).to.throw();
 		});
 	});
 });

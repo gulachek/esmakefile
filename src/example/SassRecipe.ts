@@ -46,7 +46,7 @@ class ScssRecipe implements IRule {
 
 		// update dependencies
 		for (const url of result.loadedUrls) {
-			args.addSrc(url.pathname);
+			args.addPostreq(url.pathname);
 		}
 
 		await writeFile(dest, result.css, 'utf8');

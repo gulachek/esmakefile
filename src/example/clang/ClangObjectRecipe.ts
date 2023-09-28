@@ -53,8 +53,8 @@ export class ClangObjectRecipe implements IRule {
 		depfileLines.shift(); // get rid of self
 		for (const dep of depfileLines) {
 			if (!dep) continue;
-			if (dep.endsWith(' \\')) args.addSrc(dep.slice(2, dep.length - 2));
-			else args.addSrc(dep.slice(2));
+			if (dep.endsWith(' \\')) args.addPostreq(dep.slice(2, dep.length - 2));
+			else args.addPostreq(dep.slice(2));
 		}
 
 		return true;

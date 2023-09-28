@@ -66,8 +66,8 @@ class WriteFileRule extends TestRule implements IRule {
 	override async onBuild(args: RecipeArgs) {
 		args.logStream.write(`Writing ${this.path}`, 'utf8');
 
-		const { targets } = args.paths<WriteFileRule>();
-		await writeFile(targets, this.txt, 'utf8');
+		const path = args.abs(this.path);
+		await writeFile(path, this.txt, 'utf8');
 		return true;
 	}
 }

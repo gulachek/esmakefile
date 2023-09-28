@@ -1,5 +1,4 @@
-import { IRule, RecipeArgs, MappedPaths, rulePrereqs } from './Rule.js';
-import { mapShape } from './SimpleShape.js';
+import { IRule, RecipeArgs, rulePrereqs, ruleTargets } from './Rule.js';
 import { Mutex, UnlockFunction } from './Mutex.js';
 import { IBuildPath, BuildPathLike, Path } from './Path.js';
 import { Build, RecipeID, RecipeInfo, isRecipeID, IBuild } from './Build.js';
@@ -201,26 +200,12 @@ export class Cookbook {
 
 	normalizeRecipe(id: RecipeID, rule: IRule): RecipeInfo {
 		const prereqs = rulePrereqs(rule);
-		const targets: IBuildPath[] = [];
-
-		const rawTargets = rule.targets();
-
-		const mappedPaths: MappedPaths<IRule> = {
-			targets: mapShape(
-				rawTargets,
-				(p): p is IBuildPath => p instanceof Path,
-				(pL) => {
-					const p = Path.build(pL);
-					targets.push(p);
-					return p.abs(this.buildRoot);
-				},
-			),
-		};
+		const targets = ruleTargets(rule);
 
 		const recipe = async (build: Build) => {
 			const src = new Set<string>();
 			const stream = build.createLogStream(id);
-			const recipeArgs = new RecipeArgs(this, mappedPaths, src, stream);
+			const recipeArgs = new RecipeArgs(this, src, stream);
 
 			const result = await rule.recipe(recipeArgs);
 

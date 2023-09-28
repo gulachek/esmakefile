@@ -1,27 +1,8 @@
 import { IBuildPath, Path } from './Path.js';
 import { Cookbook } from './Cookbook.js';
-import { SimpleShape, MappedShape } from './SimpleShape.js';
 import { isAbsolute } from 'node:path';
 import { Writable } from 'node:stream';
 import { spawn } from 'node:child_process';
-
-type OneOrMany<T> = T | T[];
-
-function normalize<T>(val: OneOrMany<T>): T[] {
-	if (Array.isArray(val)) {
-		return val;
-	}
-
-	return [val];
-}
-
-export function rulePrereqs(rule: IRule): Path[] {
-	if (typeof rule.prereqs === 'function') {
-		return normalize(rule.prereqs());
-	}
-
-	return [];
-}
 
 /**
  * A rule to build targets from sources
@@ -35,7 +16,7 @@ export interface IRule {
 	/**
 	 * Target files that are outputs of the rule's build
 	 */
-	targets(): TargetPaths;
+	targets(): IBuildPath | IBuildPath[];
 
 	/**
 	 * Generate targets from sources
@@ -43,35 +24,15 @@ export interface IRule {
 	recipe(args: RecipeArgs): Promise<boolean>;
 }
 
-export type SourcePaths = SimpleShape<Path>;
-
-// doesn't make sense to have a null target - would never be built
-export type TargetPaths = SimpleShape<IBuildPath>;
-
-export type MappedPaths<T extends IRule> = {
-	targets: MappedShape<ReturnType<T['targets']>, string>;
-};
-
 export class RecipeArgs {
 	private _book: Cookbook;
-	private _mappedPaths: MappedPaths<IRule>;
 	private _runtimeSrc: Set<string>;
 	readonly logStream: Writable;
 
-	constructor(
-		book: Cookbook,
-		mappedPaths: MappedPaths<IRule>,
-		runtimeSrc: Set<string>,
-		logStream: Writable,
-	) {
+	constructor(book: Cookbook, runtimeSrc: Set<string>, logStream: Writable) {
 		this._book = book;
-		this._mappedPaths = mappedPaths;
 		this._runtimeSrc = runtimeSrc;
 		this.logStream = logStream;
-	}
-
-	paths<T extends IRule>(): MappedPaths<T> {
-		return this._mappedPaths as MappedPaths<T>;
 	}
 
 	abs(path: Path): string;
@@ -105,4 +66,26 @@ export class RecipeArgs {
 			});
 		});
 	}
+}
+
+export function rulePrereqs(rule: IRule): Path[] {
+	if (typeof rule.prereqs === 'function') {
+		return normalize(rule.prereqs());
+	}
+
+	return [];
+}
+
+export function ruleTargets(rule: IRule): IBuildPath[] {
+	return normalize(rule.targets());
+}
+
+type OneOrMany<T> = T | T[];
+
+function normalize<T>(val: OneOrMany<T>): T[] {
+	if (Array.isArray(val)) {
+		return val;
+	}
+
+	return [val];
 }

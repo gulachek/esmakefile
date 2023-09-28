@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import { Writable } from 'node:stream';
 
 function mkArgs(): RecipeArgs {
-	return new RecipeArgs(null, null, new Set<string>(), new Writable());
+	return new RecipeArgs(null, new Set<string>(), new Writable());
 }
 describe('RecipeArgs', () => {
 	describe('addSrc', () => {

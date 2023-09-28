@@ -28,11 +28,7 @@ export class ClangObjectRecipe implements IRule {
 	}
 
 	targets() {
-		return {
-			obj: this.obj,
-			depfile: this.depfile,
-			cmds: this.compileCommands,
-		};
+		return [this.obj, this.depfile, this.compileCommands];
 	}
 
 	prereqs() {
@@ -40,9 +36,7 @@ export class ClangObjectRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const { targets } = args.paths<ClangObjectRecipe>();
-		const { obj, depfile, cmds } = targets;
-
+		const [obj, depfile, cmds] = args.abs(...this.targets());
 		const src = args.abs(this.src);
 
 		const clangArgs = [src, '-c', '-o', obj];

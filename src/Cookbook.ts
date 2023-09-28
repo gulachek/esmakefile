@@ -1,9 +1,4 @@
-import {
-	IRecipe,
-	RecipeBuildArgs,
-	MappedPaths,
-	SourcePaths,
-} from './Recipe.js';
+import { IRule, RecipeBuildArgs, MappedPaths, SourcePaths } from './Rule.js';
 import { mapShape } from './SimpleShape.js';
 import { Mutex, UnlockFunction } from './Mutex.js';
 import { IBuildPath, BuildPathLike, Path } from './Path.js';
@@ -36,7 +31,7 @@ export class Cookbook {
 		this.buildRoot = resolve(opts.buildRoot || 'build');
 	}
 
-	add(recipe: IRecipe): RecipeID {
+	add(recipe: IRule): RecipeID {
 		const unlock = this._mutex.tryLock();
 		if (!unlock) {
 			throw new Error('Cannot add while build is in progress');
@@ -204,14 +199,14 @@ export class Cookbook {
 		});
 	}
 
-	normalizeRecipe(id: RecipeID, recipe: IRecipe): RecipeInfo {
+	normalizeRecipe(id: RecipeID, recipe: IRule): RecipeInfo {
 		const sources: Path[] = [];
 		const targets: IBuildPath[] = [];
 
 		const rawSources: SourcePaths | undefined = recipe.sources?.();
 		const rawTargets = recipe.targets();
 
-		const mappedPaths: MappedPaths<IRecipe> = {
+		const mappedPaths: MappedPaths<IRule> = {
 			sources:
 				rawSources &&
 				mapShape(
@@ -287,7 +282,7 @@ class SourceWatcher extends EventEmitter {
 	}
 }
 
-function recipeName(recipe: IRecipe, targets: IBuildPath[]): string {
+function recipeName(recipe: IRule, targets: IBuildPath[]): string {
 	const ctorName = recipe.constructor.name;
 	const targetNames = targets.map((p) => p.rel()).join(', ');
 	return `${ctorName}{${targetNames}}`;

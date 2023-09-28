@@ -1,7 +1,7 @@
 import {
 	Path,
 	IBuildPath,
-	IRecipe,
+	IRule,
 	BuildPathGenOpts,
 	PathLike,
 	RecipeBuildArgs,
@@ -13,7 +13,7 @@ import { isBuildPathLike } from '../Path.js';
 import * as sass from 'sass';
 import { writeFile } from 'node:fs/promises';
 
-class ScssRecipe implements IRecipe {
+class ScssRecipe implements IRule {
 	_srcPath: Path;
 	_destPath: IBuildPath;
 

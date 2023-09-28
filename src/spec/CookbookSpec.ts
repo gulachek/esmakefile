@@ -1,6 +1,6 @@
 import {
 	Cookbook,
-	IRecipe,
+	IRule,
 	BuildPathLike,
 	IBuildPath,
 	BuildPathGenOpts,
@@ -49,7 +49,7 @@ abstract class TestRecipe {
 	protected abstract onBuild(args: RecipeBuildArgs): Promise<boolean>;
 }
 
-class WriteFileRecipe extends TestRecipe implements IRecipe {
+class WriteFileRecipe extends TestRecipe implements IRule {
 	readonly path: IBuildPath;
 	public txt: string;
 
@@ -72,7 +72,7 @@ class WriteFileRecipe extends TestRecipe implements IRecipe {
 	}
 }
 
-class CopyFileRecipe extends TestRecipe implements IRecipe {
+class CopyFileRecipe extends TestRecipe implements IRule {
 	readonly src: Path;
 	readonly dest: IBuildPath;
 
@@ -101,7 +101,7 @@ class CopyFileRecipe extends TestRecipe implements IRecipe {
 	}
 }
 
-class CatFilesRecipe implements IRecipe {
+class CatFilesRecipe implements IRule {
 	readonly src: Path;
 	readonly dest: IBuildPath;
 	buildCount: number = 0;
@@ -506,7 +506,7 @@ describe('Cookbook', () => {
 			expect(await book.build(cpPath)).to.be.true;
 
 			// no a priori depencency on cpPath
-			const adHocRecipe: IRecipe = {
+			const adHocRecipe: IRule = {
 				targets() {
 					return outPath;
 				},

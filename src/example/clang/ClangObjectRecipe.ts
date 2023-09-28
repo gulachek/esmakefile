@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import {
-	IRecipe,
+	IRule,
 	PathLike,
 	IBuildPath,
 	isBuildPathLike,
@@ -19,7 +19,7 @@ function procClosed(proc: ChildProcess): Promise<number> {
 	});
 }
 
-export class ClangObjectRecipe implements IRecipe {
+export class ClangObjectRecipe implements IRule {
 	public src: Path;
 	public obj: IBuildPath;
 	public depfile: IBuildPath;

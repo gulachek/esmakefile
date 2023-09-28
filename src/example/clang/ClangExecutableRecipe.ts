@@ -1,5 +1,5 @@
 import {
-	IRecipe,
+	IRule,
 	IBuildPath,
 	Path,
 	RecipeBuildArgs,
@@ -17,7 +17,7 @@ function procClosed(proc: ChildProcess): Promise<number> {
 	});
 }
 
-export class ClangExecutableRecipe implements IRecipe {
+export class ClangExecutableRecipe implements IRule {
 	exe: IBuildPath;
 	objs: Path[];
 
@@ -91,7 +91,7 @@ type StringElem = {
 
 type Elem = PathElem | StringElem;
 
-class CatRecipe implements IRecipe {
+class CatRecipe implements IRule {
 	out: IBuildPath;
 	private _src: Path[];
 	private _elems: Elem[];

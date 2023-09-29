@@ -265,6 +265,18 @@ describe('Cookbook', () => {
 			expect(count).to.equal(1);
 		});
 
+		it('rebuilds a phony target', async () => {
+			let count = 0;
+			book.add('all', () => {
+				++count;
+				return Promise.resolve(true);
+			});
+
+			await book.build();
+			await book.build();
+			expect(count).to.equal(2);
+		});
+
 		it('fails if recipe returns false', async () => {
 			const path = Path.build('test.txt');
 			const write = new WriteFileRule(path, 'test');
@@ -299,7 +311,7 @@ describe('Cookbook', () => {
 			expect(writeTwo.buildCount).to.equal(0);
 		});
 
-		it('does not build all targets when one is specified', async () => {
+		it('does not build first target when another is specified', async () => {
 			const pOne = Path.build('one.txt');
 			const pTwo = Path.build('two.txt');
 			const writeOne = new WriteFileRule(pOne, 'one');
@@ -307,10 +319,10 @@ describe('Cookbook', () => {
 			book.add(writeOne);
 			book.add(writeTwo);
 
-			const result = await book.build(pOne);
+			const result = await book.build(pTwo);
 			expect(result).to.be.true;
-			expect(writeOne.buildCount).to.equal(1);
-			expect(writeTwo.buildCount).to.equal(0);
+			expect(writeOne.buildCount).to.equal(0);
+			expect(writeTwo.buildCount).to.equal(1);
 		});
 
 		it("builds a target's prereq", async () => {
@@ -327,6 +339,42 @@ describe('Cookbook', () => {
 			const contents = await readPath(cpPath);
 			expect(contents).to.equal('hello');
 			expect(write.buildCount).to.equal(1);
+		});
+
+		it('builds a phony target without a recipe', async () => {
+			const srcPath = Path.build('src.txt');
+
+			book.add('all', srcPath);
+
+			const write = new WriteFileRule(srcPath, 'hello');
+			book.add(write);
+
+			const result = await book.build();
+			expect(result).to.be.true;
+		});
+
+		it("fails if a src prereq doesn't exist", async () => {
+			book.add('all', 'prereq');
+			const result = await book.build();
+			expect(result).to.be.false;
+		});
+
+		it("fails if a build prereq doesn't exist", async () => {
+			book.add('all', Path.build('prereq'));
+			const result = await book.build();
+			expect(result).to.be.false;
+		});
+
+		it('builds if a phony target prereq is in the system', async () => {
+			const prereq = Path.build('prereq');
+			book.add('all', prereq);
+
+			book.add(prereq, () => {
+				return Promise.resolve(true);
+			});
+
+			const result = await book.build();
+			expect(result).to.be.true;
 		});
 
 		it('ensures a target directory exists before building', async () => {

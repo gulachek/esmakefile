@@ -1,4 +1,4 @@
-import { IBuildPath, Path, BuildPathLike } from './Path.js';
+import { IBuildPath, Path } from './Path.js';
 import { Vt100Stream } from './Vt100Stream.js';
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -222,20 +222,6 @@ export class Build implements IBuild {
 		const info = this._targets.get(rel);
 
 		const { recipeRule, rules } = info;
-		if (!isRuleID(recipeRule)) {
-			throw new Error('_startBuild no rule: Not implemented');
-			/*
-			this._info.set(0, {
-				complete: true,
-				completeReason: CompleteReason.noRecipe,
-				result: false,
-				startTime: -1,
-				endTime: -1,
-			});
-			this._emit('end-recipe', 0);
-			return false;
-		 */
-		}
 
 		const srcToBuild: IBuildPath[] = [];
 		const allSrc: Path[] = [];
@@ -266,11 +252,7 @@ export class Build implements IBuild {
 
 		const postreqs = this._prevBuild?.postreqs(target);
 
-		const targetStatus = needsBuild(
-			[this.abs(target)],
-			allSrc.map((p) => this.abs(p)),
-			postreqs,
-		);
+		const targetStatus = this._needsBuild(target, allSrc, postreqs);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
 			this._info.set(recipeRule, {
@@ -295,6 +277,8 @@ export class Build implements IBuild {
 			this._emit('end-recipe', recipeRule);
 			return true;
 		}
+
+		if (!isRuleID(recipeRule)) return true;
 
 		const recipeInfo = this._rules[recipeRule];
 		for (const peer of recipeInfo.targets) {
@@ -396,43 +380,46 @@ export class Build implements IBuild {
 		const src = isRuleID(recipeRule) && this._postreqMap.get(recipeRule);
 		return src || new Set<string>();
 	}
+
+	private _needsBuild(
+		target: IBuildPath,
+		prereqs: Path[],
+		postreqs: Set<string> | null,
+	): NeedsBuildValue {
+		let newestDepMtimeMs = -Infinity;
+
+		for (const prereq of prereqs) {
+			const preStat = statSync(this.abs(prereq), { throwIfNoEntry: false });
+			if (preStat) {
+				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
+			} else if (prereq.isBuildPath() && this._targets.has(prereq.rel())) {
+				// phony target
+				continue;
+			} else {
+				return NeedsBuildValue.missingSrc;
+			}
+		}
+
+		if (postreqs) {
+			for (const post of postreqs) {
+				const postStat = statSync(post, { throwIfNoEntry: false });
+				if (!postStat) return NeedsBuildValue.stale; // need to see if still needed
+				newestDepMtimeMs = Math.max(postStat.mtimeMs, newestDepMtimeMs);
+			}
+		}
+
+		const targetStats = statSync(this.abs(target), { throwIfNoEntry: false });
+		if (!targetStats) return NeedsBuildValue.stale;
+		if (newestDepMtimeMs > targetStats.mtimeMs) return NeedsBuildValue.stale;
+
+		return NeedsBuildValue.upToDate;
+	}
 }
 
 enum NeedsBuildValue {
 	stale,
 	missingSrc,
 	upToDate,
-}
-
-function needsBuild(
-	targets: string[],
-	sources: string[],
-	postreqs: Set<string> | null,
-): NeedsBuildValue {
-	let oldestTargetMtimeMs = Infinity;
-	for (const t of targets) {
-		const targetStats = statSync(t, { throwIfNoEntry: false });
-		if (!targetStats) return NeedsBuildValue.stale;
-		oldestTargetMtimeMs = Math.min(targetStats.mtimeMs, oldestTargetMtimeMs);
-	}
-
-	for (const src of sources) {
-		const srcStat = statSync(src, { throwIfNoEntry: false });
-		if (!srcStat) {
-			return NeedsBuildValue.missingSrc;
-		}
-		if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
-	}
-
-	if (postreqs) {
-		for (const src of postreqs) {
-			const srcStat = statSync(src, { throwIfNoEntry: false });
-			if (!srcStat) return NeedsBuildValue.stale; // need to see if still needed
-			if (srcStat.mtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
-		}
-	}
-
-	return NeedsBuildValue.upToDate;
 }
 
 interface IPromisePieces<T> {

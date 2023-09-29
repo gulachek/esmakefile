@@ -253,6 +253,18 @@ describe('Cookbook', () => {
 			expect(result).to.be.true;
 		});
 
+		it('builds a phony target', async () => {
+			let count = 0;
+			book.add('all', () => {
+				++count;
+				return Promise.resolve(true);
+			});
+
+			const result = await book.build();
+			expect(result).to.be.true;
+			expect(count).to.equal(1);
+		});
+
 		it('fails if recipe returns false', async () => {
 			const path = Path.build('test.txt');
 			const write = new WriteFileRule(path, 'test');

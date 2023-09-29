@@ -7,7 +7,14 @@ import {
 	ruleTargets,
 } from './Rule.js';
 import { Mutex, UnlockFunction } from './Mutex.js';
-import { IBuildPath, BuildPathLike, Path } from './Path.js';
+import {
+	IBuildPath,
+	BuildPathLike,
+	PathLike,
+	Path,
+	isBuildPathLike,
+	isPathLike,
+} from './Path.js';
 import {
 	Build,
 	RuleID,
@@ -27,11 +34,23 @@ export interface ICookbookOpts {
 	srcRoot?: string;
 }
 
-type Prereqs = Path | Path[];
-type Targets = IBuildPath | IBuildPath[];
+type Prereqs = PathLike | PathLike[];
+type Targets = BuildPathLike | BuildPathLike[];
 
 function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
+	if (typeof ruleOrTargets === 'string') return false;
 	return 'targets' in ruleOrTargets;
+}
+
+function normalizeTargets(t: Targets): IBuildPath | IBuildPath[] {
+	if (isBuildPathLike(t)) return Path.build(t);
+
+	return t.map((t) => Path.build(t));
+}
+
+function normalizePrereqs(p: Prereqs): Path | Path[] {
+	if (isPathLike(p)) return Path.src(p);
+	return p.map((p) => Path.src(p));
 }
 
 export class Cookbook {
@@ -64,10 +83,10 @@ export class Cookbook {
 			// targets, prereqs, recipe
 			rule = {
 				targets() {
-					return ruleOrTargets as Targets;
+					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return prereqsOrRecipe as Prereqs;
+					return normalizePrereqs(prereqsOrRecipe as Prereqs);
 				},
 				recipe: recipeFn,
 			};
@@ -75,7 +94,7 @@ export class Cookbook {
 			// targets, recipe
 			rule = {
 				targets() {
-					return ruleOrTargets as Targets;
+					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				recipe: prereqsOrRecipe,
 			};
@@ -83,10 +102,10 @@ export class Cookbook {
 			// targets, prereqs
 			rule = {
 				targets() {
-					return ruleOrTargets as Targets;
+					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return prereqsOrRecipe;
+					return normalizePrereqs(prereqsOrRecipe);
 				},
 			};
 		} else if (isRule(ruleOrTargets)) {

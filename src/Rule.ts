@@ -21,7 +21,7 @@ export interface IRule {
 	/**
 	 * Generate targets from sources
 	 */
-	recipe?(args: RecipeArgs): Promise<boolean>;
+	recipe?(args: RecipeArgs): Promise<boolean | void> | boolean | void;
 }
 
 export class RecipeArgs {
@@ -80,10 +80,21 @@ export function ruleTargets(rule: IRule): IBuildPath[] {
 	return normalize(rule.targets());
 }
 
-export type RecipeFunction = (args: RecipeArgs) => Promise<boolean>;
+export type RecipeFunction = (
+	args: RecipeArgs,
+) => Promise<boolean | void> | boolean | void;
 
-export function ruleRecipe(rule: IRule): RecipeFunction | null {
-	if (rule.recipe) return rule.recipe.bind(rule);
+export function ruleRecipe(
+	rule: IRule,
+): (args: RecipeArgs) => Promise<boolean> | null {
+	if (rule.recipe) {
+		return async (args: RecipeArgs) => {
+			const result = await rule.recipe(args);
+			if (typeof result === 'undefined') return true;
+			return result;
+		};
+	}
+
 	return null;
 }
 

@@ -7,10 +7,7 @@ cli((book: Cookbook) => {
 	const main = Path.build('main');
 	const css = Path.build('style.css');
 
-	book.add('all', [css, main], async (args) => {
-		args.logStream.write('building all...');
-		return true;
-	});
+	book.add('all', [css, main]);
 
 	addSass(book, scssFile, 'style.css');
 

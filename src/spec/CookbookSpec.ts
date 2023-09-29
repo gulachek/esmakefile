@@ -257,7 +257,6 @@ describe('Cookbook', () => {
 			let count = 0;
 			book.add('all', () => {
 				++count;
-				return Promise.resolve(true);
 			});
 
 			const result = await book.build();
@@ -269,7 +268,6 @@ describe('Cookbook', () => {
 			let count = 0;
 			book.add('all', () => {
 				++count;
-				return Promise.resolve(true);
 			});
 
 			await book.build();
@@ -278,13 +276,39 @@ describe('Cookbook', () => {
 		});
 
 		it('fails if recipe returns false', async () => {
-			const path = Path.build('test.txt');
-			const write = new WriteFileRule(path, 'test');
-			write.returnFalseOnBuild();
-			book.add(write);
-
-			const result = await book.build(path);
+			book.add('all', () => false);
+			const result = await book.build();
 			expect(result).to.be.false;
+		});
+
+		it('succeeds if recipe is void', async () => {
+			book.add('all', () => {});
+			const result = await book.build();
+			expect(result).to.be.true;
+		});
+
+		it('succeeds if recipe is true', async () => {
+			book.add('all', () => true);
+			const result = await book.build();
+			expect(result).to.be.true;
+		});
+
+		it('fails if recipe returns Promise<false>', async () => {
+			book.add('all', () => Promise.resolve(false));
+			const result = await book.build();
+			expect(result).to.be.false;
+		});
+
+		it('succeeds if recipe is Promise<void>', async () => {
+			book.add('all', () => Promise.resolve());
+			const result = await book.build();
+			expect(result).to.be.true;
+		});
+
+		it('succeeds if recipe is Promise<true>', async () => {
+			book.add('all', () => Promise.resolve(true));
+			const result = await book.build();
+			expect(result).to.be.true;
 		});
 
 		it('fails if recipe throws', async () => {
@@ -368,10 +392,7 @@ describe('Cookbook', () => {
 		it('builds if a phony target prereq is in the system', async () => {
 			const prereq = Path.build('prereq');
 			book.add('all', prereq);
-
-			book.add(prereq, () => {
-				return Promise.resolve(true);
-			});
+			book.add(prereq, () => {});
 
 			const result = await book.build();
 			expect(result).to.be.true;

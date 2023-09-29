@@ -1,4 +1,4 @@
-import { IBuild, RuleID } from './Build.js';
+import { IBuild } from './Build.js';
 import { render, Text, Box, Static } from 'ink';
 import React, { useState, useEffect } from 'react';
 
@@ -10,29 +10,29 @@ interface IBuildDisplayProps {
 
 function BuildDisplay(props: IBuildDisplayProps) {
 	const { build, continueBuild, result } = props;
-	const emptySet = new Set<RuleID>();
+	const emptySet = new Set<string>();
 	const [inProgress, setInProgress] = useState(emptySet);
-	const [complete, setComplete] = useState([] as RuleID[]);
+	const [complete, setComplete] = useState([] as string[]);
 
 	useEffect(() => {
-		build.on('start-recipe', (id: RuleID) => {
+		build.on('start-target', (target: string) => {
 			setInProgress((val) => {
 				const newVal = new Set(val);
-				newVal.add(id);
+				newVal.add(target);
 				return newVal;
 			});
 		});
 
-		build.on('end-recipe', (id: RuleID) => {
+		build.on('end-target', (target: string) => {
 			setInProgress((val) => {
 				const newVal = new Set(val);
-				newVal.delete(id);
+				newVal.delete(target);
 				return newVal;
 			});
 
 			setComplete((val) => {
 				const newVal = [...val];
-				newVal.push(id);
+				newVal.push(target);
 				return newVal;
 			});
 		});
@@ -56,31 +56,31 @@ function BuildDisplay(props: IBuildDisplayProps) {
 
 interface IErrorMessagesProps {
 	build: IBuild;
-	complete: RuleID[];
+	complete: string[];
 }
 
 function ErrorMessages(props: IErrorMessagesProps) {
 	const { build, complete } = props;
 	return (
 		<Static items={complete}>
-			{(item) => <ErrorMessage key={item} build={build} id={item} />}
+			{(item) => <ErrorMessage key={item} build={build} target={item} />}
 		</Static>
 	);
 }
 
 interface IErrorMessageProps {
 	build: IBuild;
-	id: RuleID;
+	target: string;
 }
 
 function ErrorMessage(props: IErrorMessageProps) {
-	const { build, id } = props;
+	const { build, target } = props;
 
-	const result = build.resultOf(id);
+	const result = build.resultOf(target);
 	if (result !== false) return null;
 
-	const err = build.thrownExceptionOf(id);
-	const log = build.contentOfLog(id);
+	const err = build.thrownExceptionOf(target);
+	const log = build.contentOfLog(target);
 	if (!(err || log)) return null;
 
 	return (
@@ -94,7 +94,7 @@ function ErrorMessage(props: IErrorMessageProps) {
 				justifyContent="center"
 			>
 				<Text color="redBright" wrap="truncate-end">
-					{build.nameOf(id)}
+					{target}
 				</Text>
 			</Box>
 			<Box>
@@ -106,7 +106,7 @@ function ErrorMessage(props: IErrorMessageProps) {
 
 interface ICompletedBuildsProps {
 	build: IBuild;
-	complete: RuleID[];
+	complete: string[];
 }
 
 function CompletedBuilds(props: ICompletedBuildsProps) {
@@ -115,31 +115,30 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 	const times = [];
 	const names = [];
 	const results = [];
-	for (const id of complete) {
-		const name = build.nameOf(id);
-		const elapsedMs = Math.round(build.elapsedMsOf(id));
+	for (const target of complete) {
+		const elapsedMs = Math.round(build.elapsedMsOf(target));
 		const elapsedTime = (
-			<Text key={id} color="cyan">
+			<Text key={target} color="cyan">
 				[{elapsedMs}ms]
 			</Text>
 		);
 		times.push(elapsedTime);
 		names.push(
-			<Text key={id} wrap="truncate-end">
-				{name}
+			<Text key={target} wrap="truncate-end">
+				{target}
 			</Text>,
 		);
 
-		const result = build.resultOf(id);
+		const result = build.resultOf(target);
 		if (result) {
 			results.push(
-				<Text key={id} color="greenBright">
+				<Text key={target} color="greenBright">
 					✔
 				</Text>,
 			);
 		} else {
 			results.push(
-				<Text key={id} color="redBright">
+				<Text key={target} color="redBright">
 					✘
 				</Text>,
 			);
@@ -163,7 +162,7 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 
 interface IInProgressBuildsProps {
 	build: IBuild;
-	inProgress: Set<RuleID>;
+	inProgress: Set<string>;
 	now: number;
 }
 
@@ -172,18 +171,17 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 	const times = [];
 	const names = [];
 
-	for (const id of inProgress) {
-		const name = build.nameOf(id);
-		const elapsedMs = Math.round(build.elapsedMsOf(id, now));
+	for (const target of inProgress) {
+		const elapsedMs = Math.round(build.elapsedMsOf(target, now));
 		const elapsedTime = (
-			<Text key={id} color="cyan">
+			<Text key={target} color="cyan">
 				[{elapsedMs}ms]{' '}
 			</Text>
 		);
 		times.push(elapsedTime);
 		names.push(
-			<Text key={id} dimColor wrap="truncate-end">
-				{name}
+			<Text key={target} dimColor wrap="truncate-end">
+				{target}
 			</Text>,
 		);
 	}

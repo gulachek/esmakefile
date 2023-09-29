@@ -14,11 +14,10 @@ export interface IBuild {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
-	nameOf(recipe: RuleID): string;
-	elapsedMsOf(recipe: RuleID, now?: number): number;
-	resultOf(recipe: RuleID): boolean | null;
-	contentOfLog(recipe: RuleID): string | null;
-	thrownExceptionOf(recipe: RuleID): Error;
+	elapsedMsOf(target: string, now?: number): number;
+	resultOf(target: string): boolean | null;
+	contentOfLog(target: string): string | null;
+	thrownExceptionOf(target: string): Error;
 
 	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 
@@ -100,7 +99,7 @@ export class Build implements IBuild {
 
 	private _targets = new Map<string, TargetInfo>();
 	private _buildInProgress = new Map<string, Promise<boolean>>();
-	private _info = new Map<RuleID, RecipeBuildInfo>();
+	private _info = new Map<string, RecipeBuildInfo>();
 	private _postreqMap = new Map<RuleID, Set<string>>();
 	private _logs = new Map<RuleID, Vt100Stream>();
 
@@ -124,12 +123,8 @@ export class Build implements IBuild {
 		this._event.off(e, l);
 	}
 
-	nameOf(recipe: RuleID): string {
-		return this._rules[recipe].name;
-	}
-
-	elapsedMsOf(recipe: RuleID, now?: number): number {
-		const info = this._info.get(recipe);
+	elapsedMsOf(target: string, now?: number): number {
+		const info = this._info.get(target);
 		if (info.complete) {
 			return info.endTime - info.startTime;
 		} else {
@@ -137,8 +132,8 @@ export class Build implements IBuild {
 		}
 	}
 
-	resultOf(recipe: RuleID): boolean | null {
-		const info = this._info.get(recipe);
+	resultOf(target: string): boolean | null {
+		const info = this._info.get(target);
 		if (info.complete) {
 			return info.result;
 		}
@@ -146,14 +141,18 @@ export class Build implements IBuild {
 		return null;
 	}
 
-	contentOfLog(recipe: RuleID): string | null {
-		const stream = this._logs.get(recipe);
+	contentOfLog(target: string): string | null {
+		const info = this._targets.get(target);
+		if (!info) return null;
+
+		const { recipeRule } = info;
+		const stream = isRuleID(recipeRule) && this._logs.get(recipeRule);
 		if (!stream) return null;
 		return stream.contents();
 	}
 
-	thrownExceptionOf(recipe: number): Error | null {
-		const info = this._info.get(recipe);
+	thrownExceptionOf(target: string): Error | null {
+		const info = this._info.get(target);
 		if (info.complete) {
 			return info.exception || null;
 		}
@@ -176,12 +175,12 @@ export class Build implements IBuild {
 		return results.every((b) => b);
 	}
 
-	createLogStream(rule: RuleID): Writable {
+	createLogStream(id: RuleID): Writable {
 		const stream = new Vt100Stream();
 		stream.vtOn('data', (buf: Buffer) => {
-			this._emit('recipe-log', rule, buf);
+			this._emit('recipe-log', id, buf);
 		});
-		this._logs.set(rule, stream);
+		this._logs.set(id, stream);
 		return stream;
 	}
 
@@ -239,14 +238,14 @@ export class Build implements IBuild {
 		}
 
 		if (!(await this.runAll(srcToBuild))) {
-			this._info.set(recipeRule, {
+			this._info.set(rel, {
 				complete: true,
 				completeReason: CompleteReason.missingSrc,
 				result: false,
 				startTime: -1,
 				endTime: -1,
 			});
-			this._emit('end-recipe', recipeRule);
+			this._emit('end-target', rel);
 			return false;
 		}
 
@@ -255,26 +254,26 @@ export class Build implements IBuild {
 		const targetStatus = this._needsBuild(target, allSrc, postreqs);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
-			this._info.set(recipeRule, {
+			this._info.set(rel, {
 				complete: true,
 				completeReason: CompleteReason.missingSrc,
 				result: false,
 				startTime: -1,
 				endTime: -1,
 			});
-			this._emit('end-recipe', recipeRule);
+			this._emit('end-target', rel);
 			return false;
 		}
 
 		if (targetStatus === NeedsBuildValue.upToDate) {
-			this._info.set(recipeRule, {
+			this._info.set(rel, {
 				complete: true,
 				completeReason: CompleteReason.upToDate,
 				result: true,
 				startTime: -1,
 				endTime: -1,
 			});
-			this._emit('end-recipe', recipeRule);
+			this._emit('end-target', rel);
 			return true;
 		}
 
@@ -290,13 +289,13 @@ export class Build implements IBuild {
 			startTime: performance.now(),
 		};
 
-		this._info.set(recipeRule, buildInfo);
+		this._info.set(rel, buildInfo);
 
-		this._emit('start-recipe', recipeRule);
+		this._emit('start-target', rel);
 
 		try {
 			const result = await recipeInfo.recipe(this);
-			this._info.set(recipeRule, {
+			this._info.set(rel, {
 				...buildInfo,
 				complete: true,
 				completeReason: CompleteReason.built,
@@ -305,7 +304,7 @@ export class Build implements IBuild {
 			});
 			return result;
 		} catch (err) {
-			this._info.set(recipeRule, {
+			this._info.set(rel, {
 				...buildInfo,
 				complete: true,
 				completeReason: CompleteReason.built,
@@ -315,7 +314,7 @@ export class Build implements IBuild {
 			});
 			return false;
 		} finally {
-			this._emit('end-recipe', recipeRule);
+			this._emit('end-target', rel);
 		}
 	}
 
@@ -438,8 +437,8 @@ function makePromise<T>(): IPromisePieces<T> {
 }
 
 type BuildEventMap = {
-	'start-recipe': [RuleID];
-	'end-recipe': [RuleID];
+	'start-target': [string];
+	'end-target': [string];
 	'recipe-log': [RuleID, Buffer];
 };
 

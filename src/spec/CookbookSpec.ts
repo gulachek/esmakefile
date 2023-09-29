@@ -648,22 +648,21 @@ describe('Cookbook', () => {
 			expect(copy.buildCount).to.equal(1);
 		});
 
-		it('notifies caller of start and end time of recipe', async () => {
-			const out = Path.build('out.txt');
-			const write = new WriteFileRule(out, 'hello');
-			const id = book.add(write);
+		it('notifies caller of start and end time of target', async () => {
+			const targ = Path.build('test');
+			book.add(targ, () => {});
 			let startCalled = false;
 			let endCalled = false;
 
-			await book.build(out, async (build: IBuild) => {
-				build.on('start-recipe', (rid: RuleID) => {
-					expect(rid, 'start id').to.equal(id);
+			await book.build(targ, async (build: IBuild) => {
+				build.on('start-target', (target: string) => {
+					expect(target, 'start target').to.equal('test');
 					expect(endCalled, 'end not called b4 start').to.be.false;
 					startCalled = true;
 				});
 
-				build.on('end-recipe', (rid: RuleID) => {
-					expect(rid, 'end id').to.equal(id);
+				build.on('end-target', (target: string) => {
+					expect(target, 'end target').to.equal('test');
 					expect(startCalled, 'start called before end').to.be.true;
 					endCalled = true;
 				});

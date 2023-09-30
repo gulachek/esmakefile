@@ -35,14 +35,27 @@ export class RecipeArgs {
 		this.logStream = logStream;
 	}
 
-	abs(path: Path): string;
-	abs(...paths: Path[]): string[];
-	abs(...paths: Path[]): string | string[] {
-		if (paths.length === 1) {
-			return this._book.abs(paths[0]);
+	abs(path: Path): string {
+		return this._book.abs(path);
+	}
+
+	absAll(paths: Iterable<Path>): string[];
+	absAll(...paths: Path[]): string[];
+	absAll(
+		pathOrPaths: Path | Iterable<Path>,
+		...rest: Path[]
+	): string | string[] {
+		const out: string[] = [];
+		let iter: Iterable<Path>;
+
+		if (pathOrPaths instanceof Path) {
+			out.push(this._book.abs(pathOrPaths));
+			iter = rest;
 		}
 
-		return paths.map((p) => this._book.abs(p));
+		for (const p of iter) out.push(this._book.abs(p));
+
+		return out;
 	}
 
 	addPostreq(abs: string): void {

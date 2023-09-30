@@ -33,7 +33,7 @@ export class ClangExecutableRecipe implements IRule {
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
 		const exe = args.abs(this.exe);
-		const sources = args.abs(...this.objs);
+		const sources = args.absAll(...this.objs);
 
 		const clangArgs = ['-o', exe];
 		clangArgs.push(...sources);
@@ -112,7 +112,7 @@ class CatRecipe implements IRule {
 		args.logStream.write(`Generating ${this.out}`, 'utf8');
 
 		const out = args.abs(this.out);
-		const sources = args.abs(...this._src);
+		const sources = args.absAll(...this._src);
 
 		const stream = await open(out, 'w');
 		for (const elem of this._elems) {

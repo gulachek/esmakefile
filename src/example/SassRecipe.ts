@@ -39,7 +39,7 @@ class ScssRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs) {
-		const [src, dest] = args.abs(this._srcPath, this._destPath);
+		const [src, dest] = args.absAll(this._srcPath, this._destPath);
 
 		args.logStream.write(`sass ${this._srcPath}`, 'utf8');
 		const result = sass.compile(src);

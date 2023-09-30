@@ -36,7 +36,7 @@ export class ClangObjectRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const [obj, depfile, cmds] = args.abs(...this.targets());
+		const [obj, depfile, cmds] = args.absAll(...this.targets());
 		const src = args.abs(this.src);
 
 		const clangArgs = [src, '-c', '-o', obj];

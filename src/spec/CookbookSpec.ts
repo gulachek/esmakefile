@@ -91,7 +91,7 @@ class CopyFileRule extends TestRule implements IRule {
 	}
 
 	override async onBuild(args: RecipeArgs): Promise<boolean> {
-		const [src, dest] = args.abs(this.src, this.dest);
+		const [src, dest] = args.absAll(this.src, this.dest);
 
 		try {
 			await copyFile(src, dest);
@@ -120,7 +120,7 @@ class CatFilesRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const [src, dest] = args.abs(this.src, this.dest);
+		const [src, dest] = args.absAll(this.src, this.dest);
 
 		const srcDir = dirname(src);
 		++this.buildCount;

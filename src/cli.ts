@@ -222,22 +222,18 @@ export function cli(
 		.action(async (target?: string) => {
 			const book = makeCookbook();
 			const targetPath = target && Path.build(target);
-			let display: Vt100BuildInProgress | null = null;
-
-			const result = await book.build(targetPath, (build) => {
-				display = new Vt100BuildInProgress(build);
-				return new Promise<void>((res) => display.start(res));
-			});
-
-			display.stop(result);
+			const display = new Vt100BuildInProgress(book, targetPath);
+			display.build();
 		});
 
 	program
 		.command('watch')
 		.description('Rebuild top level targets when a source file changes')
-		.action(() => {
+		.action(async () => {
 			const book = makeCookbook();
-			book.watch();
+			//const targetPath = target && Path.build(target);
+			const display = new Vt100BuildInProgress(book);
+			display.watch();
 		});
 
 	program

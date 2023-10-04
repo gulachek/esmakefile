@@ -125,6 +125,7 @@ export class Build implements IBuild {
 
 	elapsedMsOf(target: string, now?: number): number {
 		const info = this._info.get(target);
+		if (!info) throw new Error(`No info for target ${target}`);
 		if (info.complete) {
 			return info.endTime - info.startTime;
 		} else {

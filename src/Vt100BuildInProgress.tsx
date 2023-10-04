@@ -1,10 +1,92 @@
 import { IBuild } from './Build.js';
 import { render, Text, Box, Static } from 'ink';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { IBuildPath } from './Path.js';
+import { Cookbook } from './Cookbook.js';
+import { FSWatcher } from 'node:fs';
+import { watch } from 'node:fs';
+import EventEmitter from 'node:events';
+
+type VoidFunc = () => void;
+
+interface IBuildBookProps {
+	book: Cookbook;
+	target?: IBuildPath;
+}
+
+function BuildBook(props: IBuildBookProps) {
+	const { book, target } = props;
+
+	const [result, setResult] = useState<boolean | null>(null);
+	const [build, setBuild] = useState<IBuild | null>(null);
+	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
+
+	useEffect(() => {
+		book
+			.build(target, (build) => {
+				setBuild(build);
+				return new Promise<void>((res) => {
+					setContinueBuild(res);
+				});
+			})
+			.then(setResult);
+	}, [book, target]);
+
+	if (build) {
+		return (
+			<BuildDisplay
+				build={build}
+				continueBuild={continueBuild}
+				result={result}
+			/>
+		);
+	} else {
+		return <></>;
+	}
+}
+
+interface IWatchBookProps extends IBuildBookProps {}
+
+function WatchBook(props: IWatchBookProps) {
+	const { book, target } = props;
+	const [changeCount, setChangeCount] = useState(0);
+	const watcher = useMemo(() => {
+		return new SourceWatcher(book.srcRoot, { debounceMs: 300 });
+	}, [book]);
+
+	useEffect(() => {
+		const inc = () => setChangeCount((c) => c + 1);
+		const logUnknown = (type: string) =>
+			console.log(`Unhandled event type '${type}'`);
+		const closeWatcher = () => watcher.close();
+		const drainStdin = () => process.stdin.read();
+
+		watcher.on('change', inc);
+		watcher.on('unknown', logUnknown);
+		process.stdin.on('close', closeWatcher);
+		process.stdin.on('data', drainStdin);
+
+		return () => {
+			watcher.off('change', inc);
+			watcher.off('unknown', logUnknown);
+			process.stdin.off('close', closeWatcher);
+			process.stdin.off('data', drainStdin);
+		};
+	}, [book, target]);
+
+	const text = `Watching '${book.srcRoot}'\nClose input stream to stop (usually Ctrl+D)`;
+
+	return (
+		<>
+			<Text>{text}</Text>
+			<BuildBook key={changeCount} book={book} target={target} />
+		</>
+	);
+}
 
 interface IBuildDisplayProps {
 	build: IBuild;
-	continueBuild?: () => void;
+	continueBuild: VoidFunc | null;
 	result: boolean | null;
 }
 
@@ -15,15 +97,14 @@ function BuildDisplay(props: IBuildDisplayProps) {
 	const [complete, setComplete] = useState([] as string[]);
 
 	useEffect(() => {
-		build.on('start-target', (target: string) => {
+		const startTarget = (target: string) => {
 			setInProgress((val) => {
 				const newVal = new Set(val);
 				newVal.add(target);
 				return newVal;
 			});
-		});
-
-		build.on('end-target', (target: string) => {
+		};
+		const endTarget = (target: string) => {
 			setInProgress((val) => {
 				const newVal = new Set(val);
 				newVal.delete(target);
@@ -35,9 +116,17 @@ function BuildDisplay(props: IBuildDisplayProps) {
 				newVal.push(target);
 				return newVal;
 			});
-		});
+		};
+
+		build.on('start-target', startTarget);
+		build.on('end-target', endTarget);
 
 		continueBuild?.();
+
+		return () => {
+			build.off('start-target', startTarget);
+			build.off('end-target', endTarget);
+		};
 	}, [build, continueBuild]);
 
 	useIntervalMs(25, inProgress.size > 0);
@@ -45,7 +134,7 @@ function BuildDisplay(props: IBuildDisplayProps) {
 
 	return (
 		<Box flexDirection="column">
-			{result === false && <ErrorMessages build={build} complete={complete} />}
+			{result !== null && <ErrorMessages build={build} complete={complete} />}
 			<CompletedBuilds build={build} complete={complete} />
 			{result === null && (
 				<InProgressBuilds build={build} now={now} inProgress={inProgress} />
@@ -62,9 +151,11 @@ interface IErrorMessagesProps {
 function ErrorMessages(props: IErrorMessagesProps) {
 	const { build, complete } = props;
 	return (
-		<Static items={complete}>
-			{(item) => <ErrorMessage key={item} build={build} target={item} />}
-		</Static>
+		<>
+			{complete.map((item) => (
+				<ErrorMessage key={item} build={build} target={item} />
+			))}
+		</>
 	);
 }
 
@@ -175,7 +266,7 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 		const elapsedMs = Math.round(build.elapsedMsOf(target, now));
 		const elapsedTime = (
 			<Text key={target} color="cyan">
-				[{elapsedMs}ms]{' '}
+				[{elapsedMs}ms]
 			</Text>
 		);
 		times.push(elapsedTime);
@@ -199,24 +290,20 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 }
 
 export class Vt100BuildInProgress {
-	private _build: IBuild;
+	private _book: Cookbook;
+	private _targetPath?: IBuildPath;
 
-	constructor(build: IBuild) {
-		this._build = build;
+	constructor(book: Cookbook, targetPath?: IBuildPath) {
+		this._book = book;
+		this._targetPath = targetPath;
 	}
 
-	start(continueBuild: () => void): void {
-		render(
-			<BuildDisplay
-				build={this._build}
-				result={null}
-				continueBuild={continueBuild}
-			/>,
-		);
+	build(): void {
+		render(<BuildBook book={this._book} target={this._targetPath} />);
 	}
 
-	stop(result: boolean): void {
-		render(<BuildDisplay build={this._build} result={result} />);
+	watch(): void {
+		render(<WatchBook book={this._book} target={this._targetPath} />);
 	}
 }
 
@@ -227,4 +314,40 @@ function useIntervalMs(ms: number, keepGoing: boolean): number {
 	}, [keepGoing, now]);
 
 	return now;
+}
+
+class SourceWatcher extends EventEmitter {
+	private _watcher: FSWatcher;
+	private _debounceMs: number;
+	private _count: number = 0;
+
+	constructor(dir: string, opts: { debounceMs: number }) {
+		super();
+		this._debounceMs = opts.debounceMs;
+
+		this._watcher = watch(dir, { recursive: true });
+		this._watcher.on('change', this._onChange.bind(this));
+		this._watcher.on('close', () => this.emit('close'));
+	}
+
+	close() {
+		this._watcher.close();
+	}
+
+	private _onChange(type: string): void {
+		if (type === 'rename') {
+			this._queueChange();
+		} else {
+			this.emit('unknown', type);
+		}
+	}
+
+	private _queueChange() {
+		const count = ++this._count;
+		setTimeout(() => {
+			if (this._count === count) {
+				this.emit('change');
+			}
+		}, this._debounceMs);
+	}
 }

@@ -1,5 +1,5 @@
 import { IBuild } from './Build.js';
-import { render, Text, Box, Static } from 'ink';
+import { render, Text, Box } from 'ink';
 import React, { useState, useEffect, useMemo } from 'react';
 import { IBuildPath } from './Path.js';
 import { Cookbook } from './Cookbook.js';
@@ -335,10 +335,14 @@ class SourceWatcher extends EventEmitter {
 	}
 
 	private _onChange(type: string): void {
-		if (type === 'rename') {
-			this._queueChange();
-		} else {
-			this.emit('unknown', type);
+		switch (type) {
+			case 'rename':
+			case 'change':
+				this._queueChange();
+				break;
+			default:
+				this.emit('unknown', type);
+				break;
 		}
 	}
 

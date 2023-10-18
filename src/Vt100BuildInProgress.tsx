@@ -6,6 +6,7 @@ import { Cookbook } from './Cookbook.js';
 import { FSWatcher } from 'node:fs';
 import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
+import { resolve } from 'node:path';
 
 type VoidFunc = () => void;
 
@@ -51,7 +52,10 @@ function WatchBook(props: IWatchBookProps) {
 	const { book, target } = props;
 	const [changeCount, setChangeCount] = useState(0);
 	const watcher = useMemo(() => {
-		return new SourceWatcher(book.srcRoot, { debounceMs: 300 });
+		return new SourceWatcher(book.srcRoot, {
+			debounceMs: 300,
+			excludeDir: book.buildRoot,
+		});
 	}, [book]);
 
 	useEffect(() => {
@@ -319,11 +323,13 @@ function useIntervalMs(ms: number, keepGoing: boolean): number {
 class SourceWatcher extends EventEmitter {
 	private _watcher: FSWatcher;
 	private _debounceMs: number;
+	private _excludeDir: string;
 	private _count: number = 0;
 
-	constructor(dir: string, opts: { debounceMs: number }) {
+	constructor(dir: string, opts: { debounceMs: number; excludeDir: string }) {
 		super();
 		this._debounceMs = opts.debounceMs;
+		this._excludeDir = opts.excludeDir;
 
 		this._watcher = watch(dir, { recursive: true });
 		this._watcher.on('change', this._onChange.bind(this));
@@ -334,11 +340,12 @@ class SourceWatcher extends EventEmitter {
 		this._watcher.close();
 	}
 
-	private _onChange(type: string): void {
+	private _onChange(type: string, filename: string): void {
 		switch (type) {
 			case 'rename':
 			case 'change':
-				this._queueChange();
+				if (!resolve(filename).startsWith(this._excludeDir))
+					this._queueChange();
 				break;
 			default:
 				this.emit('unknown', type);

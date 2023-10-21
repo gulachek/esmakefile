@@ -1,11 +1,24 @@
-# gulpachek
+# i❤️make (iheartmake)
 
-Gulpachek is inspired by gulp and make. It's intended to provide the
+i❤️make is a JavaScript build system inspired by Make. It's intended to provide the
 power and flexibility of javascript for creating a cross-platform
 make-like build system, consisting of buildable targets in a dependency
 tree.
 
+The primary goal of i❤️make is to provide lower level tools and concepts that
+Make provides, only extending where the author deems useful. Hence the familiar
+terminology of rules, targets, prerequisites, and recipes is used. It's expected
+that higher level tools will be built on top of this system to make building projects
+easier.
+
+**Disclaimer**: if you want to use another build tool like gulp, grunt, or jake, then
+please do so. They're great tools. The author likes the Make build system and thinks
+that these tools have diverged from the paradigm in a few ways. It's ok to have different
+tools that different people like.
+
 ## Build System Model
+
+_This description is out of date and needs revision_
 
 The build system is defined by two components
 
@@ -55,12 +68,12 @@ by a unique path. Paths can take three forms:
 
 ### Build Scripts
 
-gulpachek targets creating a well defined and predictable build of a project.
+i❤️make targets creating a well defined and predictable build of a project.
 If the developer automates generation of package files for distribution as
 build outputs, these are appropriate. While it is appropriate for a developer
-to generate install files for a package, **gulpachek does not target
+to generate install files for a package, **i❤️make does not target
 installation itself.** If a package manager like `brew` is used which favors
-source installs, the installer should run the gulpachek build script to
+source installs, the installer should run the i❤️make build script to
 generate well-defined outputs and then install those outputs to expected
 locations.
 

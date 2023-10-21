@@ -176,7 +176,7 @@ export class Cookbook {
 
 		try {
 			const prevBuildAbs = this.abs(
-				Path.build('__gulpachek__/previous-build.json'),
+				Path.build('__iheartmake__/previous-build.json'),
 			);
 
 			target = target || this._firstTarget();

@@ -48,7 +48,7 @@ export class RecipeArgs {
 		const out: string[] = [];
 		let iter: Iterable<Path>;
 
-		if (pathOrPaths instanceof Path) {
+		if (!isIterable(pathOrPaths)) {
 			out.push(this._book.abs(pathOrPaths));
 			iter = rest;
 		}
@@ -119,4 +119,10 @@ function normalize<T>(val: OneOrMany<T>): T[] {
 	}
 
 	return [val];
+}
+
+function isIterable<T>(obj: object): obj is Iterable<T> {
+	return (
+		obj && Symbol.iterator in obj && typeof obj[Symbol.iterator] === 'function'
+	);
 }

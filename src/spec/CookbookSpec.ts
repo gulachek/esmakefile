@@ -596,6 +596,44 @@ describe('Cookbook', () => {
 			});
 		});
 
+		it('remembers postreqs for targets that are not always built', async () => {
+			const foo = Path.build('foo');
+			const req = Path.src('req');
+			const phony = Path.build('phony');
+
+			await writePath(req, 'init');
+
+			const counts = { foo: 0, phony: 0 };
+
+			book.add('all', [foo, phony]);
+
+			book.add(foo, async (args) => {
+				counts.foo += 1;
+				args.addPostreq(args.abs(req));
+				await writePath(foo, counts.foo.toString());
+				return true;
+			});
+
+			book.add(phony, () => {
+				counts.phony += 1;
+				return true;
+			});
+
+			await book.build();
+			expect(counts.foo).to.equal(1, 'foo');
+			expect(counts.phony).to.equal(1, 'phony');
+
+			await book.build();
+			expect(counts.foo).to.equal(1, 'foo');
+			expect(counts.phony).to.equal(2, 'phony');
+
+			await writePath(req, 'update');
+
+			await book.build();
+			expect(counts.foo).to.equal(2, 'foo');
+			expect(counts.phony).to.equal(3, 'phony');
+		});
+
 		/*
 		 * This might initially be perceived as a bug. However, it's unclear
 		 * how this would be a stable build. Seems circular to need to

@@ -378,7 +378,8 @@ export class Build implements IBuild {
 
 		const { recipeRule } = info;
 		const src = isRuleID(recipeRule) && this._postreqMap.get(recipeRule);
-		return src || new Set<string>();
+		if (src) return src;
+		return this._prevBuild?.postreqs(target) || new Set<string>();
 	}
 
 	private _needsBuild(

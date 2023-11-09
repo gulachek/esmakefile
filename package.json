@@ -1,6 +1,6 @@
 {
 	"name": "esmakefile",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"description": "JavaScript build system inspired by Make",
 	"main": "dist/index.js",
 	"types": "types/index.d.ts",

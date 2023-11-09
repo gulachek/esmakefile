@@ -1,5 +1,5 @@
 import { IBuild } from './Build.js';
-import { render, Text, Box } from 'ink';
+import { render, Text, Box, useStdout } from 'ink';
 import React, { useState, useEffect, useMemo } from 'react';
 import { IBuildPath } from './Path.js';
 import { Cookbook } from './Cookbook.js';
@@ -81,10 +81,10 @@ function WatchBook(props: IWatchBookProps) {
 	const text = `Watching '${book.srcRoot}'\nClose input stream to stop (usually Ctrl+D)`;
 
 	return (
-		<>
+		<Box minHeight={process.stdout.rows || 24} flexDirection="column">
 			<Text>{text}</Text>
 			<BuildBook key={changeCount} book={book} target={target} />
-		</>
+		</Box>
 	);
 }
 

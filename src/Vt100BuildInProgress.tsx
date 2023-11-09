@@ -1,5 +1,5 @@
 import { IBuild } from './Build.js';
-import { render, Text, Box, useStdout } from 'ink';
+import { render, Text, Box } from 'ink';
 import React, { useState, useEffect, useMemo } from 'react';
 import { IBuildPath } from './Path.js';
 import { Cookbook } from './Cookbook.js';

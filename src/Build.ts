@@ -221,6 +221,12 @@ export class Build implements IBuild {
 		const rel = target.rel();
 		const info = this._targets.get(rel);
 
+		if (!info) {
+			throw new Error(
+				`Cannot build '${target}' because it is not registered with the Makefile`,
+			);
+		}
+
 		const { recipeRule, rules } = info;
 
 		const srcToBuild: IBuildPath[] = [];

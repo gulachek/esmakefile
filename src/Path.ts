@@ -88,7 +88,7 @@ export class Path {
 	}
 
 	toString(): string {
-		return path.join(`@${this.type}`, ...this.components);
+		return path.posix.join(`@${this.type}`, ...this.components);
 	}
 
 	isBuildPath(): this is IBuildPath {

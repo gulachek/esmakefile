@@ -8,6 +8,8 @@ import {
 
 import { expect } from 'chai';
 
+import { resolve, join} from 'node:path';
+
 describe('isPathLike', () => {
 	it('returns true for strings', () => {
 		expect(isPathLike('hello')).to.be.true;
@@ -70,7 +72,8 @@ describe('Path', () => {
 
 		it('does not allow .. to go above source root', () => {
 			const path = Path.src('../external.txt');
-			expect(path.abs('/test')).to.equal('/test/external.txt');
+			const cwd = resolve('.');
+			expect(path.abs(cwd)).to.equal(join(cwd, 'external.txt'));
 		});
 	});
 

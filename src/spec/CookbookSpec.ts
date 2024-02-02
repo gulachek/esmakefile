@@ -437,7 +437,7 @@ describe('Cookbook', () => {
 			book.add(cp);
 
 			await book.build(cpPath);
-
+			await waitMs(1);
 			await writePath(srcPath, 'update');
 
 			await book.build(cpPath);
@@ -459,7 +459,7 @@ describe('Cookbook', () => {
 			book.add(cpPath, otherPath);
 
 			await book.build(cpPath);
-
+			await waitMs(1);
 			await writePath(otherPath, 'update');
 
 			await book.build(cpPath);
@@ -576,6 +576,7 @@ describe('Cookbook', () => {
 				const newBook = new Cookbook({ srcRoot, buildRoot });
 				newBook.add(cat);
 
+				await waitMs(1);
 				await writePath(aPath, 'A changed\n');
 				result = await newBook.build(catPath);
 				expect(result).to.be.true;
@@ -623,10 +624,12 @@ describe('Cookbook', () => {
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(1, 'phony');
 
+			await waitMs(1);
 			await book.build();
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(2, 'phony');
 
+			await waitMs(1);
 			await writePath(req, 'update');
 
 			await book.build();

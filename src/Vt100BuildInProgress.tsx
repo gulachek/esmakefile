@@ -1,5 +1,5 @@
 import { IBuild } from './Build.js';
-import { render, Text, Box } from 'ink';
+import { render, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo } from 'react';
 import { IBuildPath } from './Path.js';
 import { Cookbook } from './Cookbook.js';
@@ -176,7 +176,24 @@ function ErrorMessage(props: IErrorMessageProps) {
 
 	const err = build.thrownExceptionOf(target);
 	const log = build.contentOfLog(target);
-	if (!(err || log)) return null;
+
+	const lineComponents = useMemo(() => {
+		const text = err?.stack || log;
+		if (!text) {
+			return null;
+		}
+
+		const lines = text.replaceAll('\r', '').split('\n');
+		const out = [];
+		for (const l of lines) {
+			out.push(<Text key={l}>{l}</Text>);
+			out.push(<Newline key={`LF:${l}`}/>);
+		}
+		out.pop(); // last newline unnecessary
+		return out;
+	}, [err, log]);
+
+	if (!lineComponents) return null;
 
 	return (
 		<Box flexDirection="column" borderStyle="double" marginBottom={1}>
@@ -193,7 +210,7 @@ function ErrorMessage(props: IErrorMessageProps) {
 				</Text>
 			</Box>
 			<Box>
-				<Text> {err?.stack || log} </Text>
+				<Text>{lineComponents}</Text>
 			</Box>
 		</Box>
 	);

@@ -12,4 +12,14 @@ cli((book: Cookbook) => {
 	addSass(book, scssFile, 'style.css');
 
 	addClangExecutable(book, 'main', ['src/main.cpp', 'src/hello.cpp']);
+
+	book.add('line-feed', (args) => {
+		args.logStream.write('one\ntwo\nthree');
+		return false;
+	});
+
+	book.add('carriage-return', (args) => {
+		args.logStream.write('one\r\ntwo\r\nthree');
+		return false;
+	});
 });

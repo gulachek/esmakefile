@@ -138,7 +138,7 @@ function BuildDisplay(props: IBuildDisplayProps) {
 
 	return (
 		<Box flexDirection="column">
-			{result !== null && <ErrorMessages build={build} complete={complete} />}
+			{result !== null && <LogMessages build={build} complete={complete} />}
 			<CompletedBuilds build={build} complete={complete} />
 			{result === null && (
 				<InProgressBuilds build={build} now={now} inProgress={inProgress} />
@@ -147,32 +147,31 @@ function BuildDisplay(props: IBuildDisplayProps) {
 	);
 }
 
-interface IErrorMessagesProps {
+interface ILogMessagesProps {
 	build: IBuild;
 	complete: string[];
 }
 
-function ErrorMessages(props: IErrorMessagesProps) {
+function LogMessages(props: ILogMessagesProps) {
 	const { build, complete } = props;
 	return (
 		<>
 			{complete.map((item) => (
-				<ErrorMessage key={item} build={build} target={item} />
+				<LogMessage key={item} build={build} target={item} />
 			))}
 		</>
 	);
 }
 
-interface IErrorMessageProps {
+interface ILogMessageProps {
 	build: IBuild;
 	target: string;
 }
 
-function ErrorMessage(props: IErrorMessageProps) {
+function LogMessage(props: ILogMessageProps) {
 	const { build, target } = props;
 
 	const result = build.resultOf(target);
-	if (result !== false) return null;
 
 	const err = build.thrownExceptionOf(target);
 	const log = build.contentOfLog(target);
@@ -184,11 +183,20 @@ function ErrorMessage(props: IErrorMessageProps) {
 		}
 
 		const lines = text.replaceAll('\r', '').split('\n');
+		let hasContent = false;
 		const out = [];
 		for (const l of lines) {
 			out.push(<Text key={l}>{l}</Text>);
 			out.push(<Newline key={`LF:${l}`}/>);
+			if (!hasContent) {
+				hasContent = l.search(/\S/) > -1;
+			}
 		}
+
+		if (!hasContent) {
+			return null;
+		}
+
 		out.pop(); // last newline unnecessary
 		return out;
 	}, [err, log]);
@@ -205,7 +213,7 @@ function ErrorMessage(props: IErrorMessageProps) {
 				borderBottom={true}
 				justifyContent="center"
 			>
-				<Text color="redBright" wrap="truncate-end">
+				<Text color={result ? undefined : "redBright"} wrap="truncate-end">
 					{target}
 				</Text>
 			</Box>

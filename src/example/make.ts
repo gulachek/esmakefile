@@ -26,4 +26,19 @@ cli((book: Cookbook) => {
 	book.add('missing-prereq', 'does-not-exist', (args) => {
 		return true;
 	});
+
+	book.add('warning', (args) => {
+		args.logStream.write('Warning: this is a test warning.');
+		return true;
+	});
+
+	book.add('error', (args) => {
+		args.logStream.write('Error: this is a test error.');
+		return false;
+	});
+
+	book.add('white-space-log', (args) => {
+		args.logStream.write('   \n\t\r\n  \n\n  \n');
+		return true;
+	});
 });

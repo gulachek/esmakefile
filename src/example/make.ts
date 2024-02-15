@@ -22,4 +22,8 @@ cli((book: Cookbook) => {
 		args.logStream.write('one\r\ntwo\r\nthree');
 		return false;
 	});
+
+	book.add('missing-prereq', 'does-not-exist', (args) => {
+		return true;
+	});
 });

@@ -23,7 +23,7 @@ cli((book: Cookbook) => {
 		return false;
 	});
 
-	book.add('missing-prereq', 'does-not-exist', (args) => {
+	book.add('missing-prereq', 'does-not-exist', () => {
 		return true;
 	});
 

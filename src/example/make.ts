@@ -41,4 +41,9 @@ cli((book: Cookbook) => {
 		args.logStream.write('   \n\t\r\n  \n\n  \n');
 		return true;
 	});
+
+	book.add('write-both-streams', (args) => {
+		const script = args.abs(Path.src('src/logs.cjs'));
+		return args.spawn(process.execPath, [script]);
+	});
 });

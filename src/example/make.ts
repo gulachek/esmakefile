@@ -46,4 +46,16 @@ cli((book: Cookbook) => {
 		const script = args.abs(Path.src('src/logs.cjs'));
 		return args.spawn(process.execPath, [script]);
 	});
+
+	book.add('medium-long-task', () => {
+		return new Promise<boolean>((res) => {
+			setTimeout(() => res(true), 15000);
+		});
+	});
+
+	book.add('long-task', () => {
+		return new Promise<boolean>((res) => {
+			setTimeout(() => res(true), 65000);
+		});
+	});
 });

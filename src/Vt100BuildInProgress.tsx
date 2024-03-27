@@ -225,6 +225,44 @@ function LogMessage(props: ILogMessageProps) {
 	);
 }
 
+interface IElapsedTimeProps {
+	ms: number;
+}
+
+const oneMinMs = 60 * 1000;
+
+function ElapsedTime(props: IElapsedTimeProps) {
+	const { ms } = props;
+
+	if (ms < 1000) {
+		return <>{ms}ms</>;
+	} else if (ms < oneMinMs) {
+		const sec = ms / 1000;
+		return <>{sec.toPrecision(3)}s</>;
+	} else {
+		let sec = Math.floor(ms / 1000);
+		let min = Math.floor(sec / 60);
+		sec -= 60 * min;
+
+		if (min < 60) {
+			return (
+				<>
+					{min}:{sec.toString().padStart(2, '0')}
+				</>
+			);
+		} else {
+			const hr = Math.floor(min / 60);
+			min -= 60 * hr;
+			return (
+				<>
+					{hr}:{min.toString().padStart(2, '0')}:
+					{sec.toString().padStart(2, '0')}
+				</>
+			);
+		}
+	}
+}
+
 interface ICompletedBuildsProps {
 	build: IBuild;
 	complete: string[];
@@ -240,7 +278,7 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 		const elapsedMs = Math.round(build.elapsedMsOf(target));
 		const elapsedTime = (
 			<Text key={target} color="cyan">
-				[{elapsedMs}ms]
+				[<ElapsedTime ms={elapsedMs} />]
 			</Text>
 		);
 		times.push(elapsedTime);
@@ -296,7 +334,7 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 		const elapsedMs = Math.round(build.elapsedMsOf(target, now));
 		const elapsedTime = (
 			<Text key={target} color="cyan">
-				[{elapsedMs}ms]
+				[<ElapsedTime ms={elapsedMs} />]
 			</Text>
 		);
 		times.push(elapsedTime);

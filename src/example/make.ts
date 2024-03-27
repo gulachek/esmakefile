@@ -14,7 +14,7 @@ cli((book: Cookbook) => {
 	addClangExecutable(book, 'main', ['src/main.cpp', 'src/hello.cpp']);
 
 	book.add('line-feed', (args) => {
-		args.logStream.write('one\ntwo\nthree');
+		args.logStream.write('one\ntwo\nthree\n\n\n');
 		return false;
 	});
 

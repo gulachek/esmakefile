@@ -156,8 +156,8 @@ function LogMessages(props: ILogMessagesProps) {
 	const { build, complete } = props;
 	return (
 		<>
-			{complete.map((item) => (
-				<LogMessage key={item} build={build} target={item} />
+			{complete.map((item, i) => (
+				<LogMessage key={i} build={build} target={item} />
 			))}
 		</>
 	);
@@ -185,9 +185,10 @@ function LogMessage(props: ILogMessageProps) {
 		const lines = text.replaceAll('\r', '').split('\n');
 		let hasContent = false;
 		const out = [];
-		for (const l of lines) {
-			out.push(<Text key={l}>{l}</Text>);
-			out.push(<Newline key={`LF:${l}`}/>);
+		for (let i = 0; i < lines.length; ++i) {
+			const l = lines[i];
+			out.push(<Text key={i}>{l}</Text>);
+			out.push(<Newline key={`LF:${i}`} />);
 			if (!hasContent) {
 				hasContent = l.search(/\S/) > -1;
 			}
@@ -213,7 +214,7 @@ function LogMessage(props: ILogMessageProps) {
 				borderBottom={true}
 				justifyContent="center"
 			>
-				<Text color={result ? undefined : "redBright"} wrap="truncate-end">
+				<Text color={result ? undefined : 'redBright'} wrap="truncate-end">
 					{target}
 				</Text>
 			</Box>

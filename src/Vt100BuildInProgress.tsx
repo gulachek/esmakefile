@@ -138,10 +138,11 @@ function BuildDisplay(props: IBuildDisplayProps) {
 
 	return (
 		<Box flexDirection="column">
-			{result !== null && <LogMessages build={build} complete={complete} />}
 			<CompletedBuilds build={build} complete={complete} />
-			{result === null && (
+			{result === null ? (
 				<InProgressBuilds build={build} now={now} inProgress={inProgress} />
+			) : (
+				<LogMessages build={build} complete={complete} />
 			)}
 		</Box>
 	);

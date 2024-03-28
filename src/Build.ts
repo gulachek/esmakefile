@@ -49,16 +49,8 @@ type InProgressInfo = {
 	startTime: number;
 };
 
-enum CompleteReason {
-	upToDate,
-	missingSrc,
-	built,
-	noRecipe,
-}
-
 type CompleteInfo = {
 	complete: true;
-	completeReason: CompleteReason;
 
 	/** performance.now() when recipe() was started */
 	startTime: number;
@@ -247,7 +239,6 @@ export class Build implements IBuild {
 		if (!(await this.runAll(srcToBuild))) {
 			this._info.set(rel, {
 				complete: true,
-				completeReason: CompleteReason.missingSrc,
 				result: false,
 				startTime: -1,
 				endTime: -1,
@@ -263,7 +254,6 @@ export class Build implements IBuild {
 		if (targetStatus === NeedsBuildValue.missingSrc) {
 			this._info.set(rel, {
 				complete: true,
-				completeReason: CompleteReason.missingSrc,
 				result: false,
 				startTime: -1,
 				endTime: -1,
@@ -275,7 +265,6 @@ export class Build implements IBuild {
 		if (targetStatus === NeedsBuildValue.upToDate) {
 			this._info.set(rel, {
 				complete: true,
-				completeReason: CompleteReason.upToDate,
 				result: true,
 				startTime: -1,
 				endTime: -1,
@@ -305,7 +294,6 @@ export class Build implements IBuild {
 			this._info.set(rel, {
 				...buildInfo,
 				complete: true,
-				completeReason: CompleteReason.built,
 				endTime: performance.now(),
 				result,
 			});
@@ -314,7 +302,6 @@ export class Build implements IBuild {
 			this._info.set(rel, {
 				...buildInfo,
 				complete: true,
-				completeReason: CompleteReason.built,
 				endTime: performance.now(),
 				result: false,
 				exception: err,

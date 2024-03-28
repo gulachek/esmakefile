@@ -247,9 +247,7 @@ export class Build implements IBuild {
 			return false;
 		}
 
-		const postreqs = this._prevBuild?.postreqs(target);
-
-		const targetStatus = this._needsBuild(target, allSrc, postreqs);
+		const targetStatus = this._needsBuild(target, allSrc);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
 			this._info.set(rel, {
@@ -375,11 +373,7 @@ export class Build implements IBuild {
 		return this._prevBuild?.postreqs(target) || new Set<string>();
 	}
 
-	private _needsBuild(
-		target: IBuildPath,
-		prereqs: Path[],
-		postreqs: Set<string> | null,
-	): NeedsBuildValue {
+	private _needsBuild(target: IBuildPath, prereqs: Path[]): NeedsBuildValue {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of prereqs) {
@@ -393,6 +387,8 @@ export class Build implements IBuild {
 				return NeedsBuildValue.missingSrc;
 			}
 		}
+
+		const postreqs = this._prevBuild?.postreqs(target);
 
 		if (postreqs) {
 			for (const post of postreqs) {

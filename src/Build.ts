@@ -42,14 +42,14 @@ export type TargetInfo = {
 	recipeRule: RuleID | null;
 };
 
-type InProgressInfo = {
+type RecipeInProgressInfo = {
 	complete: false;
 
 	/** performance.now() when recipe() was started */
 	startTime: number;
 };
 
-type CompleteInfo = {
+type RecipeCompleteInfo = {
 	complete: true;
 
 	/** performance.now() when recipe() was started */
@@ -65,7 +65,7 @@ type CompleteInfo = {
 	exception?: Error;
 };
 
-type RecipeBuildInfo = InProgressInfo | CompleteInfo;
+type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
 interface IBuildJson {
 	targets: [string, number][];

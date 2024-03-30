@@ -1,12 +1,5 @@
-import {
-	IRule,
-	RecipeArgs,
-	RecipeFunction,
-	rulePrereqs,
-	ruleRecipe,
-	ruleTargets,
-} from './Rule.js';
-import { Mutex } from './Mutex.js';
+import { IRule, RecipeFunction, ruleTargets } from './Rule.js';
+import { Lock, Mutex } from './Mutex.js';
 import {
 	IBuildPath,
 	BuildPathLike,
@@ -15,14 +8,7 @@ import {
 	isBuildPathLike,
 	isPathLike,
 } from './Path.js';
-import {
-	Build,
-	RuleID,
-	RuleInfo,
-	TargetInfo,
-	isRuleID,
-	IBuild,
-} from './Build.js';
+import { Build, IBuild } from './Build.js';
 
 import { resolve } from 'node:path';
 
@@ -55,7 +41,7 @@ export class Makefile {
 	readonly srcRoot: string;
 
 	private _mutex = new Mutex();
-	private _rules: RuleInfo[] = []; // index is RuleID
+	private _rules: IRule[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
 
 	private _prevBuild: Build | null = null;
@@ -64,6 +50,43 @@ export class Makefile {
 		opts = opts || {};
 		this.srcRoot = resolve(opts.srcRoot || '.');
 		this.buildRoot = resolve(opts.buildRoot || 'build');
+	}
+
+	/**
+	 * Lock Makefile for building
+	 * @returns A Promise that resolves with a Lock object when available
+	 */
+	lockAsync(): Promise<Lock> {
+		return this._mutex.lockAsync();
+	}
+
+	public *rules(): Generator<{ rule: IRule; id: RuleID }> {
+		for (let id = 0; id < this._rules.length; ++id) {
+			yield { id, rule: this._rules[id] };
+		}
+	}
+
+	public rule(id: RuleID): IRule {
+		if (id >= this._rules.length) {
+			throw new Error(`Rule with ID ${id} does not exist`);
+		}
+
+		return this._rules[id];
+	}
+
+	// TODO - make { path: IBuildPath, target: TargetInfo }
+	public targets(): string[] {
+		return [...this._targets.keys()];
+	}
+
+	public target(path: BuildPathLike): TargetInfo {
+		const rel = Path.build(path).rel();
+		const info = this._targets.get(rel);
+		if (!info) {
+			throw new Error(`Target with path '${rel}' not defined in Makefile`);
+		}
+
+		return info;
 	}
 
 	add(rule: IRule): RuleID;
@@ -114,15 +137,14 @@ export class Makefile {
 
 		using lock = this._mutex.tryLock();
 		if (!lock) {
-			throw new Error('Cannot add while build is in progress');
+			throw new Error('Cannot add while Makefile is locked');
 		}
 
 		const id: RuleID = this._rules.length;
-		const info = this.normalizeRecipe(id, rule);
-		const hasRecipe = !!info.recipe;
-		this._rules.push(info);
+		const hasRecipe = !!rule.recipe;
+		this._rules.push(rule);
 
-		for (const p of info.targets) {
+		for (const p of ruleTargets(rule)) {
 			const rel = p.rel();
 			let targetInfo = this._targets.get(rel);
 			if (!targetInfo) {
@@ -148,10 +170,6 @@ export class Makefile {
 		return id;
 	}
 
-	targets() {
-		return [...this._targets.keys()];
-	}
-
 	/**
 	 * Top level build function. Runs exclusively
 	 * @param target The target to build
@@ -173,13 +191,7 @@ export class Makefile {
 		target = target || this._firstTarget();
 
 		this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
-		const curBuild = new Build({
-			rules: this._rules,
-			targets: this._targets,
-			prevBuild: this._prevBuild,
-			buildRoot: this.buildRoot,
-			srcRoot: this.srcRoot,
-		});
+		const curBuild = new Build(this);
 
 		await cb?.(curBuild);
 
@@ -193,9 +205,9 @@ export class Makefile {
 
 	private _firstTarget(): IBuildPath {
 		for (let id = 0; id < this._rules.length; ++id) {
-			const info = this._rules[id];
+			const rule = this._rules[id];
 
-			for (const t of info.targets) return t;
+			for (const t of ruleTargets(rule)) return t;
 		}
 
 		throw new Error('No targets exist in Makefile');
@@ -207,28 +219,15 @@ export class Makefile {
 			build: this.buildRoot,
 		});
 	}
-
-	normalizeRecipe(id: RuleID, rule: IRule): RuleInfo {
-		const prereqs = rulePrereqs(rule);
-		const targets = ruleTargets(rule);
-		const innerRecipe = ruleRecipe(rule);
-
-		let recipe: (build: Build) => Promise<boolean> | null = null;
-		if (innerRecipe) {
-			recipe = async (build: Build) => {
-				const src = new Set<string>();
-				const stream = build.createLogStream(id);
-				const recipeArgs = new RecipeArgs(this, src, stream);
-
-				const result = await innerRecipe(recipeArgs);
-
-				build.addPostreq(id, src);
-
-				return result;
-			};
-		}
-
-		const name = id.toString(); // TODO - remove
-		return { sources: prereqs, targets, recipe, name };
-	}
 }
+
+export type RuleID = number;
+
+export function isRuleID(id: unknown): id is RuleID {
+	return typeof id === 'number';
+}
+
+export type TargetInfo = {
+	rules: Set<RuleID>;
+	recipeRule: RuleID | null;
+};

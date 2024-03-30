@@ -121,7 +121,7 @@ export class Path {
 		return this.components.join('/');
 	}
 
-	abs(root: string | { build: string; src: string }): string {
+	abs(root: string | IPathRoots): string {
 		root = typeof root === 'string' ? root : root[this.type];
 		return path.resolve(path.join(root, this.rel()));
 	}
@@ -149,3 +149,8 @@ export interface IBuildPathGenOpts {
 }
 
 export type BuildPathGenOpts = BuildPathLike | IBuildPathGenOpts;
+
+export interface IPathRoots {
+	build: string;
+	src: string;
+}

@@ -1,4 +1,12 @@
-import { IBuildPath, Path } from './Path.js';
+import { Makefile, RuleID, TargetInfo, isRuleID } from './Makefile.js';
+import {
+	IRule,
+	rulePrereqs,
+	ruleTargets,
+	ruleRecipe,
+	RecipeArgs,
+} from './Rule.js';
+import { IBuildPath, IPathRoots, Path } from './Path.js';
 import { Vt100Stream } from './Vt100Stream.js';
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -11,9 +19,6 @@ import { Writable } from 'node:stream';
  * Public interface of build introspection
  */
 export interface IBuild {
-	readonly buildRoot: string;
-	readonly srcRoot: string;
-
 	elapsedMsOf(target: string, now?: number): number;
 	resultOf(target: string): boolean | null;
 	contentOfLog(target: string): string | null;
@@ -23,24 +28,6 @@ export interface IBuild {
 
 	off<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
 }
-
-export type RuleID = number;
-
-export function isRuleID(id: unknown): id is RuleID {
-	return typeof id === 'number';
-}
-
-export type RuleInfo = {
-	name: string;
-	recipe: (build: Build) => Promise<boolean> | null;
-	sources: Path[];
-	targets: IBuildPath[];
-};
-
-export type TargetInfo = {
-	rules: Set<RuleID>;
-	recipeRule: RuleID | null;
-};
 
 type RecipeInProgressInfo = {
 	complete: false;
@@ -73,20 +60,11 @@ interface IBuildJson {
 	postreqs: [number, string[]][];
 }
 
-interface IBuildOpts {
-	rules: RuleInfo[];
-	targets: Map<string, TargetInfo>;
-	prevBuild: Build | null;
-	buildRoot: string;
-	srcRoot: string;
-}
-
 export class Build implements IBuild {
-	readonly buildRoot: string;
-	readonly srcRoot: string;
+	private _roots: IPathRoots;
 
 	private _event = new EventEmitter();
-	private _rules: RuleInfo[] = [];
+	private _rules = new Map<RuleID, RuleInfo>();
 	private _prevBuild: Build | null;
 
 	private _targets = new Map<string, TargetInfo>();
@@ -95,16 +73,18 @@ export class Build implements IBuild {
 	private _postreqMap = new Map<RuleID, Set<string>>();
 	private _logs = new Map<RuleID, Vt100Stream>();
 
-	constructor(opts?: IBuildOpts) {
-		if (opts) {
-			const { rules, targets } = opts;
+	constructor(make: Makefile) {
+		this._roots = { build: make.buildRoot, src: make.srcRoot };
 
-			this.buildRoot = opts.buildRoot;
-			this.srcRoot = opts.srcRoot;
-			this._rules = rules;
-			this._prevBuild = opts.prevBuild;
-			this._targets = targets;
+		for (const { rule, id } of make.rules()) {
+			this._rules.set(id, this.normalizeRule(id, rule));
 		}
+
+		for (const t of make.targets()) {
+			this._targets.set(t, make.target(t));
+		}
+
+		this._prevBuild = null;
 	}
 
 	on<E extends BuildEvent>(e: E, l: Listener<E>): void {
@@ -151,6 +131,30 @@ export class Build implements IBuild {
 		}
 
 		return null;
+	}
+
+	private normalizeRule(id: RuleID, rule: IRule): RuleInfo {
+		const prereqs = rulePrereqs(rule);
+		const targets = ruleTargets(rule);
+		const innerRecipe = ruleRecipe(rule);
+
+		let recipe: (build: Build) => Promise<boolean> | null = null;
+		if (innerRecipe) {
+			recipe = async (build: Build) => {
+				const src = new Set<string>();
+				const stream = build.createLogStream(id);
+				const recipeArgs = new RecipeArgs(this._roots, src, stream);
+
+				const result = await innerRecipe(recipeArgs);
+
+				build.addPostreq(id, src);
+
+				return result;
+			};
+		}
+
+		const name = id.toString(); // TODO - remove
+		return { sources: prereqs, targets, recipe, name };
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
@@ -202,11 +206,7 @@ export class Build implements IBuild {
 	}
 
 	private abs(p: Path) {
-		if (p.isBuildPath()) {
-			return p.abs(this.buildRoot);
-		} else {
-			return p.abs(this.srcRoot);
-		}
+		return p.abs(this._roots);
 	}
 
 	private async _startBuild(target: IBuildPath): Promise<boolean> {
@@ -225,7 +225,7 @@ export class Build implements IBuild {
 		const allSrc: Path[] = [];
 
 		for (const ruleId of rules) {
-			const ruleInfo = this._rules[ruleId];
+			const ruleInfo = this._rules.get(ruleId);
 
 			// build sources
 			for (const src of ruleInfo.sources) {
@@ -273,9 +273,9 @@ export class Build implements IBuild {
 
 		if (!isRuleID(recipeRule)) return true;
 
-		const recipeInfo = this._rules[recipeRule];
+		const recipeInfo = this._rules.get(recipeRule);
 		for (const peer of recipeInfo.targets) {
-			await mkdir(peer.dir().abs(this.buildRoot), { recursive: true });
+			await mkdir(peer.dir().abs(this._roots.build), { recursive: true });
 		}
 
 		const buildInfo: RecipeBuildInfo = {
@@ -310,7 +310,9 @@ export class Build implements IBuild {
 		}
 	}
 
-	static async readFile(abs: string): Promise<Build | null> {
+	static async readFile(_abs: string): Promise<Build | null> {
+		return null;
+		/*
 		try {
 			const contents = await readFile(abs, 'utf8');
 			const json = JSON.parse(contents) as IBuildJson;
@@ -331,6 +333,7 @@ export class Build implements IBuild {
 		} catch {
 			return null;
 		}
+	 */
 	}
 
 	async writeFile(abs: string): Promise<void> {
@@ -344,8 +347,8 @@ export class Build implements IBuild {
 			json.postreqs.push([id, [...src]]);
 		}
 
-		for (let id = 0; id < this._rules.length; ++id) {
-			const rel = this._rules[id].sources.map((p) => this.abs(p));
+		for (let id = 0; id < this._rules.size; ++id) {
+			const rel = this._rules.get(id).sources.map((p) => this.abs(p));
 			json.prereqs.push([id, rel]);
 		}
 
@@ -436,3 +439,10 @@ type BuildEventMap = {
 type BuildEvent = keyof BuildEventMap;
 
 type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
+
+export type RuleInfo = {
+	name: string;
+	recipe: (build: Build) => Promise<boolean> | null;
+	sources: Path[];
+	targets: IBuildPath[];
+};

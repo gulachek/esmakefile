@@ -1,5 +1,4 @@
-import { IBuildPath, Path } from './Path.js';
-import { Makefile } from './Makefile.js';
+import { IBuildPath, IPathRoots, Path } from './Path.js';
 import { isAbsolute } from 'node:path';
 import { Writable } from 'node:stream';
 import { spawn } from 'node:child_process';
@@ -25,18 +24,18 @@ export interface IRule {
 }
 
 export class RecipeArgs {
-	private _make: Makefile;
+	private _roots: IPathRoots;
 	private _postreqs: Set<string>;
 	readonly logStream: Writable;
 
-	constructor(make: Makefile, postreqs: Set<string>, logStream: Writable) {
-		this._make = make;
+	constructor(roots: IPathRoots, postreqs: Set<string>, logStream: Writable) {
+		this._roots = roots;
 		this._postreqs = postreqs;
 		this.logStream = logStream;
 	}
 
 	abs(path: Path): string {
-		return this._make.abs(path);
+		return path.abs(this._roots);
 	}
 
 	absAll(paths: Iterable<Path>): string[];
@@ -49,11 +48,11 @@ export class RecipeArgs {
 		let iter: Iterable<Path>;
 
 		if (!isIterable(pathOrPaths)) {
-			out.push(this._make.abs(pathOrPaths));
+			out.push(pathOrPaths.abs(this._roots));
 			iter = rest;
 		}
 
-		for (const p of iter) out.push(this._make.abs(p));
+		for (const p of iter) out.push(p.abs(this._roots));
 
 		return out;
 	}

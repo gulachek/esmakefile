@@ -55,7 +55,6 @@ export class Makefile {
 	readonly srcRoot: string;
 
 	private _mutex = new Mutex();
-	private _buildLock: UnlockFunction | null = null;
 	private _rules: RuleInfo[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
 
@@ -167,11 +166,7 @@ export class Makefile {
 		target?: IBuildPath,
 		cb?: (build: IBuild) => Promise<void>,
 	): Promise<boolean> {
-		let unlock: UnlockFunction | null = null;
-		if (!this._buildLock) {
-			unlock = await this._mutex.lockAsync();
-		}
-
+		const unlock = await this._mutex.lockAsync();
 		let result = true;
 
 		try {
@@ -197,7 +192,7 @@ export class Makefile {
 			await curBuild.writeFile(prevBuildAbs);
 			this._prevBuild = curBuild;
 		} finally {
-			unlock && unlock();
+			unlock();
 		}
 
 		return result;

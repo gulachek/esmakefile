@@ -9,6 +9,7 @@ import {
 	RecipeArgs,
 	IBuild,
 	RuleID,
+	updateTarget,
 } from '../index.js';
 import {
 	writeFile,
@@ -180,7 +181,7 @@ describe('Makefile', () => {
 		it('cannot add while build is in progress', async () => {
 			const make = new Makefile();
 			make.add(new WriteFileRule('write.txt', 'hello'));
-			const prom = make.build();
+			const prom = updateTarget(make);
 			expect(() =>
 				make.add(new CopyFileRule('src.txt', '/sub/dest.txt')),
 			).to.throw();
@@ -247,7 +248,7 @@ describe('Makefile', () => {
 			const write = new WriteFileRule(path, 'hello');
 			make.add(write);
 
-			const result = await make.build(path);
+			const result = await updateTarget(make, path);
 			const contents = await readPath(path);
 			expect(contents).to.equal('hello');
 			expect(result).to.be.true;
@@ -259,7 +260,7 @@ describe('Makefile', () => {
 				++count;
 			});
 
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 			expect(count).to.equal(1);
 		});
@@ -270,44 +271,44 @@ describe('Makefile', () => {
 				++count;
 			});
 
-			await make.build();
-			await make.build();
+			await updateTarget(make);
+			await updateTarget(make);
 			expect(count).to.equal(2);
 		});
 
 		it('fails if recipe returns false', async () => {
 			make.add('all', () => false);
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if recipe is void', async () => {
 			make.add('all', () => {});
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is true', async () => {
 			make.add('all', () => true);
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 		});
 
 		it('fails if recipe returns Promise<false>', async () => {
 			make.add('all', () => Promise.resolve(false));
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if recipe is Promise<void>', async () => {
 			make.add('all', () => Promise.resolve());
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is Promise<true>', async () => {
 			make.add('all', () => Promise.resolve(true));
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 		});
 
@@ -317,7 +318,7 @@ describe('Makefile', () => {
 			write.throwOnBuild(new Error('test'));
 			make.add(write);
 
-			const result = await make.build(path);
+			const result = await updateTarget(make, path);
 			expect(result).to.be.false;
 		});
 
@@ -329,7 +330,7 @@ describe('Makefile', () => {
 			make.add(writeOne);
 			make.add(writeTwo);
 
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 			expect(writeOne.buildCount).to.equal(1);
 			expect(writeTwo.buildCount).to.equal(0);
@@ -343,7 +344,7 @@ describe('Makefile', () => {
 			make.add(writeOne);
 			make.add(writeTwo);
 
-			const result = await make.build(pTwo);
+			const result = await updateTarget(make, pTwo);
 			expect(result).to.be.true;
 			expect(writeOne.buildCount).to.equal(0);
 			expect(writeTwo.buildCount).to.equal(1);
@@ -358,7 +359,7 @@ describe('Makefile', () => {
 			const cp = new CopyFileRule(srcPath, cpPath);
 			make.add(cp);
 
-			await make.build(cpPath);
+			await updateTarget(make, cpPath);
 
 			const contents = await readPath(cpPath);
 			expect(contents).to.equal('hello');
@@ -373,19 +374,19 @@ describe('Makefile', () => {
 			const write = new WriteFileRule(srcPath, 'hello');
 			make.add(write);
 
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 		});
 
 		it("fails if a src prereq doesn't exist", async () => {
 			make.add('all', 'prereq');
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.false;
 		});
 
 		it("fails if a build prereq doesn't exist", async () => {
 			make.add('all', Path.build('prereq'));
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.false;
 		});
 
@@ -394,7 +395,7 @@ describe('Makefile', () => {
 			make.add('all', prereq);
 			make.add(prereq, () => {});
 
-			const result = await make.build();
+			const result = await updateTarget(make);
 			expect(result).to.be.true;
 		});
 
@@ -407,7 +408,7 @@ describe('Makefile', () => {
 			const cp = new CopyFileRule(srcPath, cpPath);
 			make.add(cp);
 
-			await make.build(cpPath);
+			await updateTarget(make, cpPath);
 
 			const dirStat = await statsPath(cpPath.dir());
 			expect(dirStat.isDirectory()).to.be.true;
@@ -422,8 +423,8 @@ describe('Makefile', () => {
 			const cp = new CopyFileRule(srcPath, cpPath);
 			make.add(cp);
 
-			await make.build(cpPath);
-			await make.build(cpPath);
+			await updateTarget(make, cpPath);
+			await updateTarget(make, cpPath);
 
 			expect(cp.buildCount).to.equal(1);
 		});
@@ -436,11 +437,11 @@ describe('Makefile', () => {
 			const cp = new CopyFileRule(srcPath, cpPath);
 			make.add(cp);
 
-			await make.build(cpPath);
+			await updateTarget(make, cpPath);
 			await waitMs(1);
 			await writePath(srcPath, 'update');
 
-			await make.build(cpPath);
+			await updateTarget(make, cpPath);
 
 			expect(cp.buildCount).to.equal(2);
 			const contents = await readPath(cpPath);
@@ -458,11 +459,11 @@ describe('Makefile', () => {
 			make.add(cp);
 			make.add(cpPath, otherPath);
 
-			await make.build(cpPath);
+			await updateTarget(make, cpPath);
 			await waitMs(1);
 			await writePath(otherPath, 'update');
 
-			await make.build(cpPath);
+			await updateTarget(make, cpPath);
 
 			expect(cp.buildCount).to.equal(2);
 			const contents = await readPath(cpPath);
@@ -478,8 +479,8 @@ describe('Makefile', () => {
 			const cp = new CopyFileRule(srcPath, cpPath);
 			make.add(cp);
 
-			const first = make.build(cpPath);
-			const second = make.build(cpPath);
+			const first = updateTarget(make, cpPath);
+			const second = updateTarget(make, cpPath);
 			await Promise.all([first, second]);
 
 			expect(write.buildCount).to.equal(1);
@@ -495,8 +496,8 @@ describe('Makefile', () => {
 				count += 1;
 			});
 
-			const firstProm = make.build(first); // junior prom
-			const secondProm = make.build(second); // senior prom
+			const firstProm = updateTarget(make, first); // junior prom
+			const secondProm = updateTarget(make, second); // senior prom
 			await Promise.all([firstProm, secondProm]);
 
 			expect(count).to.equal(1);
@@ -512,7 +513,7 @@ describe('Makefile', () => {
 			const cp = new CopyFileRule(srcPath, cpPath);
 			make.add(cp);
 
-			const result = await make.build(cpPath);
+			const result = await updateTarget(make, cpPath);
 
 			expect(cp.buildCount).to.equal(0);
 			expect(result).to.be.false;
@@ -527,14 +528,14 @@ describe('Makefile', () => {
 			const copy = new CopyFileRule(srcPath, outPath);
 			make.add(copy);
 
-			let result = await make.build(outPath);
+			let result = await updateTarget(make, outPath);
 			expect(result).to.be.true;
 			expect(copy.buildCount).to.equal(1);
 
 			// now delete (hits case where target path does exist prior)
 			await rmPath(srcPath);
 
-			result = await make.build(outPath);
+			result = await updateTarget(make, outPath);
 			expect(result).to.be.false;
 			expect(copy.buildCount).to.equal(1);
 		});
@@ -556,14 +557,14 @@ describe('Makefile', () => {
 			});
 
 			it('rebuilds when postreq changes', async () => {
-				let result = await make.build(catPath); // build once
+				let result = await updateTarget(make, catPath); // build once
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
 				await waitMs(2);
 				await writePath(aPath, 'A change\n');
-				result = await make.build(catPath);
+				result = await updateTarget(make, catPath);
 
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(2);
@@ -571,18 +572,18 @@ describe('Makefile', () => {
 			});
 
 			it('does not rebuild if postreq does not change', async () => {
-				let result = await make.build(catPath);
+				let result = await updateTarget(make, catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
-				result = await make.build(catPath);
+				result = await updateTarget(make, catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 			});
 
 			it('tracks postreq across runs', async () => {
-				let result = await make.build(catPath);
+				let result = await updateTarget(make, catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
@@ -601,13 +602,13 @@ describe('Makefile', () => {
 			});
 
 			it('attempts to build target if static postreq does not exist', async () => {
-				let result = await make.build(catPath);
+				let result = await updateTarget(make, catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
 				await rmPath(aPath);
-				result = await make.build(catPath);
+				result = await updateTarget(make, catPath);
 				expect(result).to.be.false;
 				expect(cat.buildCount).to.equal(2);
 			});
@@ -636,19 +637,19 @@ describe('Makefile', () => {
 				return true;
 			});
 
-			await make.build();
+			await updateTarget(make);
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(1, 'phony');
 
 			await waitMs(1);
-			await make.build();
+			await updateTarget(make);
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(2, 'phony');
 
 			await waitMs(1);
 			await writePath(req, 'update');
 
-			await make.build();
+			await updateTarget(make);
 			expect(counts.foo).to.equal(2, 'foo');
 			expect(counts.phony).to.equal(3, 'phony');
 		});
@@ -674,7 +675,7 @@ describe('Makefile', () => {
 			let buildCount = 0;
 			make.add(copy);
 
-			expect(await make.build(cpPath)).to.be.true;
+			expect(await updateTarget(make, cpPath)).to.be.true;
 
 			// no a priori depencency on cpPath
 			const adHocRecipe: IRule = {
@@ -692,7 +693,7 @@ describe('Makefile', () => {
 
 			make.add(adHocRecipe);
 
-			let result = await make.build(outPath);
+			let result = await updateTarget(make, outPath);
 			expect(result).to.be.true;
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
@@ -700,7 +701,7 @@ describe('Makefile', () => {
 			// now presumably knows postreqs
 
 			await writePath(srcPath, 'update');
-			result = await make.build(outPath);
+			result = await updateTarget(make, outPath);
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
 		});

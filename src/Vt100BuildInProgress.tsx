@@ -1,4 +1,4 @@
-import { IBuild } from './Build.js';
+import { Build, IBuild } from './Build.js';
 import { render, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo } from 'react';
 import { IBuildPath } from './Path.js';
@@ -23,14 +23,16 @@ function BuildMkFile(props: IBuildMkFileProps) {
 	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
 
 	useEffect(() => {
-		make
-			.build(target, (build) => {
-				setBuild(build);
-				return new Promise<void>((res) => {
-					setContinueBuild(res);
-				});
-			})
-			.then(setResult);
+		const build = new Build(make);
+		setBuild(build);
+		const rendered = new Promise<void>((res) => {
+			setContinueBuild(res);
+		});
+
+		rendered.then(async () => {
+			const result = await build.build(target);
+			setResult(result);
+		});
 	}, [make, target]);
 
 	if (build) {

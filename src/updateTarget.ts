@@ -1,4 +1,5 @@
 import { Makefile } from './Makefile.js';
+import { Build } from './Build.js';
 import { BuildPathLike, Path } from './Path.js';
 
 /**
@@ -13,5 +14,6 @@ export function updateTarget(
 	make: Makefile,
 	goal?: BuildPathLike,
 ): Promise<boolean> {
-	return make.build(goal && Path.build(goal));
+	const build = new Build(make);
+	return build.build(goal && Path.build(goal));
 }

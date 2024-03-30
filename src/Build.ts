@@ -62,6 +62,7 @@ interface IBuildJson {
 
 export class Build implements IBuild {
 	private _roots: IPathRoots;
+	private _make: Makefile;
 
 	private _event = new EventEmitter();
 	private _rules = new Map<RuleID, RuleInfo>();
@@ -74,6 +75,7 @@ export class Build implements IBuild {
 	private _logs = new Map<RuleID, Vt100Stream>();
 
 	constructor(make: Makefile) {
+		this._make = make;
 		this._roots = { build: make.buildRoot, src: make.srcRoot };
 
 		for (const { rule, id } of make.rules()) {
@@ -161,7 +163,32 @@ export class Build implements IBuild {
 		this._event.emit(e, ...data);
 	}
 
-	async runAll(targets: Iterable<IBuildPath>): Promise<boolean> {
+	/**
+	 * Top level build function. Runs exclusively
+	 * @param target The target to build
+	 * @returns A promise that resolves when the build is done
+	 */
+	async build(target?: IBuildPath): Promise<boolean> {
+		using _lock = await this._make.lockAsync();
+
+		let result = true;
+
+		const prevBuildAbs = this.abs(
+			Path.build('__esmakefile__/previous-build.json'),
+		);
+
+		target = target || this._make.defaultTarget;
+
+		this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
+
+		result = await this.runAll([target]);
+
+		await this.writeFile(prevBuildAbs);
+
+		return result;
+	}
+
+	private async runAll(targets: Iterable<IBuildPath>): Promise<boolean> {
 		const promises: Promise<boolean>[] = [];
 
 		for (const t of targets) {

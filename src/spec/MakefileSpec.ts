@@ -26,6 +26,7 @@ import { expect } from 'chai';
 
 import { dirname, resolve } from 'node:path';
 import { existsSync, Stats } from 'node:fs';
+import { Build } from '../Build.js';
 
 abstract class TestRule {
 	public buildCount: number = 0;
@@ -595,7 +596,7 @@ describe('Makefile', () => {
 
 				await waitMs(1);
 				await writePath(aPath, 'A changed\n');
-				result = await newMk.build(catPath);
+				result = await updateTarget(newMk, catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(2);
 				expect(await readPath(catPath)).to.equal('A changed\nB\n');
@@ -712,19 +713,21 @@ describe('Makefile', () => {
 			let startCalled = false;
 			let endCalled = false;
 
-			await make.build(targ, async (build: IBuild) => {
-				build.on('start-target', (target: string) => {
-					expect(target, 'start target').to.equal('test');
-					expect(endCalled, 'end not called b4 start').to.be.false;
-					startCalled = true;
-				});
+			const build = new Build(make);
 
-				build.on('end-target', (target: string) => {
-					expect(target, 'end target').to.equal('test');
-					expect(startCalled, 'start called before end').to.be.true;
-					endCalled = true;
-				});
+			build.on('start-target', (target: string) => {
+				expect(target, 'start target').to.equal('test');
+				expect(endCalled, 'end not called b4 start').to.be.false;
+				startCalled = true;
 			});
+
+			build.on('end-target', (target: string) => {
+				expect(target, 'end target').to.equal('test');
+				expect(startCalled, 'start called before end').to.be.true;
+				endCalled = true;
+			});
+
+			await build.build(targ);
 
 			expect(endCalled, 'end called').to.be.true;
 		});
@@ -735,13 +738,15 @@ describe('Makefile', () => {
 			const id = make.add(write);
 			let logCalled = false;
 
-			await make.build(out, async (build: IBuild) => {
-				build.on('recipe-log', (rid: RuleID, data: Buffer) => {
-					expect(rid).to.equal(id);
-					expect(data.toString('utf8')).to.match(/^Writing/);
-					logCalled = true;
-				});
+			const build = new Build(make);
+
+			build.on('recipe-log', (rid: RuleID, data: Buffer) => {
+				expect(rid).to.equal(id);
+				expect(data.toString('utf8')).to.match(/^Writing/);
+				logCalled = true;
 			});
+
+			await build.build(out);
 
 			expect(logCalled, 'log called').to.be.true;
 		});

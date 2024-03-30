@@ -170,37 +170,8 @@ export class Makefile {
 		return id;
 	}
 
-	/**
-	 * Top level build function. Runs exclusively
-	 * @param target The target to build
-	 * @param cb Callback to be invoked with IBuild observing the current build
-	 * @returns A promise that resolves when the build is done
-	 */
-	async build(
-		target?: IBuildPath,
-		cb?: (build: IBuild) => Promise<void>,
-	): Promise<boolean> {
-		using _lock = await this._mutex.lockAsync();
-
-		let result = true;
-
-		const prevBuildAbs = this.abs(
-			Path.build('__esmakefile__/previous-build.json'),
-		);
-
-		target = target || this._firstTarget();
-
-		this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
-		const curBuild = new Build(this);
-
-		await cb?.(curBuild);
-
-		result = await curBuild.runAll([target]);
-
-		await curBuild.writeFile(prevBuildAbs);
-		this._prevBuild = curBuild;
-
-		return result;
+	public get defaultTarget(): IBuildPath {
+		return this._firstTarget();
 	}
 
 	private _firstTarget(): IBuildPath {

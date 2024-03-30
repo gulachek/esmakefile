@@ -6,7 +6,7 @@ import {
 	ruleRecipe,
 	ruleTargets,
 } from './Rule.js';
-import { Mutex, UnlockFunction } from './Mutex.js';
+import { Mutex } from './Mutex.js';
 import {
 	IBuildPath,
 	BuildPathLike,
@@ -112,44 +112,40 @@ export class Makefile {
 			throw new Error(`Added targets without any prereqs or recipe`);
 		}
 
-		const unlock = this._mutex.tryLock();
-		if (!unlock) {
+		using lock = this._mutex.tryLock();
+		if (!lock) {
 			throw new Error('Cannot add while build is in progress');
 		}
 
-		try {
-			const id: RuleID = this._rules.length;
-			const info = this.normalizeRecipe(id, rule);
-			const hasRecipe = !!info.recipe;
-			this._rules.push(info);
+		const id: RuleID = this._rules.length;
+		const info = this.normalizeRecipe(id, rule);
+		const hasRecipe = !!info.recipe;
+		this._rules.push(info);
 
-			for (const p of info.targets) {
-				const rel = p.rel();
-				let targetInfo = this._targets.get(rel);
-				if (!targetInfo) {
-					targetInfo = {
-						rules: new Set(),
-						recipeRule: null,
-					};
-					this._targets.set(rel, targetInfo);
-				}
-
-				if (hasRecipe) {
-					if (isRuleID(targetInfo.recipeRule))
-						throw new Error(
-							`Target '${rel}' already has a recipe specified. Cannot add another one.`,
-						);
-
-					targetInfo.recipeRule = id;
-				}
-
-				targetInfo.rules.add(id);
+		for (const p of info.targets) {
+			const rel = p.rel();
+			let targetInfo = this._targets.get(rel);
+			if (!targetInfo) {
+				targetInfo = {
+					rules: new Set(),
+					recipeRule: null,
+				};
+				this._targets.set(rel, targetInfo);
 			}
 
-			return id;
-		} finally {
-			unlock();
+			if (hasRecipe) {
+				if (isRuleID(targetInfo.recipeRule))
+					throw new Error(
+						`Target '${rel}' already has a recipe specified. Cannot add another one.`,
+					);
+
+				targetInfo.recipeRule = id;
+			}
+
+			targetInfo.rules.add(id);
 		}
+
+		return id;
 	}
 
 	targets() {
@@ -166,34 +162,31 @@ export class Makefile {
 		target?: IBuildPath,
 		cb?: (build: IBuild) => Promise<void>,
 	): Promise<boolean> {
-		const unlock = await this._mutex.lockAsync();
+		using _lock = await this._mutex.lockAsync();
+
 		let result = true;
 
-		try {
-			const prevBuildAbs = this.abs(
-				Path.build('__esmakefile__/previous-build.json'),
-			);
+		const prevBuildAbs = this.abs(
+			Path.build('__esmakefile__/previous-build.json'),
+		);
 
-			target = target || this._firstTarget();
+		target = target || this._firstTarget();
 
-			this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
-			const curBuild = new Build({
-				rules: this._rules,
-				targets: this._targets,
-				prevBuild: this._prevBuild,
-				buildRoot: this.buildRoot,
-				srcRoot: this.srcRoot,
-			});
+		this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
+		const curBuild = new Build({
+			rules: this._rules,
+			targets: this._targets,
+			prevBuild: this._prevBuild,
+			buildRoot: this.buildRoot,
+			srcRoot: this.srcRoot,
+		});
 
-			await cb?.(curBuild);
+		await cb?.(curBuild);
 
-			result = await curBuild.runAll([target]);
+		result = await curBuild.runAll([target]);
 
-			await curBuild.writeFile(prevBuildAbs);
-			this._prevBuild = curBuild;
-		} finally {
-			unlock();
-		}
+		await curBuild.writeFile(prevBuildAbs);
+		this._prevBuild = curBuild;
 
 		return result;
 	}

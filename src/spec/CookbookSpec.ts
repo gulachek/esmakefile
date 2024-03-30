@@ -486,6 +486,22 @@ describe('Cookbook', () => {
 			expect(cp.buildCount).to.equal(1);
 		});
 
+		xit('y0b0 pt 2: calling build on separate target with same rule results in one build', async () => {
+			let count = 0;
+			const first = Path.build('first');
+			const second = Path.build('second');
+
+			book.add([first, second], () => {
+				count += 1;
+			});
+
+			const firstProm = book.build(first); // junior prom
+			const secondProm = book.build(second); // senior prom
+			await Promise.all([firstProm, secondProm]);
+
+			expect(count).to.equal(1);
+		});
+
 		it('does not build a target if a source fails to build', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');

@@ -1,5 +1,5 @@
 import { IBuildPath, Path } from './Path.js';
-import { Cookbook } from './Cookbook.js';
+import { Makefile } from './Makefile.js';
 import { isAbsolute } from 'node:path';
 import { Writable } from 'node:stream';
 import { spawn } from 'node:child_process';
@@ -25,11 +25,11 @@ export interface IRule {
 }
 
 export class RecipeArgs {
-	private _book: Cookbook;
+	private _book: Makefile;
 	private _postreqs: Set<string>;
 	readonly logStream: Writable;
 
-	constructor(book: Cookbook, postreqs: Set<string>, logStream: Writable) {
+	constructor(book: Makefile, postreqs: Set<string>, logStream: Writable) {
 		this._book = book;
 		this._postreqs = postreqs;
 		this.logStream = logStream;

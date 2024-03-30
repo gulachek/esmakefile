@@ -5,7 +5,7 @@ import {
 	BuildPathGenOpts,
 	PathLike,
 	RecipeArgs,
-	Cookbook,
+	Makefile,
 } from '../index.js';
 
 import { isBuildPathLike } from '../Path.js';
@@ -55,9 +55,9 @@ class ScssRecipe implements IRule {
 }
 
 export function addSass(
-	book: Cookbook,
+	make: Makefile,
 	src: PathLike,
 	genOpts: BuildPathGenOpts,
 ) {
-	book.add(new ScssRecipe(src, genOpts));
+	make.add(new ScssRecipe(src, genOpts));
 }

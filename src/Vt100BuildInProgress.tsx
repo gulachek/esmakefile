@@ -2,7 +2,7 @@ import { IBuild } from './Build.js';
 import { render, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo } from 'react';
 import { IBuildPath } from './Path.js';
-import { Cookbook } from './Cookbook.js';
+import { Makefile } from './Makefile.js';
 import { FSWatcher } from 'node:fs';
 import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
 type VoidFunc = () => void;
 
 interface IBuildBookProps {
-	book: Cookbook;
+	book: Makefile;
 	target?: IBuildPath;
 }
 
@@ -359,10 +359,10 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 }
 
 export class Vt100BuildInProgress {
-	private _book: Cookbook;
+	private _book: Makefile;
 	private _targetPath?: IBuildPath;
 
-	constructor(book: Cookbook, targetPath?: IBuildPath) {
+	constructor(book: Makefile, targetPath?: IBuildPath) {
 		this._book = book;
 		this._targetPath = targetPath;
 	}

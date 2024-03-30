@@ -3,7 +3,7 @@ import {
 	IBuildPath,
 	Path,
 	RecipeArgs,
-	Cookbook,
+	Makefile,
 	PathLike,
 	BuildPathLike,
 } from '../../index.js';
@@ -43,7 +43,7 @@ export class ClangExecutableRecipe implements IRule {
 }
 
 export function addClangExecutable(
-	book: Cookbook,
+	make: Makefile,
 	out: BuildPathLike,
 	src: PathLike[],
 ): ClangExecutableRecipe {
@@ -54,15 +54,15 @@ export function addClangExecutable(
 	compileCommands.addText('[');
 
 	for (const s of src) {
-		const obj = addClangObject(book, s);
+		const obj = addClangObject(make, s);
 		exe.addObj(obj);
 		compileCommands.addPath(obj.compileCommands);
 	}
 
 	compileCommands.addText(']');
 
-	book.add(exe);
-	book.add(compileCommands);
+	make.add(exe);
+	make.add(compileCommands);
 
 	return exe;
 }

@@ -1,8 +1,8 @@
-import { Path, cli, Cookbook } from '../index.js';
+import { Path, cli, Makefile } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
 
-cli((book: Cookbook) => {
+cli((book: Makefile) => {
 	const scssFile = Path.src('src/style.scss');
 	const main = Path.build('main');
 	const css = Path.build('style.css');

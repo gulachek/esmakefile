@@ -1,5 +1,5 @@
 import {
-	Cookbook,
+	Makefile,
 	IRule,
 	BuildPathLike,
 	IBuildPath,
@@ -161,10 +161,10 @@ function waitMs(ms: number): Promise<void> {
 	return new Promise((res) => setTimeout(res, ms));
 }
 
-describe('Cookbook', () => {
+describe('Makefile', () => {
 	describe('targets', () => {
 		it('lists targets by path relative to build dir', () => {
-			const book = new Cookbook();
+			const book = new Makefile();
 			book.add(new WriteFileRule('write.txt', 'hello'));
 			book.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
 
@@ -178,7 +178,7 @@ describe('Cookbook', () => {
 
 	describe('add', () => {
 		it('cannot add while build is in progress', async () => {
-			const book = new Cookbook();
+			const book = new Makefile();
 			book.add(new WriteFileRule('write.txt', 'hello'));
 			const prom = book.build();
 			expect(() =>
@@ -188,7 +188,7 @@ describe('Cookbook', () => {
 		});
 
 		it('throws if two recipes are given for a target', async () => {
-			const book = new Cookbook();
+			const book = new Makefile();
 			const path = Path.build('conflict.txt');
 			const write = new WriteFileRule(path, 'hello');
 			const copy = new CopyFileRule('something.txt', path);
@@ -198,7 +198,7 @@ describe('Cookbook', () => {
 		});
 
 		it('can add multiple rules for the same target', async () => {
-			const book = new Cookbook();
+			const book = new Makefile();
 			const target = Path.build('target.txt');
 			const anotherDep = Path.src('dep.txt');
 			const write = new WriteFileRule(target, 'hello');
@@ -208,7 +208,7 @@ describe('Cookbook', () => {
 	});
 
 	describe('recipe', () => {
-		let book: Cookbook;
+		let book: Makefile;
 
 		function writePath(path: Path, contents: string): Promise<void> {
 			return writeFile(book.abs(path), contents, 'utf8');
@@ -239,7 +239,7 @@ describe('Cookbook', () => {
 
 			await mkdir(srcRoot, { recursive: true });
 
-			book = new Cookbook({ srcRoot, buildRoot });
+			book = new Makefile({ srcRoot, buildRoot });
 		});
 
 		it('builds a target', async () => {
@@ -589,7 +589,7 @@ describe('Cookbook', () => {
 
 				// make a new instance to avoid any state in object
 				const { srcRoot, buildRoot } = book;
-				const newBook = new Cookbook({ srcRoot, buildRoot });
+				const newBook = new Makefile({ srcRoot, buildRoot });
 				newBook.add(cat);
 
 				await waitMs(1);

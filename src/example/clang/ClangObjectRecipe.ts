@@ -5,7 +5,7 @@ import {
 	isBuildPathLike,
 	BuildPathGenOpts,
 	Path,
-	Cookbook,
+	Makefile,
 	RecipeArgs,
 } from '../../index.js';
 
@@ -62,7 +62,7 @@ export class ClangObjectRecipe implements IRule {
 }
 
 export function addClangObject(
-	book: Cookbook,
+	make: Makefile,
 	src: PathLike,
 	genOpts?: BuildPathGenOpts,
 ) {
@@ -72,7 +72,7 @@ export function addClangObject(
 		: Path.gen(srcPath, { ext: '.o', ...genOpts });
 
 	const obj = new ClangObjectRecipe(srcPath, destPath);
-	book.add(obj);
+	make.add(obj);
 
 	return obj;
 }

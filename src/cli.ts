@@ -1,4 +1,4 @@
-import { Cookbook } from './Cookbook.js';
+import { Makefile } from './Makefile.js';
 import { Path } from './Path.js';
 import { Vt100BuildInProgress } from './Vt100BuildInProgress.js';
 
@@ -99,8 +99,8 @@ type ExtBuildOpts<TCliExt extends CliOptions> = StdBuildOpts & {
 	ext: BuildOptionsOf<TCliExt>;
 };
 
-type StdBuildFn = (book: Cookbook, opts: StdBuildOpts) => void;
-type ExtBuildFn<TBuildOpts> = (book: Cookbook, opts: TBuildOpts) => void;
+type StdBuildFn = (book: Makefile, opts: StdBuildOpts) => void;
+type ExtBuildFn<TBuildOpts> = (book: Makefile, opts: TBuildOpts) => void;
 
 type ArgLookup = {
 	extKey?: string;
@@ -208,9 +208,9 @@ export function cli(
 		}
 	}
 
-	const makeCookbook = () => {
+	const makeMakefile = () => {
 		const buildOpts = parseOpts(program, args, opts);
-		const book = new Cookbook({ srcRoot: buildOpts.sourceRoot });
+		const book = new Makefile({ srcRoot: buildOpts.sourceRoot });
 		fn(book, buildOpts);
 		return book;
 	};
@@ -220,7 +220,7 @@ export function cli(
 		.description('Build a specified target')
 		.argument('[target]', 'The target to be built')
 		.action(async (target?: string) => {
-			const book = makeCookbook();
+			const book = makeMakefile();
 			const targetPath = target && Path.build(target);
 			const display = new Vt100BuildInProgress(book, targetPath);
 			display.build();
@@ -230,7 +230,7 @@ export function cli(
 		.command('watch')
 		.description('Rebuild top level targets when a source file changes')
 		.action(async () => {
-			const book = makeCookbook();
+			const book = makeMakefile();
 			//const targetPath = target && Path.build(target);
 			const display = new Vt100BuildInProgress(book);
 			display.watch();
@@ -240,7 +240,7 @@ export function cli(
 		.command('list')
 		.description('List all targets')
 		.action(() => {
-			const book = makeCookbook();
+			const book = makeMakefile();
 			for (const t of book.targets()) {
 				console.log(t);
 			}

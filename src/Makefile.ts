@@ -26,7 +26,7 @@ import {
 
 import { resolve } from 'node:path';
 
-export interface ICookbookOpts {
+export interface IMakefileOpts {
 	buildRoot?: string;
 	srcRoot?: string;
 }
@@ -50,7 +50,7 @@ function normalizePrereqs(p: Prereqs): Path | Path[] {
 	return p.map((p) => Path.src(p));
 }
 
-export class Cookbook {
+export class Makefile {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
@@ -61,7 +61,7 @@ export class Cookbook {
 
 	private _prevBuild: Build | null = null;
 
-	constructor(opts?: ICookbookOpts) {
+	constructor(opts?: IMakefileOpts) {
 		opts = opts || {};
 		this.srcRoot = resolve(opts.srcRoot || '.');
 		this.buildRoot = resolve(opts.buildRoot || 'build');

@@ -9,6 +9,6 @@ export {
 	BuildPathGenOpts,
 } from './Path.js';
 export { cli } from './cli.js';
-export { Cookbook } from './Cookbook.js';
+export { Makefile } from './Makefile.js';
 export { IRule, RecipeArgs } from './Rule.js';
 export { IBuild, RuleID } from './Build.js';

@@ -1,6 +1,6 @@
 import { Makefile } from './Makefile.js';
 import { Build } from './Build.js';
-import { BuildPathLike, Path } from './Path.js';
+import { BuildPathLike } from './Path.js';
 
 /**
  * Updates a target in a Makefile.  If no goal is specified,
@@ -14,6 +14,6 @@ export function updateTarget(
 	make: Makefile,
 	goal?: BuildPathLike,
 ): Promise<boolean> {
-	const build = new Build(make);
-	return build.build(goal && Path.build(goal));
+	const build = new Build(make, goal);
+	return build.run();
 }

@@ -7,7 +7,6 @@ import {
 	Path,
 	PathLike,
 	RecipeArgs,
-	IBuild,
 	RuleID,
 	updateTarget,
 } from '../index.js';
@@ -713,7 +712,7 @@ describe('Makefile', () => {
 			let startCalled = false;
 			let endCalled = false;
 
-			const build = new Build(make);
+			const build = new Build(make, targ);
 
 			build.on('start-target', (target: string) => {
 				expect(target, 'start target').to.equal('test');
@@ -727,7 +726,7 @@ describe('Makefile', () => {
 				endCalled = true;
 			});
 
-			await build.build(targ);
+			await build.run();
 
 			expect(endCalled, 'end called').to.be.true;
 		});
@@ -738,7 +737,7 @@ describe('Makefile', () => {
 			const id = make.add(write);
 			let logCalled = false;
 
-			const build = new Build(make);
+			const build = new Build(make, out);
 
 			build.on('recipe-log', (rid: RuleID, data: Buffer) => {
 				expect(rid).to.equal(id);
@@ -746,7 +745,7 @@ describe('Makefile', () => {
 				logCalled = true;
 			});
 
-			await build.build(out);
+			await build.run();
 
 			expect(logCalled, 'log called').to.be.true;
 		});

@@ -23,14 +23,14 @@ function BuildMkFile(props: IBuildMkFileProps) {
 	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
 
 	useEffect(() => {
-		const build = new Build(make);
+		const build = new Build(make, target);
 		setBuild(build);
 		const rendered = new Promise<void>((res) => {
 			setContinueBuild(res);
 		});
 
 		rendered.then(async () => {
-			const result = await build.build(target);
+			const result = await build.run();
 			setResult(result);
 		});
 	}, [make, target]);

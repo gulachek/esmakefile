@@ -170,7 +170,7 @@ export class Makefile {
 		return id;
 	}
 
-	public get defaultTarget(): IBuildPath {
+	public get defaultGoal(): IBuildPath {
 		return this._firstTarget();
 	}
 

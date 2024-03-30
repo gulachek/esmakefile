@@ -25,18 +25,18 @@ export interface IRule {
 }
 
 export class RecipeArgs {
-	private _book: Makefile;
+	private _make: Makefile;
 	private _postreqs: Set<string>;
 	readonly logStream: Writable;
 
-	constructor(book: Makefile, postreqs: Set<string>, logStream: Writable) {
-		this._book = book;
+	constructor(make: Makefile, postreqs: Set<string>, logStream: Writable) {
+		this._make = make;
 		this._postreqs = postreqs;
 		this.logStream = logStream;
 	}
 
 	abs(path: Path): string {
-		return this._book.abs(path);
+		return this._make.abs(path);
 	}
 
 	absAll(paths: Iterable<Path>): string[];
@@ -49,11 +49,11 @@ export class RecipeArgs {
 		let iter: Iterable<Path>;
 
 		if (!isIterable(pathOrPaths)) {
-			out.push(this._book.abs(pathOrPaths));
+			out.push(this._make.abs(pathOrPaths));
 			iter = rest;
 		}
 
-		for (const p of iter) out.push(this._book.abs(p));
+		for (const p of iter) out.push(this._make.abs(p));
 
 		return out;
 	}

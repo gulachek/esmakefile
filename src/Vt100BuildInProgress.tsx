@@ -10,20 +10,20 @@ import { resolve } from 'node:path';
 
 type VoidFunc = () => void;
 
-interface IBuildBookProps {
-	book: Makefile;
+interface IBuildMkFileProps {
+	make: Makefile;
 	target?: IBuildPath;
 }
 
-function BuildBook(props: IBuildBookProps) {
-	const { book, target } = props;
+function BuildMkFile(props: IBuildMkFileProps) {
+	const { make, target } = props;
 
 	const [result, setResult] = useState<boolean | null>(null);
 	const [build, setBuild] = useState<IBuild | null>(null);
 	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
 
 	useEffect(() => {
-		book
+		make
 			.build(target, (build) => {
 				setBuild(build);
 				return new Promise<void>((res) => {
@@ -31,7 +31,7 @@ function BuildBook(props: IBuildBookProps) {
 				});
 			})
 			.then(setResult);
-	}, [book, target]);
+	}, [make, target]);
 
 	if (build) {
 		return (
@@ -46,17 +46,17 @@ function BuildBook(props: IBuildBookProps) {
 	}
 }
 
-interface IWatchBookProps extends IBuildBookProps {}
+interface IWatchMkFileProps extends IBuildMkFileProps {}
 
-function WatchBook(props: IWatchBookProps) {
-	const { book, target } = props;
+function WatchMkFile(props: IWatchMkFileProps) {
+	const { make, target } = props;
 	const [changeCount, setChangeCount] = useState(0);
 	const watcher = useMemo(() => {
-		return new SourceWatcher(book.srcRoot, {
+		return new SourceWatcher(make.srcRoot, {
 			debounceMs: 300,
-			excludeDir: book.buildRoot,
+			excludeDir: make.buildRoot,
 		});
-	}, [book]);
+	}, [make]);
 
 	useEffect(() => {
 		const inc = () => setChangeCount((c) => c + 1);
@@ -76,14 +76,14 @@ function WatchBook(props: IWatchBookProps) {
 			process.stdin.off('close', closeWatcher);
 			process.stdin.off('data', drainStdin);
 		};
-	}, [book, target]);
+	}, [make, target]);
 
-	const text = `Watching '${book.srcRoot}'\nClose input stream to stop (usually Ctrl+D)`;
+	const text = `Watching '${make.srcRoot}'\nClose input stream to stop (usually Ctrl+D)`;
 
 	return (
 		<Box minHeight={process.stdout.rows || 24} flexDirection="column">
 			<Text>{text}</Text>
-			<BuildBook key={changeCount} book={book} target={target} />
+			<BuildMkFile key={changeCount} make={make} target={target} />
 		</Box>
 	);
 }
@@ -359,20 +359,20 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 }
 
 export class Vt100BuildInProgress {
-	private _book: Makefile;
+	private _make: Makefile;
 	private _targetPath?: IBuildPath;
 
-	constructor(book: Makefile, targetPath?: IBuildPath) {
-		this._book = book;
+	constructor(make: Makefile, targetPath?: IBuildPath) {
+		this._make = make;
 		this._targetPath = targetPath;
 	}
 
 	build(): void {
-		render(<BuildBook book={this._book} target={this._targetPath} />);
+		render(<BuildMkFile make={this._make} target={this._targetPath} />);
 	}
 
 	watch(): void {
-		render(<WatchBook book={this._book} target={this._targetPath} />);
+		render(<WatchMkFile make={this._make} target={this._targetPath} />);
 	}
 }
 

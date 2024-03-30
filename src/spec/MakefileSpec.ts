@@ -164,11 +164,11 @@ function waitMs(ms: number): Promise<void> {
 describe('Makefile', () => {
 	describe('targets', () => {
 		it('lists targets by path relative to build dir', () => {
-			const book = new Makefile();
-			book.add(new WriteFileRule('write.txt', 'hello'));
-			book.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
+			const make = new Makefile();
+			make.add(new WriteFileRule('write.txt', 'hello'));
+			make.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
 
-			const targets = new Set(book.targets());
+			const targets = new Set(make.targets());
 
 			expect(targets.size).to.equal(2);
 			expect(targets.has('write.txt')).to.be.true;
@@ -178,52 +178,52 @@ describe('Makefile', () => {
 
 	describe('add', () => {
 		it('cannot add while build is in progress', async () => {
-			const book = new Makefile();
-			book.add(new WriteFileRule('write.txt', 'hello'));
-			const prom = book.build();
+			const make = new Makefile();
+			make.add(new WriteFileRule('write.txt', 'hello'));
+			const prom = make.build();
 			expect(() =>
-				book.add(new CopyFileRule('src.txt', '/sub/dest.txt')),
+				make.add(new CopyFileRule('src.txt', '/sub/dest.txt')),
 			).to.throw();
 			await prom;
 		});
 
 		it('throws if two recipes are given for a target', async () => {
-			const book = new Makefile();
+			const make = new Makefile();
 			const path = Path.build('conflict.txt');
 			const write = new WriteFileRule(path, 'hello');
 			const copy = new CopyFileRule('something.txt', path);
 
-			book.add(write);
-			expect(() => book.add(copy)).to.throw();
+			make.add(write);
+			expect(() => make.add(copy)).to.throw();
 		});
 
 		it('can add multiple rules for the same target', async () => {
-			const book = new Makefile();
+			const make = new Makefile();
 			const target = Path.build('target.txt');
 			const anotherDep = Path.src('dep.txt');
 			const write = new WriteFileRule(target, 'hello');
-			book.add(write);
-			expect(() => book.add(target, anotherDep)).not.to.throw();
+			make.add(write);
+			expect(() => make.add(target, anotherDep)).not.to.throw();
 		});
 	});
 
 	describe('recipe', () => {
-		let book: Makefile;
+		let make: Makefile;
 
 		function writePath(path: Path, contents: string): Promise<void> {
-			return writeFile(book.abs(path), contents, 'utf8');
+			return writeFile(make.abs(path), contents, 'utf8');
 		}
 
 		function readPath(path: Path): Promise<string> {
-			return readFile(book.abs(path), 'utf8');
+			return readFile(make.abs(path), 'utf8');
 		}
 
 		function statsPath(path: Path): Promise<Stats> {
-			return stat(book.abs(path));
+			return stat(make.abs(path));
 		}
 
 		function rmPath(path: Path): Promise<void> {
-			return rm(book.abs(path));
+			return rm(make.abs(path));
 		}
 
 		beforeEach(async () => {
@@ -239,15 +239,15 @@ describe('Makefile', () => {
 
 			await mkdir(srcRoot, { recursive: true });
 
-			book = new Makefile({ srcRoot, buildRoot });
+			make = new Makefile({ srcRoot, buildRoot });
 		});
 
 		it('builds a target', async () => {
 			const path = Path.build('output.txt');
 			const write = new WriteFileRule(path, 'hello');
-			book.add(write);
+			make.add(write);
 
-			const result = await book.build(path);
+			const result = await make.build(path);
 			const contents = await readPath(path);
 			expect(contents).to.equal('hello');
 			expect(result).to.be.true;
@@ -255,59 +255,59 @@ describe('Makefile', () => {
 
 		it('builds a phony target', async () => {
 			let count = 0;
-			book.add('all', () => {
+			make.add('all', () => {
 				++count;
 			});
 
-			const result = await book.build();
+			const result = await make.build();
 			expect(result).to.be.true;
 			expect(count).to.equal(1);
 		});
 
 		it('rebuilds a phony target', async () => {
 			let count = 0;
-			book.add('all', () => {
+			make.add('all', () => {
 				++count;
 			});
 
-			await book.build();
-			await book.build();
+			await make.build();
+			await make.build();
 			expect(count).to.equal(2);
 		});
 
 		it('fails if recipe returns false', async () => {
-			book.add('all', () => false);
-			const result = await book.build();
+			make.add('all', () => false);
+			const result = await make.build();
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if recipe is void', async () => {
-			book.add('all', () => {});
-			const result = await book.build();
+			make.add('all', () => {});
+			const result = await make.build();
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is true', async () => {
-			book.add('all', () => true);
-			const result = await book.build();
+			make.add('all', () => true);
+			const result = await make.build();
 			expect(result).to.be.true;
 		});
 
 		it('fails if recipe returns Promise<false>', async () => {
-			book.add('all', () => Promise.resolve(false));
-			const result = await book.build();
+			make.add('all', () => Promise.resolve(false));
+			const result = await make.build();
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if recipe is Promise<void>', async () => {
-			book.add('all', () => Promise.resolve());
-			const result = await book.build();
+			make.add('all', () => Promise.resolve());
+			const result = await make.build();
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is Promise<true>', async () => {
-			book.add('all', () => Promise.resolve(true));
-			const result = await book.build();
+			make.add('all', () => Promise.resolve(true));
+			const result = await make.build();
 			expect(result).to.be.true;
 		});
 
@@ -315,9 +315,9 @@ describe('Makefile', () => {
 			const path = Path.build('test.txt');
 			const write = new WriteFileRule(path, 'test');
 			write.throwOnBuild(new Error('test'));
-			book.add(write);
+			make.add(write);
 
-			const result = await book.build(path);
+			const result = await make.build(path);
 			expect(result).to.be.false;
 		});
 
@@ -326,10 +326,10 @@ describe('Makefile', () => {
 			const pTwo = Path.build('two.txt');
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
-			book.add(writeOne);
-			book.add(writeTwo);
+			make.add(writeOne);
+			make.add(writeTwo);
 
-			const result = await book.build();
+			const result = await make.build();
 			expect(result).to.be.true;
 			expect(writeOne.buildCount).to.equal(1);
 			expect(writeTwo.buildCount).to.equal(0);
@@ -340,10 +340,10 @@ describe('Makefile', () => {
 			const pTwo = Path.build('two.txt');
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
-			book.add(writeOne);
-			book.add(writeTwo);
+			make.add(writeOne);
+			make.add(writeTwo);
 
-			const result = await book.build(pTwo);
+			const result = await make.build(pTwo);
 			expect(result).to.be.true;
 			expect(writeOne.buildCount).to.equal(0);
 			expect(writeTwo.buildCount).to.equal(1);
@@ -352,13 +352,13 @@ describe('Makefile', () => {
 		it("builds a target's prereq", async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
-			book.add(write);
+			make.add(write);
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			book.add(cp);
+			make.add(cp);
 
-			await book.build(cpPath);
+			await make.build(cpPath);
 
 			const contents = await readPath(cpPath);
 			expect(contents).to.equal('hello');
@@ -368,46 +368,46 @@ describe('Makefile', () => {
 		it('builds a phony target without a recipe', async () => {
 			const srcPath = Path.build('src.txt');
 
-			book.add('all', srcPath);
+			make.add('all', srcPath);
 
 			const write = new WriteFileRule(srcPath, 'hello');
-			book.add(write);
+			make.add(write);
 
-			const result = await book.build();
+			const result = await make.build();
 			expect(result).to.be.true;
 		});
 
 		it("fails if a src prereq doesn't exist", async () => {
-			book.add('all', 'prereq');
-			const result = await book.build();
+			make.add('all', 'prereq');
+			const result = await make.build();
 			expect(result).to.be.false;
 		});
 
 		it("fails if a build prereq doesn't exist", async () => {
-			book.add('all', Path.build('prereq'));
-			const result = await book.build();
+			make.add('all', Path.build('prereq'));
+			const result = await make.build();
 			expect(result).to.be.false;
 		});
 
 		it('builds if a phony target prereq is in the system', async () => {
 			const prereq = Path.build('prereq');
-			book.add('all', prereq);
-			book.add(prereq, () => {});
+			make.add('all', prereq);
+			make.add(prereq, () => {});
 
-			const result = await book.build();
+			const result = await make.build();
 			expect(result).to.be.true;
 		});
 
 		it('ensures a target directory exists before building', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
-			book.add(write);
+			make.add(write);
 
 			const cpPath = Path.build('sub/cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			book.add(cp);
+			make.add(cp);
 
-			await book.build(cpPath);
+			await make.build(cpPath);
 
 			const dirStat = await statsPath(cpPath.dir());
 			expect(dirStat.isDirectory()).to.be.true;
@@ -416,14 +416,14 @@ describe('Makefile', () => {
 		it('skips building target if newer than prereqs', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
-			book.add(write);
+			make.add(write);
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			book.add(cp);
+			make.add(cp);
 
-			await book.build(cpPath);
-			await book.build(cpPath);
+			await make.build(cpPath);
+			await make.build(cpPath);
 
 			expect(cp.buildCount).to.equal(1);
 		});
@@ -434,13 +434,13 @@ describe('Makefile', () => {
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			book.add(cp);
+			make.add(cp);
 
-			await book.build(cpPath);
+			await make.build(cpPath);
 			await waitMs(1);
 			await writePath(srcPath, 'update');
 
-			await book.build(cpPath);
+			await make.build(cpPath);
 
 			expect(cp.buildCount).to.equal(2);
 			const contents = await readPath(cpPath);
@@ -455,14 +455,14 @@ describe('Makefile', () => {
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			book.add(cp);
-			book.add(cpPath, otherPath);
+			make.add(cp);
+			make.add(cpPath, otherPath);
 
-			await book.build(cpPath);
+			await make.build(cpPath);
 			await waitMs(1);
 			await writePath(otherPath, 'update');
 
-			await book.build(cpPath);
+			await make.build(cpPath);
 
 			expect(cp.buildCount).to.equal(2);
 			const contents = await readPath(cpPath);
@@ -472,14 +472,14 @@ describe('Makefile', () => {
 		it('y0b0: you only build once. calling build while building results in one build', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
-			book.add(write);
+			make.add(write);
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			book.add(cp);
+			make.add(cp);
 
-			const first = book.build(cpPath);
-			const second = book.build(cpPath);
+			const first = make.build(cpPath);
+			const second = make.build(cpPath);
 			await Promise.all([first, second]);
 
 			expect(write.buildCount).to.equal(1);
@@ -491,12 +491,12 @@ describe('Makefile', () => {
 			const first = Path.build('first');
 			const second = Path.build('second');
 
-			book.add([first, second], () => {
+			make.add([first, second], () => {
 				count += 1;
 			});
 
-			const firstProm = book.build(first); // junior prom
-			const secondProm = book.build(second); // senior prom
+			const firstProm = make.build(first); // junior prom
+			const secondProm = make.build(second); // senior prom
 			await Promise.all([firstProm, secondProm]);
 
 			expect(count).to.equal(1);
@@ -506,13 +506,13 @@ describe('Makefile', () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
 			write.returnFalseOnBuild();
-			book.add(write);
+			make.add(write);
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			book.add(cp);
+			make.add(cp);
 
-			const result = await book.build(cpPath);
+			const result = await make.build(cpPath);
 
 			expect(cp.buildCount).to.equal(0);
 			expect(result).to.be.false;
@@ -525,16 +525,16 @@ describe('Makefile', () => {
 			await writePath(srcPath, 'contents');
 
 			const copy = new CopyFileRule(srcPath, outPath);
-			book.add(copy);
+			make.add(copy);
 
-			let result = await book.build(outPath);
+			let result = await make.build(outPath);
 			expect(result).to.be.true;
 			expect(copy.buildCount).to.equal(1);
 
 			// now delete (hits case where target path does exist prior)
 			await rmPath(srcPath);
 
-			result = await book.build(outPath);
+			result = await make.build(outPath);
 			expect(result).to.be.false;
 			expect(copy.buildCount).to.equal(1);
 		});
@@ -552,18 +552,18 @@ describe('Makefile', () => {
 				await writePath(indexPath, 'a.txt\nb.txt\n');
 
 				cat = new CatFilesRecipe(indexPath, catPath);
-				book.add(cat);
+				make.add(cat);
 			});
 
 			it('rebuilds when postreq changes', async () => {
-				let result = await book.build(catPath); // build once
+				let result = await make.build(catPath); // build once
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
 				await waitMs(2);
 				await writePath(aPath, 'A change\n');
-				result = await book.build(catPath);
+				result = await make.build(catPath);
 
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(2);
@@ -571,43 +571,43 @@ describe('Makefile', () => {
 			});
 
 			it('does not rebuild if postreq does not change', async () => {
-				let result = await book.build(catPath);
+				let result = await make.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
-				result = await book.build(catPath);
+				result = await make.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 			});
 
 			it('tracks postreq across runs', async () => {
-				let result = await book.build(catPath);
+				let result = await make.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
 				// make a new instance to avoid any state in object
-				const { srcRoot, buildRoot } = book;
-				const newBook = new Makefile({ srcRoot, buildRoot });
-				newBook.add(cat);
+				const { srcRoot, buildRoot } = make;
+				const newMk = new Makefile({ srcRoot, buildRoot });
+				newMk.add(cat);
 
 				await waitMs(1);
 				await writePath(aPath, 'A changed\n');
-				result = await newBook.build(catPath);
+				result = await newMk.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(2);
 				expect(await readPath(catPath)).to.equal('A changed\nB\n');
 			});
 
 			it('attempts to build target if static postreq does not exist', async () => {
-				let result = await book.build(catPath);
+				let result = await make.build(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
 				await rmPath(aPath);
-				result = await book.build(catPath);
+				result = await make.build(catPath);
 				expect(result).to.be.false;
 				expect(cat.buildCount).to.equal(2);
 			});
@@ -622,33 +622,33 @@ describe('Makefile', () => {
 
 			const counts = { foo: 0, phony: 0 };
 
-			book.add('all', [foo, phony]);
+			make.add('all', [foo, phony]);
 
-			book.add(foo, async (args) => {
+			make.add(foo, async (args) => {
 				counts.foo += 1;
 				args.addPostreq(args.abs(req));
 				await writePath(foo, counts.foo.toString());
 				return true;
 			});
 
-			book.add(phony, () => {
+			make.add(phony, () => {
 				counts.phony += 1;
 				return true;
 			});
 
-			await book.build();
+			await make.build();
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(1, 'phony');
 
 			await waitMs(1);
-			await book.build();
+			await make.build();
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(2, 'phony');
 
 			await waitMs(1);
 			await writePath(req, 'update');
 
-			await book.build();
+			await make.build();
 			expect(counts.foo).to.equal(2, 'foo');
 			expect(counts.phony).to.equal(3, 'phony');
 		});
@@ -672,9 +672,9 @@ describe('Makefile', () => {
 			await writePath(srcPath, 'src');
 			const copy = new CopyFileRule(srcPath, cpPath);
 			let buildCount = 0;
-			book.add(copy);
+			make.add(copy);
 
-			expect(await book.build(cpPath)).to.be.true;
+			expect(await make.build(cpPath)).to.be.true;
 
 			// no a priori depencency on cpPath
 			const adHocRecipe: IRule = {
@@ -685,14 +685,14 @@ describe('Makefile', () => {
 					++buildCount;
 					await writePath(outPath, 'test');
 					// only after build
-					args.addPostreq(book.abs(cpPath));
+					args.addPostreq(make.abs(cpPath));
 					return true;
 				},
 			};
 
-			book.add(adHocRecipe);
+			make.add(adHocRecipe);
 
-			let result = await book.build(outPath);
+			let result = await make.build(outPath);
 			expect(result).to.be.true;
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
@@ -700,18 +700,18 @@ describe('Makefile', () => {
 			// now presumably knows postreqs
 
 			await writePath(srcPath, 'update');
-			result = await book.build(outPath);
+			result = await make.build(outPath);
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
 		});
 
 		it('notifies caller of start and end time of target', async () => {
 			const targ = Path.build('test');
-			book.add(targ, () => {});
+			make.add(targ, () => {});
 			let startCalled = false;
 			let endCalled = false;
 
-			await book.build(targ, async (build: IBuild) => {
+			await make.build(targ, async (build: IBuild) => {
 				build.on('start-target', (target: string) => {
 					expect(target, 'start target').to.equal('test');
 					expect(endCalled, 'end not called b4 start').to.be.false;
@@ -731,10 +731,10 @@ describe('Makefile', () => {
 		it('notifies caller when recipe logs information', async () => {
 			const out = Path.build('out.txt');
 			const write = new WriteFileRule(out, 'hello');
-			const id = book.add(write);
+			const id = make.add(write);
 			let logCalled = false;
 
-			await book.build(out, async (build: IBuild) => {
+			await make.build(out, async (build: IBuild) => {
 				build.on('recipe-log', (rid: RuleID, data: Buffer) => {
 					expect(rid).to.equal(id);
 					expect(data.toString('utf8')).to.match(/^Writing/);

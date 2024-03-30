@@ -99,8 +99,8 @@ type ExtBuildOpts<TCliExt extends CliOptions> = StdBuildOpts & {
 	ext: BuildOptionsOf<TCliExt>;
 };
 
-type StdBuildFn = (book: Makefile, opts: StdBuildOpts) => void;
-type ExtBuildFn<TBuildOpts> = (book: Makefile, opts: TBuildOpts) => void;
+type StdBuildFn = (make: Makefile, opts: StdBuildOpts) => void;
+type ExtBuildFn<TBuildOpts> = (make: Makefile, opts: TBuildOpts) => void;
 
 type ArgLookup = {
 	extKey?: string;
@@ -210,9 +210,9 @@ export function cli(
 
 	const makeMakefile = () => {
 		const buildOpts = parseOpts(program, args, opts);
-		const book = new Makefile({ srcRoot: buildOpts.sourceRoot });
-		fn(book, buildOpts);
-		return book;
+		const make = new Makefile({ srcRoot: buildOpts.sourceRoot });
+		fn(make, buildOpts);
+		return make;
 	};
 
 	program
@@ -220,9 +220,9 @@ export function cli(
 		.description('Build a specified target')
 		.argument('[target]', 'The target to be built')
 		.action(async (target?: string) => {
-			const book = makeMakefile();
+			const make = makeMakefile();
 			const targetPath = target && Path.build(target);
-			const display = new Vt100BuildInProgress(book, targetPath);
+			const display = new Vt100BuildInProgress(make, targetPath);
 			display.build();
 		});
 
@@ -230,9 +230,9 @@ export function cli(
 		.command('watch')
 		.description('Rebuild top level targets when a source file changes')
 		.action(async () => {
-			const book = makeMakefile();
+			const make = makeMakefile();
 			//const targetPath = target && Path.build(target);
-			const display = new Vt100BuildInProgress(book);
+			const display = new Vt100BuildInProgress(make);
 			display.watch();
 		});
 
@@ -240,8 +240,8 @@ export function cli(
 		.command('list')
 		.description('List all targets')
 		.action(() => {
-			const book = makeMakefile();
-			for (const t of book.targets()) {
+			const make = makeMakefile();
+			for (const t of make.targets()) {
 				console.log(t);
 			}
 		});

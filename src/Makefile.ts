@@ -210,7 +210,7 @@ export class Makefile {
 			for (const t of info.targets) return t;
 		}
 
-		throw new Error('No targets exist in cookbook');
+		throw new Error('No targets exist in Makefile');
 	}
 
 	abs(path: Path): string {

@@ -2,58 +2,58 @@ import { Path, cli, Makefile } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
 
-cli((book: Makefile) => {
+cli((make: Makefile) => {
 	const scssFile = Path.src('src/style.scss');
 	const main = Path.build('main');
 	const css = Path.build('style.css');
 
-	book.add('all', [css, main]);
+	make.add('all', [css, main]);
 
-	addSass(book, scssFile, 'style.css');
+	addSass(make, scssFile, 'style.css');
 
-	addClangExecutable(book, 'main', ['src/main.cpp', 'src/hello.cpp']);
+	addClangExecutable(make, 'main', ['src/main.cpp', 'src/hello.cpp']);
 
-	book.add('line-feed', (args) => {
+	make.add('line-feed', (args) => {
 		args.logStream.write('one\ntwo\nthree\n\n\n');
 		return false;
 	});
 
-	book.add('carriage-return', (args) => {
+	make.add('carriage-return', (args) => {
 		args.logStream.write('one\r\ntwo\r\nthree');
 		return false;
 	});
 
-	book.add('missing-prereq', 'does-not-exist', () => {
+	make.add('missing-prereq', 'does-not-exist', () => {
 		return true;
 	});
 
-	book.add('warning', (args) => {
+	make.add('warning', (args) => {
 		args.logStream.write('Warning: this is a test warning.');
 		return true;
 	});
 
-	book.add('error', (args) => {
+	make.add('error', (args) => {
 		args.logStream.write('Error: this is a test error.');
 		return false;
 	});
 
-	book.add('white-space-log', (args) => {
+	make.add('white-space-log', (args) => {
 		args.logStream.write('   \n\t\r\n  \n\n  \n');
 		return true;
 	});
 
-	book.add('write-both-streams', (args) => {
+	make.add('write-both-streams', (args) => {
 		const script = args.abs(Path.src('src/logs.cjs'));
 		return args.spawn(process.execPath, [script]);
 	});
 
-	book.add('medium-long-task', () => {
+	make.add('medium-long-task', () => {
 		return new Promise<boolean>((res) => {
 			setTimeout(() => res(true), 15000);
 		});
 	});
 
-	book.add('long-task', () => {
+	make.add('long-task', () => {
 		return new Promise<boolean>((res) => {
 			setTimeout(() => res(true), 65000);
 		});

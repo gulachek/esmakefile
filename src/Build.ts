@@ -15,20 +15,6 @@ import { dirname } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { Writable } from 'node:stream';
 
-/**
- * Public interface of build introspection
- */
-export interface IBuild {
-	elapsedMsOf(target: string, now?: number): number;
-	resultOf(target: string): boolean | null;
-	contentOfLog(target: string): string | null;
-	thrownExceptionOf(target: string): Error;
-
-	on<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
-
-	off<Event extends BuildEvent>(event: Event, listener: Listener<Event>): void;
-}
-
 type RecipeInProgressInfo = {
 	complete: false;
 
@@ -60,7 +46,7 @@ interface IBuildJson {
 	postreqs: [number, string[]][];
 }
 
-export class Build implements IBuild {
+export class Build {
 	private _roots: IPathRoots;
 	private _make: Makefile;
 	private _goal: IBuildPath;

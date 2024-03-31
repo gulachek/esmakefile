@@ -1,4 +1,4 @@
-import { Build, IBuild } from './Build.js';
+import { Build } from './Build.js';
 import { render, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo } from 'react';
 import { IBuildPath } from './Path.js';
@@ -19,7 +19,7 @@ function BuildMkFile(props: IBuildMkFileProps) {
 	const { make, target } = props;
 
 	const [result, setResult] = useState<boolean | null>(null);
-	const [build, setBuild] = useState<IBuild | null>(null);
+	const [build, setBuild] = useState<Build | null>(null);
 	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
 
 	useEffect(() => {
@@ -91,7 +91,7 @@ function WatchMkFile(props: IWatchMkFileProps) {
 }
 
 interface IBuildDisplayProps {
-	build: IBuild;
+	build: Build;
 	continueBuild: VoidFunc | null;
 	result: boolean | null;
 }
@@ -151,7 +151,7 @@ function BuildDisplay(props: IBuildDisplayProps) {
 }
 
 interface ILogMessagesProps {
-	build: IBuild;
+	build: Build;
 	complete: string[];
 }
 
@@ -167,7 +167,7 @@ function LogMessages(props: ILogMessagesProps) {
 }
 
 interface ILogMessageProps {
-	build: IBuild;
+	build: Build;
 	target: string;
 }
 
@@ -267,7 +267,7 @@ function ElapsedTime(props: IElapsedTimeProps) {
 }
 
 interface ICompletedBuildsProps {
-	build: IBuild;
+	build: Build;
 	complete: string[];
 }
 
@@ -323,7 +323,7 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 }
 
 interface IInProgressBuildsProps {
-	build: IBuild;
+	build: Build;
 	inProgress: Set<string>;
 	now: number;
 }

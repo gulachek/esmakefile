@@ -8,7 +8,6 @@ import {
 	isBuildPathLike,
 	isPathLike,
 } from './Path.js';
-import { Build, IBuild } from './Build.js';
 
 import { resolve } from 'node:path';
 
@@ -43,8 +42,6 @@ export class Makefile {
 	private _mutex = new Mutex();
 	private _rules: IRule[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
-
-	private _prevBuild: Build | null = null;
 
 	constructor(opts?: IMakefileOpts) {
 		opts = opts || {};

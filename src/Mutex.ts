@@ -21,17 +21,7 @@ export class Mutex {
 	}
 
 	private makeLock(): Lock {
-		return new Lock(this.unlockFn());
-	}
-
-	private unlockFn(): UnlockFunction {
-		let called = false;
-		return () => {
-			if (!called) {
-				called = true;
-				this.unlock();
-			}
-		};
+		return new Lock(() => this.unlock());
 	}
 
 	private unlock() {
@@ -46,14 +36,22 @@ export class Mutex {
 
 export class Lock implements Disposable {
 	private _unlock: UnlockFunction;
+	private _isLocked = true;
 
 	/** @internal */
 	public constructor(unlock: UnlockFunction) {
 		this._unlock = unlock;
 	}
 
+	public unlock() {
+		if (this._isLocked) {
+			this._unlock();
+			this._isLocked = false;
+		}
+	}
+
 	public [Symbol.dispose]() {
-		this._unlock();
+		this.unlock();
 	}
 }
 

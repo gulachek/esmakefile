@@ -7,9 +7,12 @@ import {
 	Path,
 	isBuildPathLike,
 	isPathLike,
+	IPathRoots,
 } from './Path.js';
 
-import { resolve } from 'node:path';
+import { stat, readFile, writeFile, mkdir } from 'node:fs/promises';
+
+import { resolve, dirname } from 'node:path';
 
 export interface IMakefileOpts {
 	buildRoot?: string;
@@ -39,6 +42,7 @@ export class Makefile {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
+	private _roots: IPathRoots;
 	private _mutex = new Mutex();
 	private _rules: IRule[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
@@ -47,14 +51,94 @@ export class Makefile {
 		opts = opts || {};
 		this.srcRoot = resolve(opts.srcRoot || '.');
 		this.buildRoot = resolve(opts.buildRoot || 'build');
+		this._roots = {
+			src: this.srcRoot,
+			build: this.buildRoot,
+		};
 	}
 
 	/**
-	 * Lock Makefile for building
+	 * For internal use only. Lock Makefile for building
+	 * @internal
 	 * @returns A Promise that resolves with a Lock object when available
 	 */
-	lockAsync(): Promise<Lock> {
+	public _lockAsync(): Promise<Lock> {
 		return this._mutex.lockAsync();
+	}
+
+	/**
+	 * For internal use only. Loads previously saved state
+	 * @internal
+	 */
+	public async _load(): Promise<void> {
+		const abs = this.abs(statePath);
+
+		try {
+			await stat(abs);
+		} catch (_err) {
+			return;
+		}
+
+		const contents = await readFile(this.abs(statePath), 'utf8');
+
+		const state = JSON.parse(contents) as IStateFile;
+
+		if (typeof state.schemaVersion !== 'number') {
+			throw new Error(
+				'schemaVersion not found as number property in state file',
+			);
+		}
+
+		if (schemaVersion !== state.schemaVersion) {
+			throw new Error(
+				'Previously built with an incompatible version of esmakefile. Clean build directory before attempting to rebuild or revert to previous version of esmakefile.',
+			);
+		}
+
+		for (const rule of state.rules) {
+			const recipe = rule.recipe;
+
+			if (!recipe) {
+				continue;
+			}
+
+			for (const t of rule.targets) {
+				const info = this._targets.get(t);
+				if (!info) {
+					continue;
+				}
+
+				info.postreqs = recipe.postreqs;
+			}
+		}
+	}
+
+	/**
+	 * For internal use only. Saves gathered state
+	 * @internal
+	 */
+	public async _save(recipeResults: RecipeResults[]): Promise<void> {
+		const rules: IStateFileRule[] = [];
+
+		for (const { ruleId, postreqs } of recipeResults) {
+			const rule = this._rules[ruleId];
+			const targets = ruleTargets(rule).map((t) => t.rel());
+			rules.push({
+				targets,
+				recipe: {
+					postreqs,
+				},
+			});
+		}
+
+		const state: IStateFile = {
+			schemaVersion,
+			rules,
+		};
+
+		const abs = this.abs(statePath);
+		await mkdir(dirname(abs), { recursive: true });
+		await writeFile(abs, JSON.stringify(state), 'utf8');
 	}
 
 	public *rules(): Generator<{ rule: IRule; id: RuleID }> {
@@ -182,10 +266,7 @@ export class Makefile {
 	}
 
 	abs(path: Path): string {
-		return path.abs({
-			src: this.srcRoot,
-			build: this.buildRoot,
-		});
+		return path.abs(this._roots);
 	}
 }
 
@@ -198,4 +279,27 @@ export function isRuleID(id: unknown): id is RuleID {
 export type TargetInfo = {
 	rules: Set<RuleID>;
 	recipeRule: RuleID | null;
+	postreqs?: string[];
 };
+
+export type RecipeResults = {
+	ruleId: RuleID;
+	postreqs: string[];
+};
+
+const statePath = Path.build('__esmakefile__/state.json');
+const schemaVersion = 1;
+
+interface IStateFile {
+	schemaVersion: number;
+	rules: IStateFileRule[];
+}
+
+interface IStateFileRule {
+	targets: string[];
+	recipe?: IStateFileRecipe;
+}
+
+interface IStateFileRecipe {
+	postreqs: string[];
+}

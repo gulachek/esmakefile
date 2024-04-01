@@ -1,4 +1,10 @@
-import { Makefile, RuleID, TargetInfo, isRuleID } from './Makefile.js';
+import {
+	Makefile,
+	RecipeResults,
+	RuleID,
+	TargetInfo,
+	isRuleID,
+} from './Makefile.js';
 import {
 	IRule,
 	rulePrereqs,
@@ -9,9 +15,8 @@ import {
 import { BuildPathLike, IBuildPath, IPathRoots, Path } from './Path.js';
 import { Vt100Stream } from './Vt100Stream.js';
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { statSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { Writable } from 'node:stream';
 
@@ -40,12 +45,6 @@ type RecipeCompleteInfo = {
 
 type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
-interface IBuildJson {
-	targets: [string, number][];
-	prereqs: [number, string[]][];
-	postreqs: [number, string[]][];
-}
-
 export class Build {
 	private _roots: IPathRoots;
 	private _make: Makefile;
@@ -53,13 +52,12 @@ export class Build {
 
 	private _event = new EventEmitter();
 	private _rules = new Map<RuleID, RuleInfo>();
-	private _prevBuild: Build | null;
 
 	private _targets = new Map<string, TargetInfo>();
 	private _buildInProgress = new Map<string, Promise<boolean>>();
 	private _info = new Map<string, RecipeBuildInfo>();
-	private _postreqMap = new Map<RuleID, Set<string>>();
 	private _logs = new Map<RuleID, Vt100Stream>();
+	private _recipeResults: RecipeResults[] = [];
 
 	constructor(make: Makefile, goal?: BuildPathLike) {
 		this._make = make;
@@ -69,12 +67,6 @@ export class Build {
 		for (const { rule, id } of make.rules()) {
 			this._rules.set(id, this.normalizeRule(id, rule));
 		}
-
-		for (const t of make.targets()) {
-			this._targets.set(t, make.target(t));
-		}
-
-		this._prevBuild = null;
 	}
 
 	on<E extends BuildEvent>(e: E, l: Listener<E>): void {
@@ -137,7 +129,10 @@ export class Build {
 
 				const result = await innerRecipe(recipeArgs);
 
-				build.addPostreq(id, src);
+				this._recipeResults.push({
+					ruleId: id,
+					postreqs: [...src],
+				});
 
 				return result;
 			};
@@ -156,19 +151,21 @@ export class Build {
 	 * @returns A promise that resolves when the build is done
 	 */
 	async run(): Promise<boolean> {
-		using _lock = await this._make.lockAsync();
+		using _ = await this._make._lockAsync();
 
-		let result = true;
+		await this._make._load();
 
-		const prevBuildAbs = this.abs(
-			Path.build('__esmakefile__/previous-build.json'),
-		);
+		// TODO - only load dependencies of goal
+		this._targets = new Map<string, TargetInfo>();
+		for (const t of this._make.targets()) {
+			this._targets.set(t, this._make.target(t));
+		}
 
-		this._prevBuild = this._prevBuild || (await Build.readFile(prevBuildAbs));
+		this._recipeResults = [];
 
-		result = await this.updateAll([this._goal]);
+		const result = await this.updateAll([this._goal]);
 
-		await this.writeFile(prevBuildAbs);
+		await this._make._save(this._recipeResults);
 
 		return result;
 	}
@@ -322,72 +319,6 @@ export class Build {
 		}
 	}
 
-	static async readFile(_abs: string): Promise<Build | null> {
-		return null;
-		/*
-		try {
-			const contents = await readFile(abs, 'utf8');
-			const json = JSON.parse(contents) as IBuildJson;
-			const results = new Build();
-
-			for (const [rel, id] of json.targets) {
-				results._targets.set(rel, {
-					rules: new Set<RuleID>([id]),
-					recipeRule: id,
-				});
-			}
-
-			for (const [id, postreqs] of json.postreqs) {
-				results._postreqMap.set(id, new Set<string>(postreqs));
-			}
-
-			return results;
-		} catch {
-			return null;
-		}
-	 */
-	}
-
-	async writeFile(abs: string): Promise<void> {
-		const json: IBuildJson = {
-			targets: [],
-			prereqs: [],
-			postreqs: [],
-		};
-
-		for (const [id, src] of this._postreqMap) {
-			json.postreqs.push([id, [...src]]);
-		}
-
-		for (let id = 0; id < this._rules.size; ++id) {
-			const rel = this._rules.get(id).sources.map((p) => this.abs(p));
-			json.prereqs.push([id, rel]);
-		}
-
-		for (const [target, info] of this._targets) {
-			if (isRuleID(info.recipeRule)) {
-				json.targets.push([target, info.recipeRule]);
-			}
-		}
-
-		await mkdir(dirname(abs), { recursive: true });
-		await writeFile(abs, JSON.stringify(json), 'utf8');
-	}
-
-	addPostreq(recipe: RuleID, srcAbs: Set<string>): void {
-		this._postreqMap.set(recipe, srcAbs);
-	}
-
-	postreqs(target: IBuildPath): Set<string> {
-		const info = this._targets.get(target.rel());
-		if (!info) return new Set<string>();
-
-		const { recipeRule } = info;
-		const src = isRuleID(recipeRule) && this._postreqMap.get(recipeRule);
-		if (src) return src;
-		return this._prevBuild?.postreqs(target) || new Set<string>();
-	}
-
 	private _needsBuild(target: IBuildPath, prereqs: Path[]): NeedsBuildValue {
 		let newestDepMtimeMs = -Infinity;
 
@@ -403,7 +334,7 @@ export class Build {
 			}
 		}
 
-		const postreqs = this._prevBuild?.postreqs(target);
+		const { postreqs } = this._targets.get(target.rel());
 
 		if (postreqs) {
 			for (const post of postreqs) {

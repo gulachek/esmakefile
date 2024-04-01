@@ -120,11 +120,11 @@ export class Build {
 		const targets = ruleTargets(rule);
 		const innerRecipe = ruleRecipe(rule);
 
-		let recipe: (build: Build) => Promise<boolean> | null = null;
+		let recipe: () => Promise<boolean> | null = null;
 		if (innerRecipe) {
-			recipe = async (build: Build) => {
+			recipe = async () => {
 				const src = new Set<string>();
-				const stream = build.createLogStream(id);
+				const stream = this.createLogStream(id);
 				const recipeArgs = new RecipeArgs(this._roots, src, stream);
 
 				const result = await innerRecipe(recipeArgs);
@@ -282,8 +282,8 @@ export class Build {
 		if (!isRuleID(recipeRule)) return true;
 
 		const recipeInfo = this._rules.get(recipeRule);
-		for (const peer of recipeInfo.targets) {
-			await mkdir(peer.dir().abs(this._roots.build), { recursive: true });
+		for (const t of recipeInfo.targets) {
+			await mkdir(t.dir().abs(this._roots.build), { recursive: true });
 		}
 
 		const buildInfo: RecipeBuildInfo = {
@@ -296,7 +296,7 @@ export class Build {
 		this._emit('start-target', rel);
 
 		try {
-			const result = await recipeInfo.recipe(this);
+			const result = await recipeInfo.recipe();
 			this._info.set(rel, {
 				...buildInfo,
 				complete: true,
@@ -383,7 +383,7 @@ type BuildEvent = keyof BuildEventMap;
 type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
 
 export type RuleInfo = {
-	recipe: (build: Build) => Promise<boolean> | null;
+	recipe: () => Promise<boolean> | null;
 	sources: Path[];
 	targets: IBuildPath[];
 };

@@ -46,6 +46,7 @@ export class Makefile {
 	private _mutex = new Mutex();
 	private _rules: IRule[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
+	private _writtenMtime: Date | null = null;
 
 	constructor(opts?: IMakefileOpts) {
 		opts = opts || {};
@@ -74,7 +75,10 @@ export class Makefile {
 		const abs = this.abs(statePath);
 
 		try {
-			await stat(abs);
+			const { mtime } = await stat(abs);
+			if (this._writtenMtime && this._writtenMtime >= mtime) {
+				return;
+			}
 		} catch (_err) {
 			return;
 		}
@@ -123,6 +127,12 @@ export class Makefile {
 		for (const { ruleId, postreqs } of recipeResults) {
 			const rule = this._rules[ruleId];
 			const targets = ruleTargets(rule).map((t) => t.rel());
+
+			for (const t of targets) {
+				const info = this._targets.get(t);
+				info.postreqs = postreqs;
+			}
+
 			rules.push({
 				targets,
 				recipe: {
@@ -139,6 +149,7 @@ export class Makefile {
 		const abs = this.abs(statePath);
 		await mkdir(dirname(abs), { recursive: true });
 		await writeFile(abs, JSON.stringify(state), 'utf8');
+		this._writtenMtime = new Date();
 	}
 
 	public *rules(): Generator<{ rule: IRule; id: RuleID }> {

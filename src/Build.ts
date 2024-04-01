@@ -138,8 +138,7 @@ export class Build {
 			};
 		}
 
-		const name = id.toString(); // TODO - remove
-		return { sources: prereqs, targets, recipe, name };
+		return { sources: prereqs, targets, recipe };
 	}
 
 	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
@@ -384,7 +383,6 @@ type BuildEvent = keyof BuildEventMap;
 type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
 
 export type RuleInfo = {
-	name: string;
 	recipe: (build: Build) => Promise<boolean> | null;
 	sources: Path[];
 	targets: IBuildPath[];

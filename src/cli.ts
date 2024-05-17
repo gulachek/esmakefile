@@ -218,11 +218,11 @@ export function cli(
 	program
 		.command('build', { isDefault: true })
 		.description('Build a specified target')
-		.argument('[target]', 'The target to be built')
-		.action(async (target?: string) => {
+		.argument('[goal]', 'The goal target to be built')
+		.action(async (goal?: string) => {
 			const make = makeMakefile();
-			const targetPath = target && Path.build(target);
-			const display = new Vt100BuildInProgress(make, targetPath);
+			const goalPath = goal && Path.build(goal);
+			const display = new Vt100BuildInProgress(make, goalPath);
 			display.build();
 		});
 

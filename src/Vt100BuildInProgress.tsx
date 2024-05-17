@@ -12,11 +12,11 @@ type VoidFunc = () => void;
 
 interface IBuildMkFileProps {
 	make: Makefile;
-	target?: IBuildPath;
+	goal?: IBuildPath;
 }
 
 function BuildMkFile(props: IBuildMkFileProps) {
-	const { make, target } = props;
+	const { make, goal } = props;
 
 	const [result, setResult] = useState<boolean | null>(null);
 	const [build, setBuild] = useState<Build | null>(null);
@@ -51,7 +51,7 @@ function BuildMkFile(props: IBuildMkFileProps) {
 interface IWatchMkFileProps extends IBuildMkFileProps {}
 
 function WatchMkFile(props: IWatchMkFileProps) {
-	const { make, target } = props;
+	const { make, goal } = props;
 	const [changeCount, setChangeCount] = useState(0);
 	const watcher = useMemo(() => {
 		return new SourceWatcher(make.srcRoot, {
@@ -78,14 +78,14 @@ function WatchMkFile(props: IWatchMkFileProps) {
 			process.stdin.off('close', closeWatcher);
 			process.stdin.off('data', drainStdin);
 		};
-	}, [make, target]);
+	}, [make, goal]);
 
 	const text = `Watching '${make.srcRoot}'\nClose input stream to stop (usually Ctrl+D)`;
 
 	return (
 		<Box minHeight={process.stdout.rows || 24} flexDirection="column">
 			<Text>{text}</Text>
-			<BuildMkFile key={changeCount} make={make} target={target} />
+			<BuildMkFile key={changeCount} make={make} goal={goal} />
 		</Box>
 	);
 }
@@ -362,19 +362,19 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 
 export class Vt100BuildInProgress {
 	private _make: Makefile;
-	private _targetPath?: IBuildPath;
+	private _goalPath?: IBuildPath;
 
-	constructor(make: Makefile, targetPath?: IBuildPath) {
+	constructor(make: Makefile, goalPath?: IBuildPath) {
 		this._make = make;
-		this._targetPath = targetPath;
+		this._goalPath = goalPath;
 	}
 
 	build(): void {
-		render(<BuildMkFile make={this._make} target={this._targetPath} />);
+		render(<BuildMkFile make={this._make} goal={this._goalPath} />);
 	}
 
 	watch(): void {
-		render(<WatchMkFile make={this._make} target={this._targetPath} />);
+		render(<WatchMkFile make={this._make} goal={this._goalPath} />);
 	}
 }
 

@@ -19,12 +19,13 @@ function BuildMkFile(props: IBuildMkFileProps) {
 	const { make, goal } = props;
 
 	const [result, setResult] = useState<boolean | null>(null);
-	const [build, setBuild] = useState<Build | null>(null);
 	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
 
+	const build = useMemo<Build>(() => {
+		return new Build(make, goal);
+	}, [make, goal]);
+
 	useEffect(() => {
-		const build = new Build(make, target);
-		setBuild(build);
 		const rendered = new Promise<void>((res) => {
 			setContinueBuild(res);
 		});
@@ -33,19 +34,11 @@ function BuildMkFile(props: IBuildMkFileProps) {
 			const result = await build.run();
 			setResult(result);
 		});
-	}, [make, target]);
+	}, [build]);
 
-	if (build) {
-		return (
-			<BuildDisplay
-				build={build}
-				continueBuild={continueBuild}
-				result={result}
-			/>
-		);
-	} else {
-		return <></>;
-	}
+	return (
+		<BuildDisplay build={build} continueBuild={continueBuild} result={result} />
+	);
 }
 
 interface IWatchMkFileProps extends IBuildMkFileProps {}

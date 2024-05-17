@@ -8,8 +8,6 @@ import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
 import { resolve } from 'node:path';
 
-type VoidFunc = () => void;
-
 interface IWatchMkFileProps extends IBuildMkFileProps {}
 
 function WatchMkFile(props: IWatchMkFileProps) {
@@ -61,39 +59,14 @@ function BuildMkFile(props: IBuildMkFileProps) {
 	const { make, goal } = props;
 
 	const [result, setResult] = useState<boolean | null>(null);
-	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
+
+	const emptySet = new Set<string>();
+	const [inProgress, setInProgress] = useState(emptySet);
+	const [complete, setComplete] = useState([] as string[]);
 
 	const build = useMemo<Build>(() => {
 		return new Build(make, goal);
 	}, [make, goal]);
-
-	useEffect(() => {
-		const rendered = new Promise<void>((res) => {
-			setContinueBuild(res);
-		});
-
-		rendered.then(async () => {
-			const result = await build.run();
-			setResult(result);
-		});
-	}, [build]);
-
-	return (
-		<BuildDisplay build={build} continueBuild={continueBuild} result={result} />
-	);
-}
-
-interface IBuildDisplayProps {
-	build: Build;
-	continueBuild: VoidFunc | null;
-	result: boolean | null;
-}
-
-function BuildDisplay(props: IBuildDisplayProps) {
-	const { build, continueBuild, result } = props;
-	const emptySet = new Set<string>();
-	const [inProgress, setInProgress] = useState(emptySet);
-	const [complete, setComplete] = useState([] as string[]);
 
 	useEffect(() => {
 		const startTarget = (target: string) => {
@@ -120,13 +93,13 @@ function BuildDisplay(props: IBuildDisplayProps) {
 		build.on('start-target', startTarget);
 		build.on('end-target', endTarget);
 
-		continueBuild?.();
+		build.run().then((res) => setResult(res));
 
 		return () => {
 			build.off('start-target', startTarget);
 			build.off('end-target', endTarget);
 		};
-	}, [build, continueBuild]);
+	}, [build]);
 
 	useIntervalMs(25, inProgress.size > 0);
 	const now = performance.now();

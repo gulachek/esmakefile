@@ -10,37 +10,6 @@ import { resolve } from 'node:path';
 
 type VoidFunc = () => void;
 
-interface IBuildMkFileProps {
-	make: Makefile;
-	goal?: IBuildPath;
-}
-
-function BuildMkFile(props: IBuildMkFileProps) {
-	const { make, goal } = props;
-
-	const [result, setResult] = useState<boolean | null>(null);
-	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
-
-	const build = useMemo<Build>(() => {
-		return new Build(make, goal);
-	}, [make, goal]);
-
-	useEffect(() => {
-		const rendered = new Promise<void>((res) => {
-			setContinueBuild(res);
-		});
-
-		rendered.then(async () => {
-			const result = await build.run();
-			setResult(result);
-		});
-	}, [build]);
-
-	return (
-		<BuildDisplay build={build} continueBuild={continueBuild} result={result} />
-	);
-}
-
 interface IWatchMkFileProps extends IBuildMkFileProps {}
 
 function WatchMkFile(props: IWatchMkFileProps) {
@@ -80,6 +49,37 @@ function WatchMkFile(props: IWatchMkFileProps) {
 			<Text>{text}</Text>
 			<BuildMkFile key={changeCount} make={make} goal={goal} />
 		</Box>
+	);
+}
+
+interface IBuildMkFileProps {
+	make: Makefile;
+	goal?: IBuildPath;
+}
+
+function BuildMkFile(props: IBuildMkFileProps) {
+	const { make, goal } = props;
+
+	const [result, setResult] = useState<boolean | null>(null);
+	const [continueBuild, setContinueBuild] = useState<VoidFunc | null>(null);
+
+	const build = useMemo<Build>(() => {
+		return new Build(make, goal);
+	}, [make, goal]);
+
+	useEffect(() => {
+		const rendered = new Promise<void>((res) => {
+			setContinueBuild(res);
+		});
+
+		rendered.then(async () => {
+			const result = await build.run();
+			setResult(result);
+		});
+	}, [build]);
+
+	return (
+		<BuildDisplay build={build} continueBuild={continueBuild} result={result} />
 	);
 }
 

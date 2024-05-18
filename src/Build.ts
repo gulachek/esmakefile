@@ -25,6 +25,8 @@ type RecipeInProgressInfo = {
 
 	/** performance.now() when recipe() was started */
 	startTime: number;
+
+	completePromise: Promise<RecipeCompleteInfo>;
 };
 
 type RecipeCompleteInfo = {
@@ -43,6 +45,10 @@ type RecipeCompleteInfo = {
 	exception?: Error;
 };
 
+type TargetCompleteInfo = {
+	result: boolean;
+};
+
 type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
 export class Build {
@@ -54,8 +60,9 @@ export class Build {
 	private _rules = new Map<RuleID, RuleInfo>();
 
 	private _targets = new Map<string, TargetInfo>();
-	private _buildInProgress = new Map<string, Promise<boolean>>();
-	private _info = new Map<string, RecipeBuildInfo>();
+	private _builtTargets = new Map<string, TargetCompleteInfo>();
+
+	private _info = new Map<RuleID, RecipeBuildInfo>();
 	private _logs = new Map<RuleID, Vt100Stream>();
 	private _recipeResults: RecipeResults[] = [];
 
@@ -78,8 +85,12 @@ export class Build {
 	}
 
 	elapsedMsOf(target: string, now?: number): number {
-		const info = this._info.get(target);
-		if (!info) throw new Error(`No info for target ${target}`);
+		const targetInfo = this._targets.get(target);
+		if (!targetInfo) return -1;
+		if (!isRuleID(targetInfo.recipeRule)) return 0;
+
+		const info = this._info.get(targetInfo.recipeRule);
+		if (!info) return 0;
 		if (info.complete) {
 			return info.endTime - info.startTime;
 		} else {
@@ -88,11 +99,8 @@ export class Build {
 	}
 
 	resultOf(target: string): boolean | null {
-		const info = this._info.get(target);
-		if (info.complete) {
-			return info.result;
-		}
-
+		const info = this._builtTargets.get(target);
+		if (info) return info.result;
 		return null;
 	}
 
@@ -107,8 +115,12 @@ export class Build {
 	}
 
 	thrownExceptionOf(target: string): Error | null {
-		const info = this._info.get(target);
-		if (info.complete) {
+		const targetInfo = this._targets.get(target);
+		if (!targetInfo) return null;
+		if (!isRuleID(targetInfo.recipeRule)) return null;
+
+		const info = this._info.get(targetInfo.recipeRule);
+		if (info?.complete) {
 			return info.exception || null;
 		}
 
@@ -191,30 +203,28 @@ export class Build {
 
 	private async _findOrStartBuild(target: IBuildPath): Promise<boolean> {
 		const rel = target.rel();
-		const currentBuild = this._buildInProgress.get(rel);
-		if (currentBuild) {
-			return currentBuild;
-		} else {
-			const { promise, resolve, reject } = makePromise<boolean>();
-			this._buildInProgress.set(rel, promise);
 
-			let result = false;
-
-			try {
-				result = await this._startBuild(target);
-				resolve(result);
-			} catch (err) {
-				reject(err);
-			} finally {
-				this._buildInProgress.delete(rel);
-			}
-
-			return result;
+		const built = this._builtTargets.get(rel);
+		if (built) {
+			return built.result;
 		}
+
+		let result = false;
+
+		result = await this._startBuild(target);
+		this._builtTargets.set(rel, { result });
+
+		return result;
 	}
 
 	private abs(p: Path) {
 		return p.abs(this._roots);
+	}
+
+	private endTarget(rel: string, result: boolean): boolean {
+		this._builtTargets.set(rel, { result });
+		this._emit('end-target', rel);
+		return result;
 	}
 
 	private async _startBuild(target: IBuildPath): Promise<boolean> {
@@ -222,9 +232,13 @@ export class Build {
 		const info = this._targets.get(rel);
 
 		if (!info) {
+			// TODO - this should be an error instead of an exception
+			return false;
+			/*
 			throw new Error(
 				`Cannot build '${target}' because it is not registered with the Makefile`,
 			);
+		 */
 		}
 
 		const { recipeRule, rules } = info;
@@ -245,77 +259,71 @@ export class Build {
 		}
 
 		if (!(await this.updateAll(srcToBuild))) {
-			this._info.set(rel, {
-				complete: true,
-				result: false,
-				startTime: -1,
-				endTime: -1,
-			});
-			this._emit('end-target', rel);
-			return false;
+			return this.endTarget(rel, false);
 		}
 
 		const targetStatus = this._needsBuild(target, allSrc);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
-			this._info.set(rel, {
-				complete: true,
-				result: false,
-				startTime: -1,
-				endTime: -1,
-			});
-			this._emit('end-target', rel);
-			return false;
+			return this.endTarget(rel, false);
 		}
 
 		if (targetStatus === NeedsBuildValue.upToDate) {
-			this._info.set(rel, {
-				complete: true,
-				result: true,
-				startTime: -1,
-				endTime: -1,
-			});
-			this._emit('end-target', rel);
-			return true;
+			return this.endTarget(rel, true);
 		}
 
+		// TODO - this doesn't emit an event
 		if (!isRuleID(recipeRule)) return true;
+
+		const prevAttempt = this._info.get(recipeRule);
+		if (prevAttempt) {
+			// for some reason need to compare to true for compiler
+			if (prevAttempt.complete === true) {
+				return prevAttempt.result;
+			} else {
+				const complete = await prevAttempt.completePromise;
+				return complete.result;
+			}
+		}
+
+		const { promise, resolve } = makePromise<RecipeCompleteInfo>();
+
+		const buildInfo: RecipeInProgressInfo = {
+			complete: false,
+			startTime: performance.now(),
+			completePromise: promise,
+		};
+
+		this._info.set(recipeRule, buildInfo);
 
 		const recipeInfo = this._rules.get(recipeRule);
 		for (const t of recipeInfo.targets) {
 			await mkdir(t.dir().abs(this._roots.build), { recursive: true });
 		}
 
-		const buildInfo: RecipeBuildInfo = {
-			complete: false,
-			startTime: performance.now(),
-		};
-
-		this._info.set(rel, buildInfo);
-
 		this._emit('start-target', rel);
 
+		let result = false;
+		let exception: Error | undefined;
+
 		try {
-			const result = await recipeInfo.recipe();
-			this._info.set(rel, {
-				...buildInfo,
-				complete: true,
-				endTime: performance.now(),
-				result,
-			});
-			return result;
+			result = await recipeInfo.recipe();
 		} catch (err) {
-			this._info.set(rel, {
-				...buildInfo,
-				complete: true,
-				endTime: performance.now(),
-				result: false,
-				exception: err,
-			});
-			return false;
-		} finally {
-			this._emit('end-target', rel);
+			exception = err;
+			result = false;
 		}
+
+		const completeInfo: RecipeCompleteInfo = {
+			...buildInfo,
+			complete: true,
+			endTime: performance.now(),
+			result,
+			exception,
+		};
+
+		resolve(completeInfo);
+		this._info.set(recipeRule, completeInfo);
+		return this.endTarget(rel, result);
 	}
 
 	private _needsBuild(target: IBuildPath, prereqs: Path[]): NeedsBuildValue {

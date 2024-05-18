@@ -470,7 +470,7 @@ describe('Makefile', () => {
 			expect(contents).to.equal('hello');
 		});
 
-		it('y0b0: you only build once. calling build while building results in one build', async () => {
+		it('y0b0: you only build once. updating target while an update is in progress does not immediately start a new build ', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
 			make.add(write);
@@ -487,18 +487,17 @@ describe('Makefile', () => {
 			expect(cp.buildCount).to.equal(1);
 		});
 
-		xit('y0b0 pt 2: calling build on separate target with same rule results in one build', async () => {
+		it('y0b0 pt 2: updating two targets with the same recipe concurrently runs the recipe once', async () => {
 			let count = 0;
 			const first = Path.build('first');
 			const second = Path.build('second');
 
+			make.add('all', [first, second]);
 			make.add([first, second], () => {
 				count += 1;
 			});
 
-			const firstProm = updateTarget(make, first); // junior prom
-			const secondProm = updateTarget(make, second); // senior prom
-			await Promise.all([firstProm, secondProm]);
+			await updateTarget(make);
 
 			expect(count).to.equal(1);
 		});

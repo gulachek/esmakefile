@@ -1,8 +1,8 @@
-import { Build } from './Build.js';
+import { Build, RuleInfo } from './Build.js';
 import { render, Text, Box, Newline } from 'ink';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, PropsWithChildren } from 'react';
 import { IBuildPath } from './Path.js';
-import { Makefile } from './Makefile.js';
+import { Makefile, RuleID } from './Makefile.js';
 import { FSWatcher } from 'node:fs';
 import { watch } from 'node:fs';
 import EventEmitter from 'node:events';
@@ -194,6 +194,25 @@ function LogMessage(props: ILogMessageProps) {
 	);
 }
 
+interface INameFieldProps {
+	inProgress?: boolean;
+	name: string;
+}
+
+function NameField(props: INameFieldProps) {
+	const { inProgress, name } = props;
+
+	return (
+		<Text dimColor={inProgress} wrap="truncate-end">
+			{name}
+		</Text>
+	);
+}
+
+function TimeField(props: PropsWithChildren<unknown>) {
+	return <Text color="cyan"> {props.children} </Text>;
+}
+
 interface IElapsedTimeProps {
 	ms: number;
 }
@@ -204,7 +223,7 @@ function ElapsedTime(props: IElapsedTimeProps) {
 	const { ms } = props;
 
 	if (ms < 1000) {
-		return <>{ms}ms</>;
+		return <>{Math.round(ms)}ms</>;
 	} else if (ms < oneMinMs) {
 		const sec = ms / 1000;
 		return <>{sec.toPrecision(3)}s</>;
@@ -244,11 +263,11 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 	const names = [];
 	const results = [];
 	for (const target of complete) {
-		const elapsedMs = Math.round(build.elapsedMsOf(target));
+		const elapsedMs = Math.round(build.elapsedMsOfTarget(target));
 		const elapsedTime = (
-			<Text key={target} color="cyan">
+			<TimeField key={target}>
 				[<ElapsedTime ms={elapsedMs} />]
-			</Text>
+			</TimeField>
 		);
 		times.push(elapsedTime);
 		names.push(
@@ -288,6 +307,43 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 	);
 }
 
+function* timesNames(
+	build: Build,
+	id: RuleID,
+	ruleInfo: RuleInfo,
+	now: number,
+): Generator<[JSX.Element, JSX.Element]> {
+	const targets = ruleInfo.targets.map((t) => t.rel());
+	if (targets.length < 1) {
+		throw new Error('No targets found for rule');
+	}
+
+	const elapsedMs = build.elapsedMsOf(id, now);
+
+	const t0 = targets[0];
+
+	const elapsedTime = (
+		<TimeField key={t0}>
+			[<ElapsedTime ms={elapsedMs} />]
+		</TimeField>
+	);
+
+	const name = (
+		<Text key={t0} dimColor wrap="truncate-end">
+			{t0}
+		</Text>
+	);
+
+	yield [elapsedTime, name];
+
+	for (let i = 1; i < targets.length; ++i) {
+		const t = targets[i];
+		const time = <TimeField key={t}>|</TimeField>;
+		const name = <NameField key={t} inProgress name={t} />;
+		yield [time, name];
+	}
+}
+
 interface IInProgressBuildsProps {
 	build: Build;
 	inProgress: Set<string>;
@@ -295,23 +351,15 @@ interface IInProgressBuildsProps {
 }
 
 function InProgressBuilds(props: IInProgressBuildsProps) {
-	const { inProgress, build, now } = props;
+	const { build, now } = props;
 	const times = [];
 	const names = [];
 
-	for (const target of inProgress) {
-		const elapsedMs = Math.round(build.elapsedMsOf(target, now));
-		const elapsedTime = (
-			<Text key={target} color="cyan">
-				[<ElapsedTime ms={elapsedMs} />]
-			</Text>
-		);
-		times.push(elapsedTime);
-		names.push(
-			<Text key={target} dimColor wrap="truncate-end">
-				{target}
-			</Text>,
-		);
+	for (const [id, ruleInfo] of build.recipesInProgress()) {
+		for (const [time, name] of timesNames(build, id, ruleInfo, now)) {
+			times.push(time);
+			names.push(name);
+		}
 	}
 
 	return (

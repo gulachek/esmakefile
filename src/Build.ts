@@ -84,12 +84,16 @@ export class Build {
 		this._event.off(e, l);
 	}
 
-	elapsedMsOf(target: string, now?: number): number {
+	elapsedMsOfTarget(target: string, now?: number): number {
 		const targetInfo = this._targets.get(target);
 		if (!targetInfo) return -1;
 		if (!isRuleID(targetInfo.recipeRule)) return 0;
 
-		const info = this._info.get(targetInfo.recipeRule);
+		return this.elapsedMsOf(targetInfo.recipeRule, now);
+	}
+
+	elapsedMsOf(ruleId: RuleID, now?: number): number {
+		const info = this._info.get(ruleId);
 		if (!info) return 0;
 		if (info.complete) {
 			return info.endTime - info.startTime;
@@ -356,6 +360,14 @@ export class Build {
 		if (newestDepMtimeMs > targetStats.mtimeMs) return NeedsBuildValue.stale;
 
 		return NeedsBuildValue.upToDate;
+	}
+
+	public *recipesInProgress(): Generator<[RuleID, RuleInfo]> {
+		for (const [id, info] of this._info) {
+			if (!info.complete) {
+				yield [id, this._rules.get(id)];
+			}
+		}
 	}
 }
 

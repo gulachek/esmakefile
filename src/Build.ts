@@ -221,9 +221,10 @@ export class Build {
 	): Promise<boolean> {
 		const srcToBuild: IBuildPath[] = [];
 		const allSrc: Path[] = [];
+		const allPostreq: string[] = [];
 
 		for (const target of targetGroup) {
-			const { rules } = this._targets.get(target.rel());
+			const { rules, postreqs } = this._targets.get(target.rel());
 
 			for (const ruleId of rules) {
 				const ruleInfo = this._rules.get(ruleId);
@@ -236,13 +237,15 @@ export class Build {
 					}
 				}
 			}
+
+			if (postreqs) allPostreq.push(...postreqs);
 		}
 
 		if (!(await this.updateAll(srcToBuild))) {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsBuild(targetGroup, allSrc);
+		const targetStatus = this._needsBuild(targetGroup, allSrc, allPostreq);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
 			return this.endTarget(false);
@@ -309,6 +312,7 @@ export class Build {
 	private _needsBuild(
 		targetGroup: IBuildPath[],
 		prereqs: Path[],
+		postreqs: string[],
 	): NeedsBuildValue {
 		let newestDepMtimeMs = -Infinity;
 
@@ -323,15 +327,10 @@ export class Build {
 			}
 		}
 
-		// should all be the same - TODO any guardrails?
-		const { postreqs } = this._targets.get(targetGroup[0].rel());
-
-		if (postreqs) {
-			for (const post of postreqs) {
-				const postStat = statSync(post, { throwIfNoEntry: false });
-				if (!postStat) return NeedsBuildValue.stale; // need to see if still needed
-				newestDepMtimeMs = Math.max(postStat.mtimeMs, newestDepMtimeMs);
-			}
+		for (const post of postreqs) {
+			const postStat = statSync(post, { throwIfNoEntry: false });
+			if (!postStat) return NeedsBuildValue.stale; // need to see if still needed
+			newestDepMtimeMs = Math.max(postStat.mtimeMs, newestDepMtimeMs);
 		}
 
 		let oldestTargetMtimeMs = Infinity;

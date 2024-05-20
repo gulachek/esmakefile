@@ -227,10 +227,14 @@ describe('Makefile', () => {
 			return rm(make.abs(path));
 		}
 
-		beforeEach(async () => {
-			const srcRoot = resolve('test-src');
-			const buildRoot = resolve(srcRoot, 'build');
+		const srcRoot = resolve('test-src');
+		const buildRoot = resolve(srcRoot, 'build');
 
+		function resetMakefile(): void {
+			make = new Makefile({ srcRoot, buildRoot });
+		}
+
+		beforeEach(async () => {
 			try {
 				await rm(srcRoot, { recursive: true });
 				expect(existsSync(srcRoot)).to.be.false;
@@ -240,7 +244,7 @@ describe('Makefile', () => {
 
 			await mkdir(srcRoot, { recursive: true });
 
-			make = new Makefile({ srcRoot, buildRoot });
+			resetMakefile();
 		});
 
 		it('builds a target', async () => {
@@ -840,31 +844,37 @@ describe('Makefile', () => {
 			expect(copy.buildCount).to.equal(1);
 		});
 
-		it('supports postreq for target group', async () => {
+		it('checks postreqs for all targets in target group', async () => {
 			const a = Path.build('a');
 			const b = Path.build('b');
 			const c = Path.src('c');
 
-			let count = 0;
-
 			await writePath(c, 'c');
 
-			make.add([a, b], async (args) => {
+			make.add(a, async () => {
+				writePath(a, 'a');
+			});
+
+			make.add(b, async (args) => {
 				args.addPostreq(args.abs(c));
-				count += 1;
-				await writePath(a, 'a');
 				await writePath(b, 'b');
 			});
 
 			await updateTarget(make, a);
-			expect(count).to.equal(1);
+			await updateTarget(make, b);
+
+			// now both exist and b has postreq on c
+			let count = 0;
+			resetMakefile();
+			make.add([a, b], () => {
+				count += 1;
+			});
 
 			await waitMs(1);
 			await writePath(c, 'update c');
 
-			// doesn't matter that b is 2nd target in group
-			await updateTarget(make, b);
-			expect(count).to.equal(2);
+			await updateTarget(make, a);
+			expect(count).to.equal(1);
 		});
 
 		it('notifies caller of updated target', async () => {

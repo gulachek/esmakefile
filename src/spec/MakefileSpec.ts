@@ -19,12 +19,14 @@ import {
 	stat,
 	open,
 	FileHandle,
+	rmdir,
+	chmod,
 } from 'node:fs/promises';
 
 import { expect } from 'chai';
 
 import { dirname, resolve } from 'node:path';
-import { existsSync, Stats } from 'node:fs';
+import { existsSync, Stats, statSync } from 'node:fs';
 import { Build } from '../Build.js';
 
 abstract class TestRule {
@@ -235,11 +237,15 @@ describe('Makefile', () => {
 		}
 
 		beforeEach(async () => {
-			try {
+			if (statSync(buildRoot, { throwIfNoEntry: false })) {
+				await chmod(buildRoot, 0o777);
+			}
+
+			const stats = statSync(srcRoot, { throwIfNoEntry: false });
+			if (stats) {
+				await chmod(srcRoot, 0o777);
 				await rm(srcRoot, { recursive: true });
 				expect(existsSync(srcRoot)).to.be.false;
-			} catch {
-				// eslint:ignore no-empty
 			}
 
 			await mkdir(srcRoot, { recursive: true });
@@ -910,6 +916,34 @@ describe('Makefile', () => {
 			await build.run();
 
 			expect(logCalled, 'log called').to.be.true;
+		});
+
+		it('is an error when the srcRoot is not a directory', async () => {
+			make.add('simple', () => {});
+
+			await rmdir(srcRoot, { recursive: true });
+
+			const build = new Build(make);
+			const result = await build.run();
+			expect(result, 'should fail').to.be.false;
+			expect(build.errors[0].msg.indexOf(srcRoot)).to.be.greaterThan(
+				-1,
+				'build did not indicate srcRoot is unreadable',
+			);
+		});
+
+		it('is an error when the buildRoot is not created', async () => {
+			make.add('simple', () => {});
+
+			await chmod(srcRoot, 0o555); // read only
+
+			const build = new Build(make);
+			const result = await build.run();
+			expect(result, 'should fail').to.be.false;
+			expect(build.errors[0].msg.indexOf(buildRoot)).to.be.greaterThan(
+				-1,
+				'build did not indicate buildRoot is not writable',
+			);
 		});
 	});
 });

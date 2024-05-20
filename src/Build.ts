@@ -19,6 +19,7 @@ import { mkdir } from 'node:fs/promises';
 import { statSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { Writable } from 'node:stream';
+import { resolve } from 'node:path';
 
 type RecipeInProgressInfo = {
 	complete: false;
@@ -142,6 +143,22 @@ export class Build {
 	 */
 	async run(): Promise<boolean> {
 		using _ = await this._make._lockAsync();
+
+		const { src, build } = this._roots;
+		const stats = statSync(src, { throwIfNoEntry: false });
+		if (!(stats && stats.isDirectory())) {
+			this.addError(`Source directory '${src}' is not a readable directory`);
+			return false;
+		}
+
+		const esmakefileDir = resolve(build, '__esmakefile__');
+
+		try {
+			await mkdir(esmakefileDir, { recursive: true });
+		} catch (ex) {
+			this.addError(`Failed to make build directory ${build}: ${ex.message}`);
+			return false;
+		}
 
 		await this._make._load();
 

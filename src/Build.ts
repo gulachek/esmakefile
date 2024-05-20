@@ -184,8 +184,24 @@ export class Build {
 
 		let result = false;
 
-		result = await this._startBuild(target);
-		this._builtTargets.set(rel, { result });
+		let targetGroup = [target];
+		const info = this._targets.get(rel);
+		if (!info) {
+			return false;
+		}
+
+		// TODO - error if not found
+
+		const { recipeRule } = info;
+		if (isRuleID(recipeRule)) {
+			const ruleInfo = this._rules.get(recipeRule);
+			targetGroup = ruleInfo.targets;
+		}
+
+		result = await this._startBuild(targetGroup, recipeRule);
+		for (const t of targetGroup) {
+			this._builtTargets.set(t.rel(), { result });
+		}
 
 		return result;
 	}
@@ -194,55 +210,46 @@ export class Build {
 		return p.abs(this._roots);
 	}
 
-	private endTarget(rel: string, result: boolean): boolean {
-		this._builtTargets.set(rel, { result });
-		this._emit('end-target', rel);
+	private endTarget(result: boolean): boolean {
+		this._emit('end-target', 'TODO - does not matter');
 		return result;
 	}
 
-	private async _startBuild(target: IBuildPath): Promise<boolean> {
-		const rel = target.rel();
-		const info = this._targets.get(rel);
-
-		if (!info) {
-			// TODO - this should be an error instead of an exception
-			return false;
-			/*
-			throw new Error(
-				`Cannot build '${target}' because it is not registered with the Makefile`,
-			);
-		 */
-		}
-
-		const { recipeRule, rules } = info;
-
+	private async _startBuild(
+		targetGroup: IBuildPath[],
+		recipeRule: RuleID | null,
+	): Promise<boolean> {
 		const srcToBuild: IBuildPath[] = [];
 		const allSrc: Path[] = [];
 
-		for (const ruleId of rules) {
-			const ruleInfo = this._rules.get(ruleId);
+		for (const target of targetGroup) {
+			const { rules } = this._targets.get(target.rel());
 
-			// build sources
-			for (const src of ruleInfo.sources) {
-				allSrc.push(src);
-				if (src.isBuildPath()) {
-					srcToBuild.push(src);
+			for (const ruleId of rules) {
+				const ruleInfo = this._rules.get(ruleId);
+
+				// build sources
+				for (const src of ruleInfo.sources) {
+					allSrc.push(src);
+					if (src.isBuildPath()) {
+						srcToBuild.push(src);
+					}
 				}
 			}
 		}
 
 		if (!(await this.updateAll(srcToBuild))) {
-			return this.endTarget(rel, false);
+			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsBuild(target, allSrc);
+		const targetStatus = this._needsBuild(targetGroup, allSrc);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
-			return this.endTarget(rel, false);
+			return this.endTarget(false);
 		}
 
 		if (targetStatus === NeedsBuildValue.upToDate) {
-			return this.endTarget(rel, true);
+			return this.endTarget(true);
 		}
 
 		// TODO - this doesn't emit an event
@@ -270,11 +277,11 @@ export class Build {
 		this._info.set(recipeRule, buildInfo);
 
 		const recipeInfo = this._rules.get(recipeRule);
-		for (const t of recipeInfo.targets) {
+		for (const t of targetGroup) {
 			await mkdir(t.dir().abs(this._roots.build), { recursive: true });
 		}
 
-		this._emit('start-target', rel);
+		this._emit('start-target', 'TODO - does not matter');
 
 		let result = false;
 		let exception: Error | undefined;
@@ -296,10 +303,13 @@ export class Build {
 
 		resolve(completeInfo);
 		this._info.set(recipeRule, completeInfo);
-		return this.endTarget(rel, result);
+		return this.endTarget(result);
 	}
 
-	private _needsBuild(target: IBuildPath, prereqs: Path[]): NeedsBuildValue {
+	private _needsBuild(
+		targetGroup: IBuildPath[],
+		prereqs: Path[],
+	): NeedsBuildValue {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of prereqs) {
@@ -307,14 +317,15 @@ export class Build {
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
 			} else if (prereq.isBuildPath() && this._targets.has(prereq.rel())) {
-				// phony target
+				// phony target - TODO this should probably make newestDepMtimeMs be infinity
 				continue;
 			} else {
 				return NeedsBuildValue.missingSrc;
 			}
 		}
 
-		const { postreqs } = this._targets.get(target.rel());
+		// should all be the same - TODO any guardrails?
+		const { postreqs } = this._targets.get(targetGroup[0].rel());
 
 		if (postreqs) {
 			for (const post of postreqs) {
@@ -324,9 +335,17 @@ export class Build {
 			}
 		}
 
-		const targetStats = statSync(this.abs(target), { throwIfNoEntry: false });
-		if (!targetStats) return NeedsBuildValue.stale;
-		if (newestDepMtimeMs > targetStats.mtimeMs) return NeedsBuildValue.stale;
+		let oldestTargetMtimeMs = Infinity;
+		for (const t of targetGroup) {
+			const stat = statSync(this.abs(t), { throwIfNoEntry: false });
+			if (stat) {
+				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
+			} else {
+				return NeedsBuildValue.stale;
+			}
+		}
+
+		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
 
 		return NeedsBuildValue.upToDate;
 	}

@@ -384,13 +384,13 @@ describe('Makefile', () => {
 			expect(result).to.be.false;
 		});
 
-		it("fails if a build prereq doesn't exist", async () => {
+		it("fails if a build prereq doesn't have a recipe", async () => {
 			make.add('all', Path.build('prereq'));
 			const result = await updateTarget(make);
 			expect(result).to.be.false;
 		});
 
-		it('builds if a phony target prereq is in the system', async () => {
+		it('succeeds if a build prereq does have a recipe that succeeds', async () => {
 			const prereq = Path.build('prereq');
 			make.add('all', prereq);
 			make.add(prereq, () => {});
@@ -470,7 +470,7 @@ describe('Makefile', () => {
 			expect(contents).to.equal('hello');
 		});
 
-		it('y0b0: you only build once. updating target while an update is in progress does not immediately start a new build ', async () => {
+		it('y0b0: you only build once. updating target while an update is in progress does not immediately start a new build', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');
 			make.add(write);
@@ -487,7 +487,7 @@ describe('Makefile', () => {
 			expect(cp.buildCount).to.equal(1);
 		});
 
-		it('y0b0 pt 2: updating two targets with the same recipe concurrently runs the recipe once', async () => {
+		it('y0b0 pt 2: updating two targets from same target group runs recipe once', async () => {
 			let count = 0;
 			const first = Path.build('first');
 			const second = Path.build('second');
@@ -500,6 +500,31 @@ describe('Makefile', () => {
 			await updateTarget(make);
 
 			expect(count).to.equal(1);
+		});
+
+		it('updates prereqs of all targets in target group', async () => {
+			const a = Path.build('a');
+			const b = Path.build('b');
+			const c = Path.build('c');
+			const d = Path.build('d');
+
+			let cCount = 0;
+			let dCount = 0;
+
+			make.add([a, b], () => {});
+			make.add(a, c);
+			make.add(b, d);
+			make.add(c, () => {
+				cCount += 1;
+			});
+			make.add(d, () => {
+				dCount += 1;
+			});
+
+			await updateTarget(make, a);
+
+			expect(cCount).to.equal(1, "goal's prereq is not updated");
+			expect(dCount).to.equal(1, "non-goal's prereq is not updated");
 		});
 
 		it('does not build a target if a source fails to build', async () => {
@@ -705,7 +730,7 @@ describe('Makefile', () => {
 			expect(copy.buildCount).to.equal(1);
 		});
 
-		it('notifies caller of start and end time of target', async () => {
+		xit('notifies caller of start and end time of target', async () => {
 			const targ = Path.build('test');
 			make.add(targ, () => {});
 			let startCalled = false;

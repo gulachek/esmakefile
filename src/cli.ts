@@ -223,7 +223,8 @@ export function cli(
 			const make = makeMakefile();
 			const goalPath = goal && Path.build(goal);
 			const display = new Vt100BuildInProgress(make, goalPath);
-			display.build();
+			const result = await display.build();
+			process.exit(result ? 0 : 1);
 		});
 
 	program

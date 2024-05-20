@@ -1,5 +1,5 @@
 import { Build, RecipeCompleteInfo, RuleInfo } from './Build.js';
-import { render, waitUntilExit, Text, Box, Newline } from 'ink';
+import { render, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo, PropsWithChildren } from 'react';
 import { IBuildPath } from './Path.js';
 import { Makefile, RuleID } from './Makefile.js';
@@ -53,10 +53,11 @@ function WatchMkFile(props: IWatchMkFileProps) {
 interface IBuildMkFileProps {
 	make: Makefile;
 	goal?: IBuildPath;
+	resultState?: { result: boolean };
 }
 
 function BuildMkFile(props: IBuildMkFileProps) {
-	const { make, goal } = props;
+	const { make, goal, resultState } = props;
 
 	const [result, setResult] = useState<boolean | null>(null);
 
@@ -65,8 +66,11 @@ function BuildMkFile(props: IBuildMkFileProps) {
 	}, [make, goal]);
 
 	useEffect(() => {
-		build.run().then((res) => setResult(res));
-	}, [build]);
+		build.run().then((res) => {
+			setResult(res);
+			if (resultState) resultState.result = res;
+		});
+	}, [build, resultState]);
 
 	return (
 		<Box flexDirection="column">
@@ -76,8 +80,33 @@ function BuildMkFile(props: IBuildMkFileProps) {
 			) : (
 				<LogMessages build={build} />
 			)}
+			<Diagnostics build={build} />
 		</Box>
 	);
+}
+
+interface IDiagnosticsProps {
+	build: Build;
+}
+
+function Diagnostics(props: IDiagnosticsProps) {
+	const { build } = props;
+
+	useUpdate(build);
+
+	const errs = build.errors.map((e) => {
+		const { msg } = e;
+		return (
+			<Box key={msg} flexDirection="row" gap={2} marginY={1}>
+				<Text key={msg} color="redBright" bold>
+					Error:
+				</Text>
+				<Text>{msg}</Text>
+			</Box>
+		);
+	});
+
+	return <Box flexDirection="column">{errs}</Box>;
 }
 
 interface ILogMessagesProps {
@@ -329,9 +358,17 @@ export class Vt100BuildInProgress {
 		this._goalPath = goalPath;
 	}
 
-	build(): Promise<void> {
-		render(<BuildMkFile make={this._make} goal={this._goalPath} />);
-		return waitUntilExit();
+	async build(): Promise<boolean> {
+		const resultState = { result: false };
+		const { waitUntilExit } = render(
+			<BuildMkFile
+				make={this._make}
+				goal={this._goalPath}
+				resultState={resultState}
+			/>,
+		);
+		await waitUntilExit();
+		return resultState.result;
 	}
 
 	watch(): void {

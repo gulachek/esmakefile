@@ -51,6 +51,10 @@ type TargetCompleteInfo = {
 
 type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
+export type BuildError = {
+	msg: string;
+};
+
 export class Build {
 	private _roots: IPathRoots;
 	private _make: Makefile;
@@ -65,6 +69,8 @@ export class Build {
 	private _info = new Map<RuleID, RecipeBuildInfo>();
 	private _logs = new Map<RuleID, Vt100Stream>();
 	private _recipeResults: RecipeResults[] = [];
+
+	public readonly errors: BuildError[] = [];
 
 	constructor(make: Makefile, goal?: BuildPathLike) {
 		this._make = make;
@@ -309,6 +315,11 @@ export class Build {
 		return this.endTarget(result);
 	}
 
+	private addError(msg: string) {
+		this._event.emit('update'); // TODO - add targeted event
+		this.errors.push({ msg });
+	}
+
 	private _needsBuild(
 		targetGroup: IBuildPath[],
 		prereqs: Path[],
@@ -317,12 +328,14 @@ export class Build {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of prereqs) {
-			const preStat = statSync(this.abs(prereq), { throwIfNoEntry: false });
+			const abs = this.abs(prereq);
+			const preStat = statSync(abs, { throwIfNoEntry: false });
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
 			} else if (prereq.isBuildPath() && this._targets.has(prereq.rel())) {
 				newestDepMtimeMs = Infinity;
 			} else {
+				this.addError(`Missing prereq file '${abs}'.`);
 				return NeedsBuildValue.missingSrc;
 			}
 		}

@@ -399,6 +399,29 @@ describe('Makefile', () => {
 			expect(result).to.be.true;
 		});
 
+		it('rebuilds if depending on a phony target', async () => {
+			const a = Path.build('a');
+			const phony = Path.build('phony');
+			const src = Path.src('src');
+
+			await writePath(src, 'src');
+
+			let count = 0;
+
+			make.add(a, [phony, src], async () => {
+				count += 1;
+				await writePath(a, 'a');
+			});
+
+			make.add(phony, () => {});
+
+			await updateTarget(make, a);
+			expect(count).to.equal(1);
+
+			await updateTarget(make, a);
+			expect(count).to.equal(2);
+		});
+
 		it('ensures a target directory exists before building', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');

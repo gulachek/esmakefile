@@ -317,8 +317,7 @@ export class Build {
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
 			} else if (prereq.isBuildPath() && this._targets.has(prereq.rel())) {
-				// phony target - TODO this should probably make newestDepMtimeMs be infinity
-				continue;
+				newestDepMtimeMs = Infinity;
 			} else {
 				return NeedsBuildValue.missingSrc;
 			}

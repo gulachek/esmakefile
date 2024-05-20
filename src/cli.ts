@@ -74,7 +74,7 @@ const stdOpts = makeCliOpts({
 		type: 'boolean',
 	},
 	sourceRoot: {
-		arg: 'source-root',
+		arg: 'srcdir',
 		type: 'string',
 	},
 });

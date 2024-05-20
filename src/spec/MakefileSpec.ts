@@ -768,6 +768,33 @@ describe('Makefile', () => {
 			expect(copy.buildCount).to.equal(1);
 		});
 
+		it('supports postreq for target group', async () => {
+			const a = Path.build('a');
+			const b = Path.build('b');
+			const c = Path.src('c');
+
+			let count = 0;
+
+			await writePath(c, 'c');
+
+			make.add([a, b], async (args) => {
+				args.addPostreq(args.abs(c));
+				count += 1;
+				await writePath(a, 'a');
+				await writePath(b, 'b');
+			});
+
+			await updateTarget(make, a);
+			expect(count).to.equal(1);
+
+			await waitMs(1);
+			await writePath(c, 'update c');
+
+			// doesn't matter that b is 2nd target in group
+			await updateTarget(make, b);
+			expect(count).to.equal(2);
+		});
+
 		it('notifies caller of updated target', async () => {
 			const targ = Path.build('test');
 			make.add(targ, () => {});

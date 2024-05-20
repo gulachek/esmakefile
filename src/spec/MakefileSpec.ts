@@ -527,6 +527,44 @@ describe('Makefile', () => {
 			expect(dCount).to.equal(1, "non-goal's prereq is not updated");
 		});
 
+		it('updates target group if any target is older than any prereq', async () => {
+			const a = Path.build('a');
+			const b = Path.build('b');
+			const c = Path.build('c');
+			const d = Path.build('d');
+
+			let bCount = 0;
+
+			make.add([a, b], async () => {
+				bCount += 1;
+				await writePath(a, 'a');
+				await writePath(b, 'b');
+			});
+
+			make.add(a, c);
+			make.add(b, d);
+			make.add(c, async () => {
+				await writePath(c, 'c');
+			});
+			make.add(d, async () => {
+				await writePath(d, 'd');
+			});
+
+			await updateTarget(make, a);
+			expect(bCount).to.equal(1);
+
+			await waitMs(1);
+			await writePath(c, 'update c');
+			await waitMs(1);
+			await writePath(a, 'update a');
+
+			// Above sets up where b is older than c, even though
+			// b does not have any rule that says it depends on c
+			await updateTarget(make, a);
+
+			expect(bCount).to.equal(2);
+		});
+
 		it('does not build a target if a source fails to build', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');

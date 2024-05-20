@@ -210,10 +210,9 @@ export class Build {
 		let targetGroup = [target];
 		const info = this._targets.get(rel);
 		if (!info) {
+			this.addError(`Makefile has no target '${rel}'.`);
 			return false;
 		}
-
-		// TODO - error if not found
 
 		const { recipeRule } = info;
 		if (isRuleID(recipeRule)) {

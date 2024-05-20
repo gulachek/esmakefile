@@ -1,4 +1,4 @@
-import { Build, RuleInfo } from './Build.js';
+import { Build, RecipeCompleteInfo, RuleInfo } from './Build.js';
 import { render, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo, PropsWithChildren } from 'react';
 import { IBuildPath } from './Path.js';
@@ -122,31 +122,39 @@ interface ILogMessagesProps {
 }
 
 function LogMessages(props: ILogMessagesProps) {
-	const { build, complete } = props;
-	return (
-		<>
-			{complete.map((item, i) => (
-				<LogMessage key={i} build={build} target={item} />
-			))}
-		</>
-	);
+	const { build } = props;
+	const msgs = [];
+
+	for (const [id, ruleInfo, results] of build.completedRecipes()) {
+		msgs.push(
+			<LogMessage
+				key={id}
+				build={build}
+				ruleId={id}
+				ruleInfo={ruleInfo}
+				results={results}
+			/>,
+		);
+	}
+
+	return msgs;
 }
 
 interface ILogMessageProps {
 	build: Build;
-	target: string;
+	ruleId: RuleID;
+	ruleInfo: RuleInfo;
+	results: RecipeCompleteInfo;
 }
 
 function LogMessage(props: ILogMessageProps) {
-	const { build, target } = props;
+	const { build, ruleId, ruleInfo, results } = props;
+	const { result, exception } = results;
 
-	const result = build.resultOf(target);
-
-	const err = build.thrownExceptionOf(target);
-	const log = build.contentOfLog(target);
+	const log = build.contentOfLog(ruleId);
 
 	const lineComponents = useMemo(() => {
-		const text = err?.stack || log;
+		const text = exception?.stack || log;
 		if (!text) {
 			return null;
 		}
@@ -169,7 +177,11 @@ function LogMessage(props: ILogMessageProps) {
 
 		out.pop(); // last newline unnecessary
 		return out;
-	}, [err, log]);
+	}, [exception, log]);
+
+	const targets = useMemo(() => {
+		return ruleInfo.targets.map((t) => t.rel()).join(', ');
+	}, [ruleInfo]);
 
 	if (!lineComponents) return null;
 
@@ -184,7 +196,7 @@ function LogMessage(props: ILogMessageProps) {
 				justifyContent="center"
 			>
 				<Text color={result ? undefined : 'redBright'} wrap="truncate-end">
-					{target}
+					{targets}
 				</Text>
 			</Box>
 			<Box>

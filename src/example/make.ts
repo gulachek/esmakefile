@@ -58,4 +58,9 @@ cli((make: Makefile) => {
 			setTimeout(() => res(true), 65000);
 		});
 	});
+
+	make.add(['grouped-error', 'grouped-error2'], (args) => {
+		args.logStream.write('Error message for grouped targets');
+		return false;
+	});
 });

@@ -29,7 +29,7 @@ type RecipeInProgressInfo = {
 	completePromise: Promise<RecipeCompleteInfo>;
 };
 
-type RecipeCompleteInfo = {
+export type RecipeCompleteInfo = {
 	complete: true;
 
 	/** performance.now() when recipe() was started */
@@ -84,14 +84,6 @@ export class Build {
 		this._event.off(e, l);
 	}
 
-	elapsedMsOfTarget(target: string, now?: number): number {
-		const targetInfo = this._targets.get(target);
-		if (!targetInfo) return -1;
-		if (!isRuleID(targetInfo.recipeRule)) return 0;
-
-		return this.elapsedMsOf(targetInfo.recipeRule, now);
-	}
-
 	elapsedMsOf(ruleId: RuleID, now?: number): number {
 		const info = this._info.get(ruleId);
 		if (!info) return 0;
@@ -102,33 +94,10 @@ export class Build {
 		}
 	}
 
-	resultOf(target: string): boolean | null {
-		const info = this._builtTargets.get(target);
-		if (info) return info.result;
-		return null;
-	}
-
-	contentOfLog(target: string): string | null {
-		const info = this._targets.get(target);
-		if (!info) return null;
-
-		const { recipeRule } = info;
-		const stream = isRuleID(recipeRule) && this._logs.get(recipeRule);
+	contentOfLog(ruleId: RuleID): string | null {
+		const stream = this._logs.get(ruleId);
 		if (!stream) return null;
 		return stream.contents();
-	}
-
-	thrownExceptionOf(target: string): Error | null {
-		const targetInfo = this._targets.get(target);
-		if (!targetInfo) return null;
-		if (!isRuleID(targetInfo.recipeRule)) return null;
-
-		const info = this._info.get(targetInfo.recipeRule);
-		if (info?.complete) {
-			return info.exception || null;
-		}
-
-		return null;
 	}
 
 	private normalizeRule(id: RuleID, rule: IRule): RuleInfo {

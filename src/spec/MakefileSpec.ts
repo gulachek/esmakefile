@@ -588,6 +588,32 @@ describe('Makefile', () => {
 			expect(count).to.equal(2);
 		});
 
+		it('treats non-recipe target group as independent targets', async () => {
+			const a = Path.build('a');
+			const b = Path.build('b');
+			const c = Path.src('c');
+
+			let aCount = 0;
+			let bCount = 0;
+
+			await writePath(c, 'c');
+
+			make.add([a, b], c);
+			make.add(a, async () => {
+				aCount += 1;
+				await writePath(a, 'a');
+			});
+
+			make.add(b, async () => {
+				bCount += 1;
+				await writePath(b, 'b');
+			});
+
+			await updateTarget(make, a);
+			expect(aCount).to.equal(1);
+			expect(bCount).to.equal(0);
+		});
+
 		it('does not build a target if a source fails to build', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');

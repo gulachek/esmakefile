@@ -1,5 +1,5 @@
 import { Build, RecipeCompleteInfo, RuleInfo } from './Build.js';
-import { render, Text, Box, Newline } from 'ink';
+import { render, waitUntilExit, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo, PropsWithChildren } from 'react';
 import { IBuildPath } from './Path.js';
 import { Makefile, RuleID } from './Makefile.js';
@@ -329,8 +329,9 @@ export class Vt100BuildInProgress {
 		this._goalPath = goalPath;
 	}
 
-	build(): void {
+	build(): Promise<void> {
 		render(<BuildMkFile make={this._make} goal={this._goalPath} />);
+		return waitUntilExit();
 	}
 
 	watch(): void {

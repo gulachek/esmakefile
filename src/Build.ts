@@ -369,6 +369,16 @@ export class Build {
 			}
 		}
 	}
+
+	public *completedRecipes(): Generator<
+		[RuleID, RuleInfo, RecipeCompleteInfo]
+	> {
+		for (const [id, info] of this._info) {
+			if (info.complete) {
+				yield [id, this._rules.get(id), info];
+			}
+		}
+	}
 }
 
 enum NeedsBuildValue {

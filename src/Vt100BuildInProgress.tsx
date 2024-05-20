@@ -209,6 +209,18 @@ function NameField(props: INameFieldProps) {
 	);
 }
 
+interface IResultFieldProps {
+	result: boolean;
+}
+
+function ResultField(props: IResultFieldProps) {
+	if (props.result) {
+		return <Text color="greenBright">✔</Text>;
+	} else {
+		return <Text color="redBright">✘</Text>;
+	}
+}
+
 function TimeField(props: PropsWithChildren<unknown>) {
 	return <Text color="cyan"> {props.children} </Text>;
 }
@@ -257,39 +269,23 @@ interface ICompletedBuildsProps {
 }
 
 function CompletedBuilds(props: ICompletedBuildsProps) {
-	const { complete, build } = props;
+	const { build } = props;
 
 	const times = [];
 	const names = [];
 	const results = [];
-	for (const target of complete) {
-		const elapsedMs = Math.round(build.elapsedMsOfTarget(target));
-		const elapsedTime = (
-			<TimeField key={target}>
-				[<ElapsedTime ms={elapsedMs} />]
-			</TimeField>
-		);
-		times.push(elapsedTime);
-		names.push(
-			<Text key={target} wrap="truncate-end">
-				{target}
-			</Text>,
-		);
 
-		const result = build.resultOf(target);
-		if (result) {
-			results.push(
-				<Text key={target} color="greenBright">
-					✔
-				</Text>,
-			);
-		} else {
-			results.push(
-				<Text key={target} color="redBright">
-					✘
-				</Text>,
-			);
-		}
+	for (const [id, ruleInfo, completeInfo] of build.completedRecipes()) {
+		const targets = ruleInfo.targets.map((t) => t.rel());
+		times.push(
+			<TimeField key={id}>
+				[<ElapsedTime ms={build.elapsedMsOf(id)} />]
+			</TimeField>,
+		);
+		names.push(<NameField key={id} name={targets.join(', ')} />);
+
+		const { result } = completeInfo;
+		results.push(<ResultField key={id} result={result} />);
 	}
 
 	return (
@@ -307,43 +303,6 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 	);
 }
 
-function* timesNames(
-	build: Build,
-	id: RuleID,
-	ruleInfo: RuleInfo,
-	now: number,
-): Generator<[JSX.Element, JSX.Element]> {
-	const targets = ruleInfo.targets.map((t) => t.rel());
-	if (targets.length < 1) {
-		throw new Error('No targets found for rule');
-	}
-
-	const elapsedMs = build.elapsedMsOf(id, now);
-
-	const t0 = targets[0];
-
-	const elapsedTime = (
-		<TimeField key={t0}>
-			[<ElapsedTime ms={elapsedMs} />]
-		</TimeField>
-	);
-
-	const name = (
-		<Text key={t0} dimColor wrap="truncate-end">
-			{t0}
-		</Text>
-	);
-
-	yield [elapsedTime, name];
-
-	for (let i = 1; i < targets.length; ++i) {
-		const t = targets[i];
-		const time = <TimeField key={t}>|</TimeField>;
-		const name = <NameField key={t} inProgress name={t} />;
-		yield [time, name];
-	}
-}
-
 interface IInProgressBuildsProps {
 	build: Build;
 	inProgress: Set<string>;
@@ -356,10 +315,15 @@ function InProgressBuilds(props: IInProgressBuildsProps) {
 	const names = [];
 
 	for (const [id, ruleInfo] of build.recipesInProgress()) {
-		for (const [time, name] of timesNames(build, id, ruleInfo, now)) {
-			times.push(time);
-			names.push(name);
-		}
+		const targets = ruleInfo.targets.map((t) => t.rel());
+
+		times.push(
+			<TimeField key={id}>
+				[<ElapsedTime ms={build.elapsedMsOf(id, now)} />]
+			</TimeField>,
+		);
+
+		names.push(<NameField key={id} inProgress name={targets.join(', ')} />);
 	}
 
 	return (

@@ -60,57 +60,21 @@ function BuildMkFile(props: IBuildMkFileProps) {
 
 	const [result, setResult] = useState<boolean | null>(null);
 
-	const emptySet = new Set<string>();
-	const [inProgress, setInProgress] = useState(emptySet);
-	const [complete, setComplete] = useState([] as string[]);
-
 	const build = useMemo<Build>(() => {
 		return new Build(make, goal);
 	}, [make, goal]);
 
 	useEffect(() => {
-		const startTarget = (target: string) => {
-			setInProgress((val) => {
-				const newVal = new Set(val);
-				newVal.add(target);
-				return newVal;
-			});
-		};
-		const endTarget = (target: string) => {
-			setInProgress((val) => {
-				const newVal = new Set(val);
-				newVal.delete(target);
-				return newVal;
-			});
-
-			setComplete((val) => {
-				const newVal = [...val];
-				newVal.push(target);
-				return newVal;
-			});
-		};
-
-		build.on('start-target', startTarget);
-		build.on('end-target', endTarget);
-
 		build.run().then((res) => setResult(res));
-
-		return () => {
-			build.off('start-target', startTarget);
-			build.off('end-target', endTarget);
-		};
 	}, [build]);
-
-	useIntervalMs(25, inProgress.size > 0);
-	const now = performance.now();
 
 	return (
 		<Box flexDirection="column">
-			<CompletedBuilds build={build} complete={complete} />
+			<CompletedBuilds build={build} />
 			{result === null ? (
-				<InProgressBuilds build={build} now={now} inProgress={inProgress} />
+				<InProgressBuilds build={build} />
 			) : (
-				<LogMessages build={build} complete={complete} />
+				<LogMessages build={build} />
 			)}
 		</Box>
 	);
@@ -118,11 +82,13 @@ function BuildMkFile(props: IBuildMkFileProps) {
 
 interface ILogMessagesProps {
 	build: Build;
-	complete: string[];
 }
 
 function LogMessages(props: ILogMessagesProps) {
 	const { build } = props;
+
+	useUpdate(build);
+
 	const msgs = [];
 
 	for (const [id, ruleInfo, results] of build.completedRecipes()) {
@@ -277,11 +243,12 @@ function ElapsedTime(props: IElapsedTimeProps) {
 
 interface ICompletedBuildsProps {
 	build: Build;
-	complete: string[];
 }
 
 function CompletedBuilds(props: ICompletedBuildsProps) {
 	const { build } = props;
+
+	useUpdate(build);
 
 	const times = [];
 	const names = [];
@@ -317,14 +284,17 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 
 interface IInProgressBuildsProps {
 	build: Build;
-	inProgress: Set<string>;
-	now: number;
 }
 
 function InProgressBuilds(props: IInProgressBuildsProps) {
-	const { build, now } = props;
+	const { build } = props;
 	const times = [];
 	const names = [];
+
+	useIntervalMs(25);
+	useUpdate(build);
+
+	const now = performance.now();
 
 	for (const [id, ruleInfo] of build.recipesInProgress()) {
 		const targets = ruleInfo.targets.map((t) => t.rel());
@@ -368,13 +338,26 @@ export class Vt100BuildInProgress {
 	}
 }
 
-function useIntervalMs(ms: number, keepGoing: boolean): number {
-	const [now, setNow] = useState(performance.now());
+function useIntervalMs(ms: number): void {
+	const [_, setN] = useState(0);
 	useEffect(() => {
-		if (keepGoing) setTimeout(() => setNow(performance.now()), ms);
-	}, [keepGoing, now]);
+		const interval = setInterval(() => setN((n) => n + 1), ms);
+		return () => {
+			clearInterval(interval);
+		};
+	}, []);
+}
 
-	return now;
+function useUpdate(build: Build): void {
+	const [_, setN] = useState(0);
+
+	useEffect(() => {
+		const cb = () => setN((n) => n + 1);
+		build.on('update', cb);
+		return () => {
+			build.off('update', cb);
+		};
+	}, [build]);
 }
 
 class SourceWatcher extends EventEmitter {

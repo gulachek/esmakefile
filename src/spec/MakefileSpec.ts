@@ -730,29 +730,20 @@ describe('Makefile', () => {
 			expect(copy.buildCount).to.equal(1);
 		});
 
-		xit('notifies caller of start and end time of target', async () => {
+		it('notifies caller of updated target', async () => {
 			const targ = Path.build('test');
 			make.add(targ, () => {});
-			let startCalled = false;
-			let endCalled = false;
+			let updateCalled = false;
 
 			const build = new Build(make, targ);
 
-			build.on('start-target', (target: string) => {
-				expect(target, 'start target').to.equal('test');
-				expect(endCalled, 'end not called b4 start').to.be.false;
-				startCalled = true;
-			});
-
-			build.on('end-target', (target: string) => {
-				expect(target, 'end target').to.equal('test');
-				expect(startCalled, 'start called before end').to.be.true;
-				endCalled = true;
+			build.on('update', () => {
+				updateCalled = true;
 			});
 
 			await build.run();
 
-			expect(endCalled, 'end called').to.be.true;
+			expect(updateCalled, 'update called').to.be.true;
 		});
 
 		it('notifies caller when recipe logs information', async () => {

@@ -211,7 +211,7 @@ export class Build {
 	}
 
 	private endTarget(result: boolean): boolean {
-		this._emit('end-target', 'TODO - does not matter');
+		this._emit('update');
 		return result;
 	}
 
@@ -281,7 +281,7 @@ export class Build {
 			await mkdir(t.dir().abs(this._roots.build), { recursive: true });
 		}
 
-		this._emit('start-target', 'TODO - does not matter');
+		this._emit('update');
 
 		let result = false;
 		let exception: Error | undefined;
@@ -391,8 +391,7 @@ function makePromise<T>(): IPromisePieces<T> {
 }
 
 type BuildEventMap = {
-	'start-target': [string];
-	'end-target': [string];
+	update: [];
 	'recipe-log': [RuleID, Buffer];
 };
 

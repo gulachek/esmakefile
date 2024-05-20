@@ -1,15 +1,20 @@
-import { Path, cli, Makefile } from '../index.js';
+import { Path, cli, Makefile, ICliFnOpts } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
 
-cli((make: Makefile) => {
+cli((make: Makefile, opts: ICliFnOpts) => {
 	const scssFile = Path.src('src/style.scss');
 	const main = Path.build('main');
 	const css = Path.build('style.css');
+	const checkIsDev = Path.build('check-is-dev');
 
-	make.add('all', [css, main]);
+	make.add('all', [css, main, checkIsDev]);
 
 	addSass(make, scssFile, 'style.css');
+
+	make.add(checkIsDev, (args) => {
+		args.logStream.write(`Is development? ${opts.isDevelopment}`);
+	});
 
 	addClangExecutable(make, 'main', ['src/main.cpp', 'src/hello.cpp']);
 

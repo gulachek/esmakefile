@@ -2,18 +2,19 @@ import { Makefile } from './Makefile.js';
 import { Path } from './Path.js';
 import { Vt100BuildInProgress } from './Vt100BuildInProgress.js';
 
-import { Command } from 'commander';
+import { Command, OptionValues } from 'commander';
 
-export interface IStdBuildOpts {
+export interface ICliFnOpts {
 	isDevelopment: boolean;
 }
 
-type StdBuildFn = (make: Makefile, opts: IStdBuildOpts) => void;
+export type CliFn = (make: Makefile, opts: ICliFnOpts) => void;
 
-export function cli(fn: StdBuildFn): void {
+export function cli(fn: CliFn): void {
 	const program = new Command();
 
-	program.option('--development', 'Specifies this is a development build');
+	const devDesc = 'Specifies this is a development build';
+	program.option('--development', devDesc, false);
 
 	program.option(
 		'--srcdir <dir>',
@@ -25,13 +26,13 @@ export function cli(fn: StdBuildFn): void {
 		"Root directory of build files (default is './build')",
 	);
 
-	const makeMakefile = () => {
-		const opts = program.opts();
+	const makeMakefile = (cmdOpts: OptionValues) => {
+		const opts = { ...program.opts(), ...cmdOpts };
 		const make = new Makefile({
 			srcRoot: opts['srcdir'],
 			buildRoot: opts['outdir'],
 		});
-		fn(make, { isDevelopment: opts['development'] });
+		fn(make, { isDevelopment: !!opts['development'] });
 		return make;
 	};
 
@@ -39,8 +40,8 @@ export function cli(fn: StdBuildFn): void {
 		.command('build', { isDefault: true })
 		.description('Build a specified target')
 		.argument('[goal]', 'The goal target to be built')
-		.action(async (goal?: string) => {
-			const make = makeMakefile();
+		.action(async function (goal?: string) {
+			const make = makeMakefile(this.opts());
 			const goalPath = goal && Path.build(goal);
 			const display = new Vt100BuildInProgress(make, goalPath);
 			const result = await display.build();
@@ -51,8 +52,9 @@ export function cli(fn: StdBuildFn): void {
 		.command('watch')
 		.description('Rebuild top level targets when a source file changes')
 		.argument('[goal]', 'The goal target to be built')
-		.action(async (goal?: string) => {
-			const make = makeMakefile();
+		.option('--development', devDesc, true)
+		.action(async function (goal?: string) {
+			const make = makeMakefile(this.opts());
 			const goalPath = goal && Path.build(goal);
 			const display = new Vt100BuildInProgress(make, goalPath);
 			display.watch();
@@ -61,8 +63,8 @@ export function cli(fn: StdBuildFn): void {
 	program
 		.command('list')
 		.description('List all targets')
-		.action(() => {
-			const make = makeMakefile();
+		.action(function () {
+			const make = makeMakefile(this.opts());
 			for (const t of make.targets()) {
 				console.log(t);
 			}

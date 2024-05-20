@@ -13,6 +13,10 @@ cli((make: Makefile) => {
 
 	addClangExecutable(make, 'main', ['src/main.cpp', 'src/hello.cpp']);
 
+	make.add('run-main', main, (args) => {
+		return args.spawn(args.abs(main), []);
+	});
+
 	make.add('line-feed', (args) => {
 		args.logStream.write('one\ntwo\nthree\n\n\n');
 		return false;

@@ -5,6 +5,6 @@
 
 int main(int argc, char **argv) {
   hello();
-  std::cout << "My own output" << std::endl;
+  std::cout << "My own output." << std::endl;
   std::exit(EXIT_SUCCESS);
 }

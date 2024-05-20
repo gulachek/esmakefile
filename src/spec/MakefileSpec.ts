@@ -565,6 +565,29 @@ describe('Makefile', () => {
 			expect(bCount).to.equal(2);
 		});
 
+		it('updates target group if any target in group is missing', async () => {
+			const a = Path.build('a');
+			const b = Path.build('b');
+			const c = Path.src('c');
+
+			await writePath(c, 'c');
+			let count = 0;
+
+			make.add([a, b], c, async () => {
+				await writePath(a, 'a');
+				await writePath(b, 'b');
+				count += 1;
+			});
+
+			await updateTarget(make, a);
+			expect(count).to.equal(1);
+
+			await rmPath(b);
+
+			await updateTarget(make, a);
+			expect(count).to.equal(2);
+		});
+
 		it('does not build a target if a source fails to build', async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');

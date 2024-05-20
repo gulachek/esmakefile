@@ -59,7 +59,7 @@ export type BuildError = {
 export class Build {
 	private _roots: IPathRoots;
 	private _make: Makefile;
-	private _goal: IBuildPath;
+	public readonly goal: IBuildPath;
 
 	private _event = new EventEmitter();
 	private _rules = new Map<RuleID, RuleInfo>();
@@ -75,7 +75,7 @@ export class Build {
 
 	constructor(make: Makefile, goal?: BuildPathLike) {
 		this._make = make;
-		this._goal = (goal && Path.build(goal)) || make.defaultGoal;
+		this.goal = (goal && Path.build(goal)) || make.defaultGoal;
 		this._roots = { build: make.buildRoot, src: make.srcRoot };
 
 		for (const { rule, id } of make.rules()) {
@@ -170,7 +170,7 @@ export class Build {
 
 		this._recipeResults = [];
 
-		const result = await this.updateAll([this._goal]);
+		const result = await this.updateAll([this.goal]);
 
 		await this._make._save(this._recipeResults);
 

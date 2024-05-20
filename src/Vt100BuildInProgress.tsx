@@ -72,8 +72,13 @@ function BuildMkFile(props: IBuildMkFileProps) {
 		});
 	}, [build, resultState]);
 
+	const goalRel = useMemo(() => {
+		return build.goal.rel();
+	}, [build]);
+
 	return (
 		<Box flexDirection="column">
+			<Text bold>Goal: {goalRel}</Text>
 			<CompletedBuilds build={build} />
 			{result === null ? (
 				<InProgressBuilds build={build} />

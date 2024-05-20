@@ -222,9 +222,17 @@ interface IResultFieldProps {
 
 function ResultField(props: IResultFieldProps) {
 	if (props.result) {
-		return <Text color="greenBright">✔</Text>;
+		return (
+			<Text wrap="truncate" color="greenBright">
+				✔
+			</Text>
+		);
 	} else {
-		return <Text color="redBright">✘</Text>;
+		return (
+			<Text wrap="truncate" color="redBright">
+				✘
+			</Text>
+		);
 	}
 }
 
@@ -301,7 +309,7 @@ function CompletedBuilds(props: ICompletedBuildsProps) {
 			<Box flexDirection="column" flexBasis="fit-content" flexShrink={0}>
 				{times}
 			</Box>
-			<Box flexDirection="column" flexBasis={1} flexShrink={0}>
+			<Box flexDirection="column" flexBasis={2} flexShrink={0}>
 				{results}
 			</Box>
 			<Box flexDirection="column" flexGrow={1} flexShrink={1} flexBasis={1}>

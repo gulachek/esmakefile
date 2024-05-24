@@ -162,7 +162,6 @@ export class Build {
 
 		await this._make._load();
 
-		// TODO - only load dependencies of goal
 		this._targets = new Map<string, TargetInfo>();
 		for (const t of this._make.targets()) {
 			this._targets.set(t, this._make.target(t));

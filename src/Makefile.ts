@@ -152,12 +152,18 @@ export class Makefile {
 		this._writtenMtime = new Date();
 	}
 
+	/**
+	 * @internal
+	 */
 	public *rules(): Generator<{ rule: IRule; id: RuleID }> {
 		for (let id = 0; id < this._rules.length; ++id) {
 			yield { id, rule: this._rules[id] };
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	public rule(id: RuleID): IRule {
 		if (id >= this._rules.length) {
 			throw new Error(`Rule with ID ${id} does not exist`);
@@ -166,11 +172,13 @@ export class Makefile {
 		return this._rules[id];
 	}
 
-	// TODO - make { path: IBuildPath, target: TargetInfo }
 	public targets(): string[] {
 		return [...this._targets.keys()];
 	}
 
+	/**
+	 * @internal
+	 */
 	public target(path: BuildPathLike): TargetInfo {
 		const rel = Path.build(path).rel();
 		const info = this._targets.get(rel);
@@ -181,10 +189,14 @@ export class Makefile {
 		return info;
 	}
 
-	add(rule: IRule): RuleID;
-	add(targets: Targets, recipe: RecipeFunction): RuleID;
-	add(targets: Targets, prereqs: Prereqs, recipe?: RecipeFunction): RuleID;
-	add(
+	public add(rule: IRule): RuleID;
+	public add(targets: Targets, recipe: RecipeFunction): RuleID;
+	public add(
+		targets: Targets,
+		prereqs: Prereqs,
+		recipe?: RecipeFunction,
+	): RuleID;
+	public add(
 		ruleOrTargets: IRule | Targets,
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
@@ -276,7 +288,7 @@ export class Makefile {
 		throw new Error('No targets exist in Makefile');
 	}
 
-	abs(path: Path): string {
+	public abs(path: Path): string {
 		return path.abs(this._roots);
 	}
 }

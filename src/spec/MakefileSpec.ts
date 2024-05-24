@@ -883,6 +883,28 @@ describe('Makefile', () => {
 			expect(count).to.equal(1);
 		});
 
+		it('warns if a target is stale and has no recipe to update', async () => {
+			const stale = Path.build('stale');
+			const src = Path.src('src');
+
+			await mkdir(buildRoot, { recursive: true });
+			await writePath(stale, 'stale');
+			await waitMs(1);
+			await writePath(src, 'src');
+
+			make.add(stale, src);
+
+			const build = new Build(make, stale);
+
+			const result = await build.run();
+			expect(result).to.be.true;
+
+			expect(build.warnings[0].msg.indexOf(stale.rel())).to.be.greaterThan(
+				-1,
+				'build did not warn of stale target with no means to update',
+			);
+		});
+
 		it('notifies caller of updated target', async () => {
 			const targ = Path.build('test');
 			make.add(targ, () => {});

@@ -1,3 +1,4 @@
+import { writeFile } from 'fs/promises';
 import { Path, cli, Makefile, ICliFnOpts } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
@@ -72,4 +73,19 @@ cli((make: Makefile, opts: ICliFnOpts) => {
 		args.logStream.write('Error message for grouped targets');
 		return false;
 	});
+
+	const staleTarget = Path.build('warn-stale-target');
+	const stalePrereq = Path.build('warn-stale-target-prereq');
+
+	make.add(staleTarget, stalePrereq);
+	make.add(stalePrereq, async (args) => {
+		// this isn't supposed to make sense
+		await writeFile(args.abs(staleTarget), 'stale');
+		await waitMs(5);
+		await writeFile(args.abs(stalePrereq), 'prereq');
+	});
 });
+
+function waitMs(ms: number): Promise<void> {
+	return new Promise<void>((res) => setTimeout(res, ms));
+}

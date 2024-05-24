@@ -111,7 +111,24 @@ function Diagnostics(props: IDiagnosticsProps) {
 		);
 	});
 
-	return <Box flexDirection="column">{errs}</Box>;
+	const warnings = build.warnings.map((e) => {
+		const { msg } = e;
+		return (
+			<Box key={msg} flexDirection="row" gap={2} marginY={1}>
+				<Text key={msg} color="yellowBright" bold>
+					Warning:
+				</Text>
+				<Text>{msg}</Text>
+			</Box>
+		);
+	});
+
+	return (
+		<Box flexDirection="column">
+			{warnings}
+			{errs}
+		</Box>
+	);
 }
 
 interface ILogMessagesProps {

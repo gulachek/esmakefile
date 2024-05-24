@@ -52,7 +52,7 @@ type TargetCompleteInfo = {
 
 type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
-export type BuildError = {
+export type BuildDiagnostic = {
 	msg: string;
 };
 
@@ -71,7 +71,8 @@ export class Build {
 	private _logs = new Map<RuleID, Vt100Stream>();
 	private _recipeResults: RecipeResults[] = [];
 
-	public readonly errors: BuildError[] = [];
+	public readonly errors: BuildDiagnostic[] = [];
+	public readonly warnings: BuildDiagnostic[] = [];
 
 	constructor(make: Makefile, goal?: BuildPathLike) {
 		this._make = make;
@@ -276,8 +277,14 @@ export class Build {
 			return this.endTarget(true);
 		}
 
-		// TODO - this doesn't emit an event
-		if (!isRuleID(recipeRule)) return true;
+		if (!isRuleID(recipeRule)) {
+			const rels = targetGroup.map((t) => t.rel()).join(', ');
+			this.addWarning(
+				`Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,
+			);
+
+			return true;
+		}
 
 		const prevAttempt = this._info.get(recipeRule);
 		if (prevAttempt) {
@@ -333,6 +340,10 @@ export class Build {
 	private addError(msg: string) {
 		this._event.emit('diagnostic');
 		this.errors.push({ msg });
+	}
+
+	private addWarning(msg: string) {
+		this.warnings.push({ msg });
 	}
 
 	private _needsBuild(

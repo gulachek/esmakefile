@@ -1,4 +1,4 @@
-import { Build, RecipeCompleteInfo, RuleInfo } from './Build.js';
+import { Build, BuildEvent, RecipeCompleteInfo, RuleInfo } from './Build.js';
 import { render, Text, Box, Newline } from 'ink';
 import React, { useState, useEffect, useMemo, PropsWithChildren } from 'react';
 import { IBuildPath } from './Path.js';
@@ -97,7 +97,7 @@ interface IDiagnosticsProps {
 function Diagnostics(props: IDiagnosticsProps) {
 	const { build } = props;
 
-	useUpdate(build);
+	useRenderEvent(build, 'diagnostic');
 
 	const errs = build.errors.map((e) => {
 		const { msg } = e;
@@ -399,16 +399,20 @@ function useIntervalMs(ms: number): void {
 	}, []);
 }
 
-function useUpdate(build: Build): void {
+function useRenderEvent(build: Build, event: BuildEvent) {
 	const [_, setN] = useState(0);
 
 	useEffect(() => {
 		const cb = () => setN((n) => n + 1);
-		build.on('update', cb);
+		build.on(event, cb);
 		return () => {
-			build.off('update', cb);
+			build.off(event, cb);
 		};
 	}, [build]);
+}
+
+function useUpdate(build: Build): void {
+	useRenderEvent(build, 'update');
 }
 
 class SourceWatcher extends EventEmitter {

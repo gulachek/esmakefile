@@ -331,7 +331,7 @@ export class Build {
 	}
 
 	private addError(msg: string) {
-		this._event.emit('update'); // TODO - add targeted event
+		this._event.emit('diagnostic');
 		this.errors.push({ msg });
 	}
 
@@ -418,10 +418,11 @@ function makePromise<T>(): IPromisePieces<T> {
 
 type BuildEventMap = {
 	update: [];
+	diagnostic: [];
 	'recipe-log': [RuleID, Buffer];
 };
 
-type BuildEvent = keyof BuildEventMap;
+export type BuildEvent = keyof BuildEventMap;
 
 type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
 

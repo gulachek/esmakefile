@@ -5,3 +5,13 @@ dist/spec
 types/example
 types/spec
 test-cases
+test-src
+coverage
+.cache
+.nyc_output
+.eslint*
+.nycrc.json
+.prettierrc.json
+.mocharc.json
+project.vim
+debug-spec.sh

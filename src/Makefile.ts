@@ -189,6 +189,11 @@ export class Makefile {
 		return info;
 	}
 
+	public hasTarget(target: BuildPathLike): boolean {
+		const path = Path.build(target);
+		return !!this._targets.get(path.rel());
+	}
+
 	public add(rule: IRule): RuleID;
 	public add(targets: Targets, recipe: RecipeFunction): RuleID;
 	public add(

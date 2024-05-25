@@ -210,6 +210,30 @@ describe('Makefile', () => {
 		});
 	});
 
+	describe('hasTarget', () => {
+		it('returns true if target is added to a rule', () => {
+			const make = new Makefile();
+			make.add('foo', () => {});
+
+			expect(make.hasTarget('foo')).to.be.true;
+			expect(make.hasTarget(Path.build('foo'))).to.be.true;
+		});
+
+		it('returns false if target is not added to a rule', () => {
+			const make = new Makefile();
+			make.add('foo', () => {});
+
+			expect(make.hasTarget('bar')).to.be.false;
+		});
+
+		it('throws if src path given as argument', () => {
+			const make = new Makefile();
+			make.add('foo', () => {});
+
+			expect(() => make.hasTarget(Path.src('foo') as IBuildPath)).to.throw();
+		});
+	});
+
 	describe('recipe', () => {
 		let make: Makefile;
 

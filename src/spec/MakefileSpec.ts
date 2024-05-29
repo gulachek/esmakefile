@@ -19,7 +19,6 @@ import {
 	stat,
 	open,
 	FileHandle,
-	rmdir,
 	chmod,
 } from 'node:fs/promises';
 
@@ -967,7 +966,7 @@ describe('Makefile', () => {
 		it('is an error when the srcRoot is not a directory', async () => {
 			make.add('simple', () => {});
 
-			await rmdir(srcRoot, { recursive: true });
+			await rm(srcRoot, { recursive: true });
 
 			const build = new Build(make);
 			const result = await build.run();

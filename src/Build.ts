@@ -278,12 +278,14 @@ export class Build {
 		}
 
 		if (!isRuleID(recipeRule)) {
-			const rels = targetGroup.map((t) => t.rel()).join(', ');
-			this.addWarning(
-				`Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,
-			);
+			if (targetStatus === NeedsBuildValue.stale) {
+				const rels = targetGroup.map((t) => t.rel()).join(', ');
+				this.addWarning(
+					`Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,
+				);
+			}
 
-			return true;
+			return this.endTarget(true);
 		}
 
 		const prevAttempt = this._info.get(recipeRule);
@@ -366,20 +368,20 @@ export class Build {
 			}
 		}
 
-		for (const post of postreqs) {
-			const postStat = statSync(post, { throwIfNoEntry: false });
-			if (!postStat) return NeedsBuildValue.stale; // need to see if still needed
-			newestDepMtimeMs = Math.max(postStat.mtimeMs, newestDepMtimeMs);
-		}
-
 		let oldestTargetMtimeMs = Infinity;
 		for (const t of targetGroup) {
 			const stat = statSync(this.abs(t), { throwIfNoEntry: false });
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
 			} else {
-				return NeedsBuildValue.stale;
+				return NeedsBuildValue.missing;
 			}
+		}
+
+		for (const post of postreqs) {
+			const postStat = statSync(post, { throwIfNoEntry: false });
+			if (!postStat) return NeedsBuildValue.stale; // need to see if still needed
+			newestDepMtimeMs = Math.max(postStat.mtimeMs, newestDepMtimeMs);
 		}
 
 		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
@@ -408,6 +410,7 @@ export class Build {
 
 enum NeedsBuildValue {
 	stale,
+	missing,
 	missingSrc,
 	upToDate,
 }

@@ -928,6 +928,21 @@ describe('Makefile', () => {
 			);
 		});
 
+		it('does not warn if a phony target without a recipe is stale', async () => {
+			const src = Path.src('src');
+
+			await writePath(src, 'src');
+
+			make.add('phony', src);
+
+			const build = new Build(make, 'phony');
+
+			const result = await build.run();
+			expect(result).to.be.true;
+
+			expect(build.warnings.length).to.equal(0);
+		});
+
 		it('notifies caller of updated target', async () => {
 			const targ = Path.build('test');
 			make.add(targ, () => {});

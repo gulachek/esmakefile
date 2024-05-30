@@ -20,6 +20,7 @@ import { statSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { Writable } from 'node:stream';
 import { resolve } from 'node:path';
+import { CycleDetector } from './CycleDetector.js';
 
 type RecipeInProgressInfo = {
 	complete: false;
@@ -138,6 +139,31 @@ export class Build {
 		this._event.emit(e, ...data);
 	}
 
+	private _reportCycle(): boolean {
+		const cd = new CycleDetector();
+
+		for (const [t, targetInfo] of this._targets) {
+			const tPath = Path.build(t);
+			for (const rule of targetInfo.rules) {
+				const { sources } = this._rules.get(rule);
+				for (const p of sources) {
+					if (p.isBuildPath()) {
+						cd.addEdge(tPath, p);
+					}
+				}
+			}
+		}
+
+		const cycle = cd.findCycle();
+		if (cycle) {
+			const pathStr = cycle.path.map((p) => p.rel()).join(' -> ');
+			this.addError(`Circular dependency detected: ${pathStr}`);
+			return true;
+		}
+
+		return false;
+	}
+
 	/**
 	 * Top level build function. Runs exclusively
 	 * @returns A promise that resolves when the build is done
@@ -166,6 +192,10 @@ export class Build {
 		this._targets = new Map<string, TargetInfo>();
 		for (const t of this._make.targets()) {
 			this._targets.set(t, this._make.target(t));
+		}
+
+		if (this._reportCycle()) {
+			return false;
 		}
 
 		this._recipeResults = [];

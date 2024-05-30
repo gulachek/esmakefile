@@ -1005,5 +1005,18 @@ describe('Makefile', () => {
 				'build did not indicate buildRoot is not writable',
 			);
 		});
+
+		it('is an error when a cycle exists', async () => {
+			const a = Path.build('a');
+			const b = Path.build('b');
+
+			make.add(a, b);
+			make.add(b, a);
+
+			const build = new Build(make, a);
+			const result = await build.run();
+			expect(result).to.be.false;
+			expect(/[Cc]ircular/.test(build.errors[0].msg)).to.be.true;
+		});
 	});
 });

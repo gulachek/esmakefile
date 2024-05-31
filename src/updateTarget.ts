@@ -1,4 +1,4 @@
-import { Makefile } from './Makefile.js';
+import { Makefile, RuleID } from './Makefile.js';
 import { Build } from './Build.js';
 import { BuildPathLike } from './Path.js';
 
@@ -16,4 +16,48 @@ export function updateTarget(
 ): Promise<boolean> {
 	const build = new Build(make, goal);
 	return build.run();
+}
+
+export namespace experimental {
+	export interface IDiagnostic {
+		msg: string;
+	}
+
+	export interface IRecipeResults {
+		consoleOutput: string;
+		result: boolean;
+	}
+
+	interface IUpdateTargetResults {
+		result: boolean;
+		recipes: Map<RuleID, IRecipeResults>;
+		errors: IDiagnostic[];
+		warnings: IDiagnostic[];
+	}
+
+	export async function updateTarget(
+		make: Makefile,
+		goal?: BuildPathLike,
+	): Promise<IUpdateTargetResults> {
+		const build = new Build(make, goal);
+		const result = await build.run();
+
+		const { errors, warnings } = build;
+
+		const recipes = new Map<RuleID, IRecipeResults>();
+
+		for (const [ruleId, _, completeInfo] of build.completedRecipes()) {
+			recipes.set(ruleId, {
+				result: completeInfo.result,
+				consoleOutput: build.contentOfLog(ruleId) || '',
+			});
+		}
+
+		return {
+			result,
+			errors,
+			warnings,
+			recipes,
+		};
+	}
 }

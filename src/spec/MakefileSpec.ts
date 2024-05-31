@@ -399,6 +399,31 @@ describe('Makefile', () => {
 			expect(write.buildCount).to.equal(1);
 		});
 
+		it('defaults a string type prereq to build path if it is a target at time of build', async () => {
+			make.add('all', 'prereq');
+
+			let prereqBuilt = false;
+			make.add('prereq', () => {
+				prereqBuilt = true;
+			});
+
+			await updateTarget(make);
+			expect(prereqBuilt).to.be.true;
+		});
+
+		it('defaults a string type prereq to src path if it is not a target at time of build', async () => {
+			const prereq = Path.src('prereq');
+			await writePath(prereq, 'prereq');
+
+			let contents: string = '';
+			make.add('all', 'prereq', async () => {
+				contents = await readPath(prereq);
+			});
+
+			await updateTarget(make);
+			expect(contents).to.equal('prereq');
+		});
+
 		it('builds a phony target without a recipe', async () => {
 			const srcPath = Path.build('src.txt');
 

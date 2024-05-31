@@ -33,11 +33,6 @@ function normalizeTargets(t: Targets): IBuildPath | IBuildPath[] {
 	return t.map((t) => Path.build(t));
 }
 
-function normalizePrereqs(p: Prereqs): Path | Path[] {
-	if (isPathLike(p)) return Path.src(p);
-	return p.map((p) => Path.src(p));
-}
-
 export class Makefile {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
@@ -206,6 +201,8 @@ export class Makefile {
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
 	): RuleID {
+		const self = this;
+
 		let rule: IRule;
 		if (recipeFn) {
 			// targets, prereqs, recipe
@@ -214,7 +211,7 @@ export class Makefile {
 					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return normalizePrereqs(prereqsOrRecipe as Prereqs);
+					return self.normalizePrereqs(prereqsOrRecipe as Prereqs);
 				},
 				recipe: recipeFn,
 			};
@@ -233,7 +230,7 @@ export class Makefile {
 					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return normalizePrereqs(prereqsOrRecipe);
+					return self.normalizePrereqs(prereqsOrRecipe);
 				},
 			};
 		} else if (isRule(ruleOrTargets)) {
@@ -281,6 +278,23 @@ export class Makefile {
 
 	public get defaultGoal(): IBuildPath {
 		return this._firstTarget();
+	}
+
+	private normalizeIndividualPrereq(prereq: PathLike): Path {
+		if (typeof prereq === 'string') {
+			if (this.hasTarget(prereq)) {
+				return Path.build(prereq);
+			} else {
+				return Path.src(prereq);
+			}
+		} else {
+			return prereq;
+		}
+	}
+
+	private normalizePrereqs(p: Prereqs): Path | Path[] {
+		if (isPathLike(p)) return this.normalizeIndividualPrereq(p);
+		return p.map((p) => this.normalizeIndividualPrereq(p));
 	}
 
 	private _firstTarget(): IBuildPath {

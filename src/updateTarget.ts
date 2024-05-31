@@ -18,6 +18,7 @@ export function updateTarget(
 	return build.run();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace experimental {
 	export interface IDiagnostic {
 		msg: string;

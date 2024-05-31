@@ -201,7 +201,7 @@ export class Makefile {
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
 	): RuleID {
-		const self = this;
+		const norm = this.normalizePrereqs.bind(this);
 
 		let rule: IRule;
 		if (recipeFn) {
@@ -211,7 +211,7 @@ export class Makefile {
 					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return self.normalizePrereqs(prereqsOrRecipe as Prereqs);
+					return norm(prereqsOrRecipe as Prereqs);
 				},
 				recipe: recipeFn,
 			};
@@ -230,7 +230,7 @@ export class Makefile {
 					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return self.normalizePrereqs(prereqsOrRecipe);
+					return norm(prereqsOrRecipe);
 				},
 			};
 		} else if (isRule(ruleOrTargets)) {

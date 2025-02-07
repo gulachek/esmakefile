@@ -69,11 +69,12 @@ export class RecipeArgs {
 	async spawn(cmd: string, cmdArgs: string[]): Promise<boolean> {
 		const proc = spawn(cmd, cmdArgs, { stdio: 'pipe' });
 
-		proc.stdout.pipe(this.logStream);
-		proc.stderr.pipe(this.logStream);
+		proc.stdout.pipe(this.logStream, { end: false });
+		proc.stderr.pipe(this.logStream, { end: false });
 
 		return new Promise<boolean>((res) => {
 			proc.on('close', (code) => {
+				this.logStream.end();
 				res(code === 0);
 			});
 		});

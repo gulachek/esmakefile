@@ -1020,21 +1020,21 @@ describe('Makefile', () => {
 		});
 
 		it('is an error when the buildRoot is not created', async () => {
+			const nested = join(srcRoot, 'nested');
+			const myBuild = join(nested, 'build');
+			await mkdir(nested, { recursive: true });
+			const make = new Makefile({ srcRoot, buildRoot: myBuild });
+
 			make.add('simple', () => {});
 
 			const build = new Build(make);
 
-			// Run once to create dirs
-			let result = await build.run();
-			expect(result).to.be.true;
-
-			// Now can make readonly
-			await makeReadOnlyDir(buildRoot);
-			result = await build.run();
-			await restoreDirWriting(buildRoot);
+			await makeReadOnlyDir(nested);
+			const result = await build.run();
+			await restoreDirWriting(nested);
 
 			expect(result, 'should fail').to.be.false;
-			expect(build.errors[0].msg.indexOf(buildRoot)).to.be.greaterThan(
+			expect(build.errors[0].msg.indexOf(myBuild)).to.be.greaterThan(
 				-1,
 				'build did not indicate buildRoot is not writable',
 			);
@@ -1058,10 +1058,17 @@ describe('Makefile', () => {
 function makeReadOnlyDir(path: string): Promise<void> {
 	if (platform() === 'win32') {
 		return new Promise<void>((res, rej) => {
-			execFile('icacls', [path, '/deny', 'Everyone:(OI)(CI)W'], (err: Error|null) => {
-					if (err) { rej(err); return; }
+			execFile(
+				'icacls',
+				[path, '/deny', 'Everyone:(OI)(CI)W'],
+				(err: Error | null) => {
+					if (err) {
+						rej(err);
+						return;
+					}
 					res();
-			});
+				},
+			);
 		});
 	} else {
 		return chmod(path, 0o555);
@@ -1071,9 +1078,12 @@ function makeReadOnlyDir(path: string): Promise<void> {
 function restoreDirWriting(path: string): Promise<void> {
 	if (platform() === 'win32') {
 		return new Promise<void>((res, rej) => {
-			execFile('icacls', [path, '/reset', '/T'], (err: Error|null) => {
-					if (err) { rej(err); return; }
-					res();
+			execFile('icacls', [path, '/reset', '/T'], (err: Error | null) => {
+				if (err) {
+					rej(err);
+					return;
+				}
+				res();
 			});
 		});
 	} else {

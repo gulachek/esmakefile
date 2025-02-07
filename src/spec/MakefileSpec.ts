@@ -21,10 +21,12 @@ import {
 	FileHandle,
 	chmod,
 } from 'node:fs/promises';
+import { platform } from 'node:os';
+import { execFile } from 'node:child_process';
 
 import { expect } from 'chai';
 
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, join } from 'node:path';
 import { existsSync, Stats, statSync } from 'node:fs';
 import { Build } from '../Build.js';
 
@@ -1020,10 +1022,17 @@ describe('Makefile', () => {
 		it('is an error when the buildRoot is not created', async () => {
 			make.add('simple', () => {});
 
-			await chmod(srcRoot, 0o555); // read only
-
 			const build = new Build(make);
-			const result = await build.run();
+
+			// Run once to create dirs
+			let result = await build.run();
+			expect(result).to.be.true;
+
+			// Now can make readonly
+			await makeReadOnlyDir(buildRoot);
+			result = await build.run();
+			await restoreDirWriting(buildRoot);
+
 			expect(result, 'should fail').to.be.false;
 			expect(build.errors[0].msg.indexOf(buildRoot)).to.be.greaterThan(
 				-1,
@@ -1045,3 +1054,29 @@ describe('Makefile', () => {
 		});
 	});
 });
+
+function makeReadOnlyDir(path: string): Promise<void> {
+	if (platform() === 'win32') {
+		return new Promise<void>((res, rej) => {
+			execFile('icacls', [path, '/deny', 'Everyone:(OI)(CI)W'], (err: Error|null) => {
+					if (err) { rej(err); return; }
+					res();
+			});
+		});
+	} else {
+		return chmod(path, 0o555);
+	}
+}
+
+function restoreDirWriting(path: string): Promise<void> {
+	if (platform() === 'win32') {
+		return new Promise<void>((res, rej) => {
+			execFile('icacls', [path, '/reset', '/T'], (err: Error|null) => {
+					if (err) { rej(err); return; }
+					res();
+			});
+		});
+	} else {
+		return chmod(path, 0o775);
+	}
+}

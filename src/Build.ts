@@ -16,7 +16,7 @@ import { BuildPathLike, IBuildPath, IPathRoots, Path } from './Path.js';
 import { Vt100Stream } from './Vt100Stream.js';
 
 import { mkdir } from 'node:fs/promises';
-import { statSync } from 'node:fs';
+import { statSync, Stats } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { Writable } from 'node:stream';
 import { resolve } from 'node:path';
@@ -172,7 +172,13 @@ export class Build {
 		using _ = await this._make._lockAsync();
 
 		const { src, build } = this._roots;
-		const stats = statSync(src, { throwIfNoEntry: false });
+		let stats: Stats | null = null;
+		try {
+			stats = statSync(src, { throwIfNoEntry: false });
+		} catch (_) {
+			// will pick up that stats don't exist right below
+		}
+
 		if (!(stats && stats.isDirectory())) {
 			this.addError(`Source directory '${src}' is not a readable directory`);
 			return false;

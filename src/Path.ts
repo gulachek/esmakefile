@@ -8,7 +8,7 @@ export enum PathType {
 export type PathLike = string | Path;
 
 export function isPathLike(p: unknown): p is PathLike {
-	return typeof p === 'string' || p instanceof Path;
+	return typeof p === 'string' || Path.isPath(p);
 }
 
 function getComponents(str: string): string[] {
@@ -45,8 +45,29 @@ export class Path {
 		this.components = [...components];
 	}
 
+	// This is important because there are a few cases like
+	// `isPathLike` where we want to see if something is a
+	// Path. `instanceof` has proven brittle due to npm
+	// resolving different versions, especially when one
+	// package depends on esmakefile, and another local
+	// package does. Npm will use 2 different esmakefiles,
+	// even if they're on the same version.
+	static isPath(obj: unknown): obj is Path {
+		if (!obj) return false;
+		switch ((obj as Path).type) {
+			case PathType.build:
+			case PathType.src:
+				break;
+			default:
+				return false;
+		}
+
+		if (!Array.isArray((obj as Path).components)) return false;
+		return obj.constructor.name === 'Path';
+	}
+
 	static src(pathLike: PathLike): Path {
-		if (pathLike instanceof Path) {
+		if (Path.isPath(pathLike)) {
 			return pathLike;
 		} else if (typeof pathLike === 'string') {
 			return new Path(PathType.src, getComponents(pathLike));
@@ -56,7 +77,7 @@ export class Path {
 	}
 
 	static build(pLike: BuildPathLike): IBuildPath {
-		if (pLike instanceof Path) {
+		if (Path.isPath(pLike)) {
 			if (pLike.isBuildPath()) {
 				return pLike;
 			} else {
@@ -131,8 +152,7 @@ export type BuildPathLike = string | IBuildPath;
 
 export function isBuildPathLike(obj: unknown): obj is BuildPathLike {
 	return (
-		typeof obj === 'string' ||
-		(obj instanceof Path && obj.type === PathType.build)
+		typeof obj === 'string' || (Path.isPath(obj) && obj.type === PathType.build)
 	);
 }
 

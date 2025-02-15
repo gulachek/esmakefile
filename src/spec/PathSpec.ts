@@ -8,7 +8,32 @@ import {
 
 import { expect } from 'chai';
 
-import { resolve, join} from 'node:path';
+import { resolve, join } from 'node:path';
+
+// eslint-disable-next-line
+namespace Test {
+	export class Path {
+		readonly type: unknown;
+		readonly components: unknown;
+
+		constructor(type: unknown, components: unknown) {
+			this.type = type;
+			this.components = components;
+		}
+
+		isBuildPath(): boolean {
+			return this.type === PathType.build;
+		}
+
+		static makeValid(): Path {
+			return new Path(PathType.build, ['test']);
+		}
+
+		cast(): IBuildPath {
+			return this as unknown as IBuildPath;
+		}
+	}
+}
 
 describe('isPathLike', () => {
 	it('returns true for strings', () => {
@@ -17,6 +42,10 @@ describe('isPathLike', () => {
 
 	it('returns true for Paths', () => {
 		expect(isPathLike(Path.src('hello'))).to.be.true;
+	});
+
+	it('returns true for other esmakefile Paths', () => {
+		expect(isPathLike(Test.Path.makeValid())).to.be.true;
 	});
 
 	it('returns false otherwise', () => {
@@ -33,12 +62,65 @@ describe('isBuildPathLike', () => {
 		expect(isBuildPathLike(Path.build('hello'))).to.be.true;
 	});
 
+	it('returns true for other esmakefile BuildPaths', () => {
+		expect(isBuildPathLike(Test.Path.makeValid())).to.be.true;
+	});
+
 	it('returns false otherwise', () => {
 		expect(isBuildPathLike(Path.src('hello'))).to.be.false;
 	});
 });
 
 describe('Path', () => {
+	describe('isPath', () => {
+		it('returns false for non objects', () => {
+			expect(Path.isPath(undefined)).to.be.false;
+			expect(Path.isPath(true)).to.be.false;
+			expect(Path.isPath(null)).to.be.false;
+			expect(Path.isPath(24)).to.be.false;
+		});
+
+		it('returns false when object\'s constructor is not named "Path"', () => {
+			const p = {
+				type: PathType.build,
+				components: ['test'],
+			};
+
+			expect(Path.isPath(p)).to.be.false;
+		});
+
+		it("returns true when object's constructor is named Path", () => {
+			const p = Test.Path.makeValid();
+			expect(Path.isPath(p)).to.be.true;
+		});
+
+		it("returns false when 'type' is wrong type", () => {
+			function go(type: unknown): void {
+				const p = new Test.Path(type, ['test']);
+				expect(Path.isPath(p)).to.be.false;
+			}
+
+			go(undefined);
+			go(null);
+			go('foo');
+			go(23);
+			go(['hello']);
+		});
+
+		it("returns false when 'components' is wrong type", () => {
+			function go(components: unknown): void {
+				const p = new Test.Path(PathType.src, components);
+				expect(Path.isPath(p)).to.be.false;
+			}
+
+			go(undefined);
+			go(null);
+			go('foo');
+			go(23);
+			go({});
+		});
+	});
+
 	describe('src', () => {
 		it('makes a src path out of a string', () => {
 			const path = Path.src('hello/world');
@@ -48,6 +130,12 @@ describe('Path', () => {
 		it('returns a path as is', () => {
 			const path = Path.build('hello/world');
 			const src = Path.src(path);
+			expect(src).to.equal(path);
+		});
+
+		it('returns different esmakefile path as is', () => {
+			const path = Test.Path.makeValid();
+			const src = Path.src(path.cast());
 			expect(src).to.equal(path);
 		});
 
@@ -86,6 +174,12 @@ describe('Path', () => {
 		it('returns a build path as is', () => {
 			const path = Path.build('hello/world');
 			const build = Path.build(path);
+			expect(build).to.equal(path);
+		});
+
+		it('returns different esmakefile path as is', () => {
+			const path = Test.Path.makeValid();
+			const build = Path.build(path.cast());
 			expect(build).to.equal(path);
 		});
 

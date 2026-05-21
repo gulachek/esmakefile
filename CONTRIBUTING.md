@@ -19,3 +19,30 @@ TypeScript watch for source changes and rebuild files as
 necessary.
 
 Files are output in the `dist` and `types` directories.
+
+## Automated Testing
+
+`mocha` is used as a test runner with `chai` as an assertion
+library. Mocha is configured by `.mocharc.json`.
+
+Tests are written in `src/spec/*.ts` and are output in
+`dist/spec/*`. Mocha is configured to run on `dist/spec/*`.
+Hence, it is expected that prior to running tests, you have run
+`npx tsc` to build the source specs and associated source that
+the specs are testing. This is rarely an issue when running `npx
+tsc -w`.
+
+The most notable spec is `src/spec/MakefileSpec.ts`, which
+operates more as an end-to-end or integration test.
+
+The testing paradigm is that the project should strive to only
+test public behavior that the package is committed to
+supporting. For example, if there's a helper class as part of
+the package, it's preferred to not unit test it, and the public
+behavior that it serves in the bigger picture of the package is
+what should be tested. This allows maintainers to change things
+that are changeable and fix things that should be fixed. This
+must be exercised with pragmatism. If a complex algorithm is
+implemented in a helper class and it seems unlikely to
+frequently change, by all means maintainers should unit test
+this functionality.

@@ -1,3 +1,5 @@
+<!-- README.md -->
+
 # esmakefile
 
 esmakefile is a JavaScript build system inspired by Make.

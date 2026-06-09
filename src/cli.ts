@@ -40,6 +40,9 @@ export function cli(fn: CliFn): void {
 		"Root directory of build files (default is './build')",
 	);
 
+	program.option('--trace', 'Sets the log level to "trace"', false);
+	program.option('-v, --debug', 'Sets the log level to "debug"', false);
+
 	const makeMakefile = (cmdOpts: OptionValues) => {
 		const opts = { ...program.opts(), ...cmdOpts };
 		const make = new Makefile({
@@ -48,6 +51,17 @@ export function cli(fn: CliFn): void {
 		});
 		fn(make, { isDevelopment: !!opts['development'] });
 		return make;
+	};
+
+	const parseLogLevel = (cmdOpts: OptionValues): LogLevel => {
+		const opts = { ...program.opts(), ...cmdOpts };
+
+		const i = LogLevel.info;
+		if (!opts) return i;
+		if (typeof opts !== 'object') return i;
+		if (opts['trace']) return LogLevel.trace;
+		if (opts['debug']) return LogLevel.debug;
+		return i;
 	};
 
 	const runBuild = async (make: Makefile, goalPath: IBuildPath) => {
@@ -64,7 +78,7 @@ export function cli(fn: CliFn): void {
 		.action(async function (goal?: string) {
 			const opts = this.opts();
 			setLoggerProvider(
-				new CliLoggerProvider(performance.now(), LogLevel.info),
+				new CliLoggerProvider(performance.now(), parseLogLevel(opts)),
 			);
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
@@ -82,7 +96,7 @@ export function cli(fn: CliFn): void {
 			const opts = this.opts();
 			const loggerProvider = new CliLoggerProvider(
 				performance.now(),
-				LogLevel.info,
+				parseLogLevel(opts),
 			);
 			setLoggerProvider(loggerProvider);
 			const make = makeMakefile(opts);

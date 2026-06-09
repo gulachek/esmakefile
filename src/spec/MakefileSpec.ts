@@ -980,22 +980,6 @@ describe('Makefile', () => {
 			expect(evts).to.be.empty;
 		});
 
-		it('notifies caller of updated target', async () => {
-			const targ = Path.build('test');
-			make.add(targ, () => {});
-			let updateCalled = false;
-
-			const build = new Build(make, targ);
-
-			build.on('update', () => {
-				updateCalled = true;
-			});
-
-			await build.run();
-
-			expect(updateCalled, 'update called').to.be.true;
-		});
-
 		it('is an error when the srcRoot is not a directory', async () => {
 			make.add('simple', () => {});
 

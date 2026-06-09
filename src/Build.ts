@@ -16,7 +16,6 @@ import { BuildPathLike, IBuildPath, IPathRoots, Path } from './Path.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
-import { EventEmitter } from 'node:events';
 import { resolve } from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
 import { Logger, getLogger } from './logs.js';
@@ -62,7 +61,6 @@ export class Build {
 	private _make: Makefile;
 	public readonly goal: IBuildPath;
 
-	private _event = new EventEmitter();
 	private _rules = new Map<RuleID, RuleInfo>();
 
 	private _targets = new Map<string, TargetInfo>();
@@ -81,14 +79,6 @@ export class Build {
 		for (const { rule, id } of make.rules()) {
 			this._rules.set(id, this.normalizeRule(id, rule));
 		}
-	}
-
-	on<E extends BuildEvent>(e: E, l: Listener<E>): void {
-		this._event.on(e, l);
-	}
-
-	off<E extends BuildEvent>(e: E, l: Listener<E>): void {
-		this._event.off(e, l);
 	}
 
 	elapsedMsOf(ruleId: RuleID, now?: number): number {
@@ -124,10 +114,6 @@ export class Build {
 		}
 
 		return { sources: prereqs, targets, recipe };
-	}
-
-	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
-		this._event.emit(e, ...data);
 	}
 
 	private _reportCycle(): boolean {
@@ -255,7 +241,6 @@ export class Build {
 	}
 
 	private endTarget(result: boolean): boolean {
-		this._emit('update');
 		return result;
 	}
 
@@ -336,8 +321,6 @@ export class Build {
 		for (const t of targetGroup) {
 			await mkdir(t.dir().abs(this._roots.build), { recursive: true });
 		}
-
-		this._emit('update');
 
 		let result = false;
 		let exception: Error | undefined;
@@ -443,14 +426,6 @@ function makePromise<T>(): IPromisePieces<T> {
 	});
 	return { resolve, reject, promise };
 }
-
-type BuildEventMap = {
-	update: [];
-};
-
-export type BuildEvent = keyof BuildEventMap;
-
-type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
 
 export type RuleInfo = {
 	recipe: () => Promise<boolean> | null;

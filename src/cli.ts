@@ -17,6 +17,11 @@ import {
 import { fmtElapsedTime } from './fmtElapsedTime.js';
 import { SourceWatcher } from './SourceWatcher.js';
 import EventEmitter from 'node:events';
+import {
+	ATTR_EXCEPTION_MESSAGE,
+	ATTR_EXCEPTION_STACKTRACE,
+	ATTR_EXCEPTION_TYPE,
+} from '@opentelemetry/semantic-conventions';
 
 export interface ICliFnOpts {
 	isDevelopment: boolean;
@@ -202,9 +207,48 @@ class CliLoggerProvider implements ILoggerProvider {
 			'[' + chalk.cyan(fmtElapsedTime(timeStamp - this.tStart)) + ']';
 		const levelStr = fmtLogLevel(level);
 		console.log(`${tStr} ${levelStr}`, trimConsoleMsg(body));
+
+		// also log exception if it's in an attribute
+		const ex = parseAttrException(l);
+		if (ex) {
+			const { stack, type, message } = ex;
+			if (stack) {
+				console.log(stack);
+			} else {
+				console.log(`${type}: ${message}`);
+			}
+		}
 	}
 }
 
 function trimConsoleMsg(msg: string): string {
 	return msg.trim().replaceAll(/\s+/g, ' ');
+}
+
+type AttrException = {
+	type: string;
+	message: string;
+	stack?: string;
+};
+
+function parseAttrException(r: LogRecord): AttrException | null {
+	const a = r.attributes;
+	if (!a) return null;
+
+	let type: string;
+	if (typeof a[ATTR_EXCEPTION_TYPE] === 'string') type = a[ATTR_EXCEPTION_TYPE];
+
+	let message: string;
+	if (typeof a[ATTR_EXCEPTION_MESSAGE] === 'string')
+		message = a[ATTR_EXCEPTION_MESSAGE];
+
+	let stack: string;
+	if (typeof a[ATTR_EXCEPTION_STACKTRACE] === 'string')
+		stack = a[ATTR_EXCEPTION_STACKTRACE];
+
+	if (!(type && message)) {
+		return null;
+	}
+
+	return { type, message, stack };
 }

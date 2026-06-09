@@ -47,6 +47,10 @@ cli((make: Makefile, opts: ICliFnOpts) => {
 		return false;
 	});
 
+	make.add('throw', () => {
+		throw new Error('hehehe');
+	});
+
 	make.add('white-space-log', (args) => {
 		args.logStream.write('   \n\t\r\n  \n\n  \n');
 		return true;

@@ -19,7 +19,10 @@ import { statSync, Stats } from 'node:fs';
 import { resolve } from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
 import { Logger, getLogger } from './logs.js';
-import { EVENT_TARGET_STALE_NO_RECIPE } from './names.js';
+import {
+	EVENT_RECIPE_EXCEPTION,
+	EVENT_TARGET_STALE_NO_RECIPE,
+} from './names.js';
 
 type RecipeInProgressInfo = {
 	complete: false;
@@ -330,6 +333,11 @@ export class Build {
 		} catch (err) {
 			exception = err;
 			result = false;
+			this._logger.error({
+				eventName: EVENT_RECIPE_EXCEPTION,
+				body: 'Recipe threw an exception',
+				exception: err,
+			});
 		}
 
 		const completeInfo: RecipeCompleteInfo = {

@@ -30,7 +30,11 @@ import { existsSync, Stats, statSync } from 'node:fs';
 import { Build } from '../Build.js';
 import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
 import { LogLevel, setLoggerProvider } from '../logs.js';
-import { EVENT_TARGET_STALE_NO_RECIPE } from '../names.js';
+import { ATTR_EXCEPTION_MESSAGE } from '@opentelemetry/semantic-conventions';
+import {
+	EVENT_RECIPE_EXCEPTION,
+	EVENT_TARGET_STALE_NO_RECIPE,
+} from '../names.js';
 
 abstract class TestRule {
 	public buildCount: number = 0;
@@ -364,6 +368,24 @@ describe('Makefile', () => {
 
 			const result = await updateTarget(make, path);
 			expect(result).to.be.false;
+		});
+
+		it('logs an exception event when recipe throws', async () => {
+			const thrownMsg = 'thrown message';
+			make.add('throw', () => {
+				throw new Error(thrownMsg);
+			});
+
+			await updateTarget(make);
+
+			const evts = logs.findEvents(EVENT_RECIPE_EXCEPTION);
+			expect(evts.length).to.equal(
+				1,
+				'expected an esmakefile.recipe.exception event',
+			);
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.error, 'expected error level');
+			expect(e.attributes[ATTR_EXCEPTION_MESSAGE]).to.equal(thrownMsg);
 		});
 
 		it('builds first target by default', async () => {

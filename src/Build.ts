@@ -13,12 +13,10 @@ import {
 	RecipeArgs,
 } from './Rule.js';
 import { BuildPathLike, IBuildPath, IPathRoots, Path } from './Path.js';
-import { Vt100Stream } from './Vt100Stream.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
 import { EventEmitter } from 'node:events';
-import { Writable } from 'node:stream';
 import { resolve } from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
 import { Logger, getLogger } from './logs.js';
@@ -71,7 +69,6 @@ export class Build {
 	private _builtTargets = new Map<string, TargetCompleteInfo>();
 
 	private _info = new Map<RuleID, RecipeBuildInfo>();
-	private _logs = new Map<RuleID, Vt100Stream>();
 	private _recipeResults: RecipeResults[] = [];
 	private _logger: Logger;
 
@@ -104,12 +101,6 @@ export class Build {
 		}
 	}
 
-	contentOfLog(ruleId: RuleID): string | null {
-		const stream = this._logs.get(ruleId);
-		if (!stream) return null;
-		return stream.contents();
-	}
-
 	private normalizeRule(id: RuleID, rule: IRule): RuleInfo {
 		const prereqs = rulePrereqs(rule);
 		const targets = ruleTargets(rule);
@@ -119,8 +110,7 @@ export class Build {
 		if (innerRecipe) {
 			recipe = async () => {
 				const src = new Set<string>();
-				const stream = this.createLogStream(id);
-				const recipeArgs = new RecipeArgs(this._roots, src, stream);
+				const recipeArgs = new RecipeArgs(this._roots, src);
 
 				const result = await innerRecipe(recipeArgs);
 
@@ -227,15 +217,6 @@ export class Build {
 
 		const results = await Promise.all(promises);
 		return results.every((b) => b);
-	}
-
-	createLogStream(id: RuleID): Writable {
-		const stream = new Vt100Stream();
-		stream.vtOn('data', (buf: Buffer) => {
-			this._emit('recipe-log', id, buf);
-		});
-		this._logs.set(id, stream);
-		return stream;
 	}
 
 	private async _findOrStartBuild(target: IBuildPath): Promise<boolean> {
@@ -465,7 +446,6 @@ function makePromise<T>(): IPromisePieces<T> {
 
 type BuildEventMap = {
 	update: [];
-	'recipe-log': [RuleID, Buffer];
 };
 
 export type BuildEvent = keyof BuildEventMap;

@@ -7,7 +7,6 @@ import {
 	Path,
 	PathLike,
 	RecipeArgs,
-	RuleID,
 	updateTarget,
 } from '../index.js';
 import {
@@ -995,25 +994,6 @@ describe('Makefile', () => {
 			await build.run();
 
 			expect(updateCalled, 'update called').to.be.true;
-		});
-
-		it('notifies caller when recipe logs information', async () => {
-			const out = Path.build('out.txt');
-			const write = new WriteFileRule(out, 'hello');
-			const id = make.add(write);
-			let logCalled = false;
-
-			const build = new Build(make, out);
-
-			build.on('recipe-log', (rid: RuleID, data: Buffer) => {
-				expect(rid).to.equal(id);
-				expect(data.toString('utf8')).to.match(/^Writing/);
-				logCalled = true;
-			});
-
-			await build.run();
-
-			expect(logCalled, 'log called').to.be.true;
 		});
 
 		it('is an error when the srcRoot is not a directory', async () => {

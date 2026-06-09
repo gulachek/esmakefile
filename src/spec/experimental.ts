@@ -58,22 +58,6 @@ describe('experimental', () => {
 			expect(result).to.be.true;
 		});
 
-		it('has the contents of the console log', async () => {
-			const id = make.add('target', (args) => {
-				args.logStream.write('hello');
-			});
-
-			const { recipes } = await exUpdate(make);
-			expect(recipes.get(id).consoleOutput).to.equal('hello');
-		});
-
-		it('has empty string output when nothing logged', async () => {
-			const succeed = make.add('succeeds', () => true);
-
-			const { recipes } = await exUpdate(make, 'succeeds');
-			expect(recipes.get(succeed).consoleOutput).to.equal('');
-		});
-
 		it('has the results of each recipe', async () => {
 			const succeed = make.add('succeeds', () => true);
 			const fail = make.add('fails', 'succeeds', () => false);

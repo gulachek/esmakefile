@@ -20,7 +20,6 @@ export function updateTarget(
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace experimental {
 	export interface IRecipeResults {
-		consoleOutput: string;
 		result: boolean;
 	}
 
@@ -42,7 +41,6 @@ export namespace experimental {
 		for (const [ruleId, _, completeInfo] of build.completedRecipes()) {
 			recipes.set(ruleId, {
 				result: completeInfo.result,
-				consoleOutput: build.contentOfLog(ruleId) || '',
 			});
 		}
 

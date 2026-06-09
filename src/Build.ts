@@ -20,8 +20,10 @@ import { resolve } from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
 import { Logger, getLogger } from './logs.js';
 import {
+	EVENT_RECIPE_BEGIN,
 	EVENT_RECIPE_EXCEPTION,
 	EVENT_TARGET_STALE_NO_RECIPE,
+	EVENT_TARGET_UP_TO_DATE,
 } from './names.js';
 
 type RecipeInProgressInfo = {
@@ -190,7 +192,13 @@ export class Build {
 
 		this._recipeResults = [];
 
+		this._logger.info(`Updating goal '${this.goal.rel()}'`);
 		const result = await this.updateAll([this.goal]);
+		if (result) {
+			this._logger.info(`Successfully updated goal '${this.goal.rel()}'`);
+		} else {
+			this._logger.error(`Failed to update goal '${this.goal.rel()}'`);
+		}
 
 		await this._make._save(this._recipeResults);
 
@@ -210,9 +218,13 @@ export class Build {
 
 	private async _findOrStartBuild(target: IBuildPath): Promise<boolean> {
 		const rel = target.rel();
+		this._logger.trace(`_findOrStartBuild('${rel}')`);
 
 		const built = this._builtTargets.get(rel);
 		if (built) {
+			this._logger.trace(
+				`_findOrStartBuild: '${rel}' is already updated. Skipping.`,
+			);
 			return built.result;
 		}
 
@@ -231,7 +243,7 @@ export class Build {
 			targetGroup = ruleInfo.targets;
 		}
 
-		result = await this._startBuild(targetGroup, recipeRule);
+		result = await this._startBuild(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
 			this._builtTargets.set(t.rel(), { result });
 		}
@@ -250,6 +262,7 @@ export class Build {
 	private async _startBuild(
 		targetGroup: IBuildPath[],
 		recipeRule: RuleID | null,
+		requestedTarget: IBuildPath,
 	): Promise<boolean> {
 		const srcToBuild: IBuildPath[] = [];
 		const allSrc: Path[] = [];
@@ -284,6 +297,10 @@ export class Build {
 		}
 
 		if (targetStatus === NeedsBuildValue.upToDate) {
+			this._logger.debug({
+				eventName: EVENT_TARGET_UP_TO_DATE,
+				body: `Target '${requestedTarget.rel()}' is up to date`,
+			});
 			return this.endTarget(true);
 		}
 
@@ -329,6 +346,10 @@ export class Build {
 		let exception: Error | undefined;
 
 		try {
+			this._logger.debug({
+				eventName: EVENT_RECIPE_BEGIN,
+				body: `Updating target '${requestedTarget.rel()}'`,
+			});
 			result = await recipeInfo.recipe();
 		} catch (err) {
 			exception = err;
@@ -347,6 +368,10 @@ export class Build {
 			result,
 			exception,
 		};
+
+		if (!result) {
+			this._logger.error(`Failed to update target '${requestedTarget.rel()}'`);
+		}
 
 		resolve(completeInfo);
 		this._info.set(recipeRule, completeInfo);

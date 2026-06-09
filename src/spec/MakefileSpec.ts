@@ -32,8 +32,10 @@ import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
 import { LogLevel, setLoggerProvider } from '../logs.js';
 import { ATTR_EXCEPTION_MESSAGE } from '@opentelemetry/semantic-conventions';
 import {
+	EVENT_RECIPE_BEGIN,
 	EVENT_RECIPE_EXCEPTION,
 	EVENT_TARGET_STALE_NO_RECIPE,
+	EVENT_TARGET_UP_TO_DATE,
 } from '../names.js';
 
 abstract class TestRule {
@@ -300,6 +302,19 @@ describe('Makefile', () => {
 			const contents = await readPath(path);
 			expect(contents).to.equal('hello');
 			expect(result).to.be.true;
+		});
+
+		it('debug logs when a recipe begins', async () => {
+			make.add('all', () => {});
+			await updateTarget(make);
+
+			const evts = logs.findEvents(EVENT_RECIPE_BEGIN);
+			expect(evts.length).to.equal(
+				1,
+				`Expected an event named ${EVENT_RECIPE_BEGIN}`,
+			);
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.debug);
 		});
 
 		it('builds a phony target', async () => {
@@ -763,6 +778,26 @@ describe('Makefile', () => {
 			result = await updateTarget(make, outPath);
 			expect(result).to.be.false;
 			expect(copy.buildCount).to.equal(1);
+		});
+
+		it('logs a debug event when a target is already up to date', async () => {
+			const srcPath = Path.src('src.txt');
+			const outPath = Path.build('out.txt');
+
+			await writePath(srcPath, 'contents');
+
+			const copy = new CopyFileRule(srcPath, outPath);
+			make.add(copy);
+
+			await updateTarget(make, outPath);
+			await waitMs(1);
+			logs.clear();
+			await updateTarget(make, outPath);
+
+			const evts = logs.findEvents(EVENT_TARGET_UP_TO_DATE);
+			expect(evts).not.to.be.empty;
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.debug);
 		});
 
 		describe('with postreqs', () => {

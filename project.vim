@@ -1,5 +1,9 @@
 set path=,,src/**,example
 
+" search
+set grepprg=git\ grep\ -n
+nnoremap <Leader>g :grep<SPACE>
+
 " build
 nnoremap <Leader>b :!npm run build<CR>
 nnoremap <Leader>e :!npm run example<CR>

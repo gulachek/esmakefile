@@ -1,5 +1,8 @@
 set path=,,src/**,example
 
+" Lean on git to save backups
+set autowriteall
+
 " search
 set grepprg=git\ grep\ -n
 nnoremap <Leader>g :grep<SPACE>

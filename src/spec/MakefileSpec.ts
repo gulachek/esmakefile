@@ -29,8 +29,9 @@ import { expect } from 'chai';
 import { dirname, resolve, join } from 'node:path';
 import { existsSync, Stats, statSync } from 'node:fs';
 import { Build } from '../Build.js';
-import { setLoggerProvider } from '../logs.js';
 import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
+import { LogLevel, setLoggerProvider } from '../logs.js';
+import { EVENT_TARGET_STALE_NO_RECIPE } from '../names.js';
 
 abstract class TestRule {
 	public buildCount: number = 0;
@@ -958,10 +959,10 @@ describe('Makefile', () => {
 			const result = await build.run();
 			expect(result).to.be.true;
 
-			expect(build.warnings[0].msg.indexOf(stale.rel())).to.be.greaterThan(
-				-1,
-				'build did not warn of stale target with no means to update',
-			);
+			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
+			expect(evts).not.to.be.empty;
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.warn);
 		});
 
 		it('does not warn if a phony target without a recipe is stale', async () => {
@@ -976,7 +977,8 @@ describe('Makefile', () => {
 			const result = await build.run();
 			expect(result).to.be.true;
 
-			expect(build.warnings.length).to.equal(0);
+			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
+			expect(evts).to.be.empty;
 		});
 
 		it('notifies caller of updated target', async () => {
@@ -1020,12 +1022,13 @@ describe('Makefile', () => {
 			await rm(srcRoot, { recursive: true });
 
 			const build = new Build(make);
+
 			const result = await build.run();
 			expect(result, 'should fail').to.be.false;
-			expect(build.errors[0].msg.indexOf(srcRoot)).to.be.greaterThan(
-				-1,
+			expect(
+				logs.find(LogLevel.error, srcRoot),
 				'build did not indicate srcRoot is unreadable',
-			);
+			).not.to.be.null;
 		});
 
 		it('is an error when the buildRoot is not created', async () => {
@@ -1043,10 +1046,10 @@ describe('Makefile', () => {
 			await restoreDirWriting(nested);
 
 			expect(result, 'should fail').to.be.false;
-			expect(build.errors[0].msg.indexOf(myBuild)).to.be.greaterThan(
-				-1,
+			expect(
+				logs.find(LogLevel.error, myBuild),
 				'build did not indicate buildRoot is not writable',
-			);
+			).not.to.be.null;
 		});
 
 		it('is an error when a cycle exists', async () => {
@@ -1057,9 +1060,13 @@ describe('Makefile', () => {
 			make.add(b, a);
 
 			const build = new Build(make, a);
+
 			const result = await build.run();
 			expect(result).to.be.false;
-			expect(/[Cc]ircular/.test(build.errors[0].msg)).to.be.true;
+			expect(
+				logs.find(LogLevel.error, /[Cc]ircular/),
+				'build did not indicate a circular dependency was found',
+			).not.to.be.null;
 		});
 	});
 });

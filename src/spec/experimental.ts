@@ -82,39 +82,5 @@ describe('experimental', () => {
 			expect(recipes.get(succeed).result).to.be.true;
 			expect(recipes.get(fail).result).to.be.false;
 		});
-
-		it('has errors', async () => {
-			make.add('cycle', 'cycle');
-
-			const { result, errors } = await exUpdate(make);
-			expect(result).to.be.false;
-			expect(errors.length).to.be.greaterThan(0);
-		});
-
-		it('has warnings', async () => {
-			const prereq = Path.src('prereq');
-			const stale = Path.build('stale');
-			make.add(stale, async () => {
-				await writePath(stale, 'stale');
-			});
-
-			const { result } = await exUpdate(make);
-			expect(result).to.be.true;
-
-			await waitMs(1);
-			await writePath(prereq, 'prereq');
-
-			make = new Makefile({ buildRoot, srcRoot });
-			make.add(stale, prereq);
-
-			const newRet = await exUpdate(make, stale);
-
-			expect(newRet.result).to.be.true;
-			expect(newRet.warnings.length).to.be.greaterThan(0);
-		});
 	});
 });
-
-function waitMs(ms: number): Promise<void> {
-	return new Promise<void>((res) => setTimeout(res, ms));
-}

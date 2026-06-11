@@ -19,11 +19,13 @@ import {
 import { fmtElapsedTime } from './fmtElapsedTime.js';
 import { SourceWatcher } from './SourceWatcher.js';
 import EventEmitter from 'node:events';
+import { Readable } from 'node:stream';
 import {
 	ATTR_EXCEPTION_MESSAGE,
 	ATTR_EXCEPTION_STACKTRACE,
 	ATTR_EXCEPTION_TYPE,
 } from '@opentelemetry/semantic-conventions';
+import { ATTR_ARTIFACT_ID, EVENT_RECIPE_CHILD_PROCESS_OUTPUT } from './names.js';
 
 export interface ICliFnOpts {
 	isDevelopment: boolean;
@@ -34,6 +36,7 @@ export type CliFn = (make: Makefile, opts: ICliFnOpts) => void;
 export function cli(fn: CliFn): void {
 	const artifactImpl = new InMemoryArtifactStore();
 	setArtifactStoreImpl(artifactImpl);
+	const store = new ArtifactStore(artifactImpl);
 
 	const program = new Command();
 
@@ -88,7 +91,7 @@ export function cli(fn: CliFn): void {
 		.action(async function (goal?: string) {
 			const opts = this.opts();
 			setLoggerProvider(
-				new CliLoggerProvider(performance.now(), parseLogLevel(opts)),
+				new CliLoggerProvider(performance.now(), parseLogLevel(opts), store),
 			);
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
@@ -107,6 +110,7 @@ export function cli(fn: CliFn): void {
 			const loggerProvider = new CliLoggerProvider(
 				performance.now(),
 				parseLogLevel(opts),
+				store,
 			);
 			setLoggerProvider(loggerProvider);
 			const make = makeMakefile(opts);
@@ -181,8 +185,12 @@ class CliLoggerProvider implements ILoggerProvider {
 	private level: LogLevel = LogLevel.info;
 	private evt: LoggerEventEmitter;
 	private logger: Logger;
+	private store: ArtifactStore;
+	private paused: boolean = false;
+	private q: LogRecord[] = [];
 
-	constructor(tStart: number, level: LogLevel) {
+	constructor(tStart: number, level: LogLevel, store: ArtifactStore) {
+		this.store = store;
 		this.level = level;
 		this.evt = new EventEmitter() as LoggerEventEmitter;
 		this.evt.on('log', (r) => this.log(r));
@@ -206,8 +214,16 @@ class CliLoggerProvider implements ILoggerProvider {
 
 	private log(l: LogRecord): void {
 		if (l.level < this.level) return;
+		if (this.paused) {
+			this.q.push(l);
+		} else {
+			this.printLog(l);
+		}
+	}
 
-		const { timeStamp, body, level } = l;
+	private printLog(l: LogRecord): void {
+		const { timeStamp, body, level, eventName, attributes } = l;
+
 		const tStr =
 			'[' + chalk.cyan(fmtElapsedTime(timeStamp - this.tStart)) + ']';
 		const levelStr = fmtLogLevel(level);
@@ -222,6 +238,46 @@ class CliLoggerProvider implements ILoggerProvider {
 			} else {
 				console.log(`${type}: ${message}`);
 			}
+		}
+
+		if (eventName === EVENT_RECIPE_CHILD_PROCESS_OUTPUT) {
+			const artifactId = attributes && attributes[ATTR_ARTIFACT_ID];
+			if (typeof artifactId !== 'string') return;
+
+			this.paused = true;
+			this.store
+				.getStream(artifactId)
+				.then((artifact) => {
+					if (!artifact) {
+						this.logger.error(
+							`Failed to get stream for artifact '${artifactId}'`,
+						);
+						return;
+					}
+					return new Promise<void>((resolve, reject) => {
+						const readable = Readable.fromWeb(artifact.content);
+						readable.pipe(process.stdout, { end: false });
+						readable.on('end', resolve);
+						readable.on('error', reject);
+					});
+				})
+				.catch((e) => {
+					this.logger.error({
+						body: `Failed to get artifact ${artifactId}`,
+						exception: e,
+					});
+				})
+				.finally(() => {
+					this.paused = false;
+					this.processQ();
+				});
+		}
+	}
+
+	private processQ(): void {
+		while (this.q.length > 0) {
+			const l = this.q.shift();
+			this.printLog(l);
 		}
 	}
 }

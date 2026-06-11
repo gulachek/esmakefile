@@ -29,6 +29,8 @@ import { expect } from 'chai';
 import { dirname, resolve, join } from 'node:path';
 import { existsSync, Stats, statSync } from 'node:fs';
 import { Build } from '../Build.js';
+import { setLoggerProvider } from '../logs.js';
+import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
 
 abstract class TestRule {
 	public buildCount: number = 0;
@@ -166,6 +168,13 @@ function waitMs(ms: number): Promise<void> {
 }
 
 describe('Makefile', () => {
+	let logs: InMemoryLoggerProvider;
+
+	beforeEach(() => {
+		logs = new InMemoryLoggerProvider();
+		setLoggerProvider(logs);
+	});
+
 	describe('targets', () => {
 		it('lists targets by path relative to build dir', () => {
 			const make = new Makefile();

@@ -1,6 +1,8 @@
 import { Makefile } from './Makefile.js';
 import { Path, IBuildPath } from './Path.js';
 import { Build } from './Build.js';
+import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
+import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';
 
 import { Command, OptionValues } from 'commander';
 import chalk from 'chalk';
@@ -30,6 +32,9 @@ export interface ICliFnOpts {
 export type CliFn = (make: Makefile, opts: ICliFnOpts) => void;
 
 export function cli(fn: CliFn): void {
+	const artifactImpl = new InMemoryArtifactStore();
+	setArtifactStoreImpl(artifactImpl);
+
 	const program = new Command();
 
 	const devDesc = 'Specifies this is a development build';

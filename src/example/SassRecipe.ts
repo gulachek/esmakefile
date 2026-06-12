@@ -6,6 +6,7 @@ import {
 	PathLike,
 	RecipeArgs,
 	Makefile,
+	getLogger,
 } from '../index.js';
 
 import { isBuildPathLike } from '../Path.js';
@@ -39,9 +40,10 @@ class ScssRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs) {
+		const log = getLogger({ name: 'esmakefile.example.ScssRecipe' });
 		const [src, dest] = args.absAll(this._srcPath, this._destPath);
 
-		args.logStream.write(`sass ${this._srcPath}`, 'utf8');
+		log.info(`sass ${this._srcPath}`);
 		const result = sass.compile(src);
 
 		// update dependencies

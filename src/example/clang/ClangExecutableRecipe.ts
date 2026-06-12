@@ -6,6 +6,7 @@ import {
 	Makefile,
 	PathLike,
 	BuildPathLike,
+	getLogger,
 } from '../../index.js';
 import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe.js';
 import { open, readFile } from 'node:fs/promises';
@@ -109,7 +110,8 @@ class CatRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		args.logStream.write(`Generating ${this.out}`, 'utf8');
+		const l = getLogger({ name: 'esmakefile.example.CatRecipe' });
+		l.info(`Generating ${this.out}`);
 
 		const out = args.abs(this.out);
 		const sources = args.absAll(...this._src);

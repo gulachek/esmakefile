@@ -29,6 +29,13 @@ export interface LoggerEmitOpts {
 	// TODO some others
 }
 
+// https://opentelemetry.io/docs/specs/otel/logs/api/#enabled
+export interface LoggerEnabledOpts {
+	level?: LogLevel; // Severity Number
+	context?: Context;
+	eventName?: string;
+}
+
 export type LoggerEventTypeMap = {
 	log: [LogRecord];
 };
@@ -38,6 +45,7 @@ export type LoggerEventEmitter = EventEmitter<LoggerEventTypeMap>;
 export class Logger {
 	private evt: LoggerEventEmitter;
 	private scope: InstrumentationScope;
+	private level: LogLevel;
 
 	/**
 	 * @internal
@@ -47,6 +55,17 @@ export class Logger {
 		this.scope = { name: opts.name };
 		if (opts.version) this.scope.version = opts.version;
 		if (opts.attributes) this.scope.attributes = opts.attributes;
+		this.level = LogLevel.info;
+	}
+
+	setLogLevel(level: LogLevel): void {
+		this.level = level;
+	}
+
+	enabled(opts: LoggerEnabledOpts): boolean {
+		const { level } = opts;
+		if (level && level < this.level) return false;
+		return true;
 	}
 
 	emit(opts: LoggerEmitOpts): void {

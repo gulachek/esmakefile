@@ -1,8 +1,9 @@
 import { Makefile } from './Makefile.js';
-import { Path } from './Path.js';
-import { Vt100BuildInProgress } from './Vt100BuildInProgress.js';
+import { Path, IBuildPath } from './Path.js';
+import { Build } from './Build.js';
 
 import { Command, OptionValues } from 'commander';
+import { SourceWatcher } from './SourceWatcher.js';
 
 export interface ICliFnOpts {
 	isDevelopment: boolean;
@@ -36,15 +37,23 @@ export function cli(fn: CliFn): void {
 		return make;
 	};
 
+	const runBuild = async (make: Makefile, goalPath: IBuildPath) => {
+		const build = new Build(make, goalPath);
+		const result = await build.run();
+
+		return result;
+	};
+
 	program
 		.command('build', { isDefault: true })
 		.description('Build a specified target')
 		.argument('[goal]', 'The goal target to be built')
 		.action(async function (goal?: string) {
-			const make = makeMakefile(this.opts());
+			const opts = this.opts();
+			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
-			const display = new Vt100BuildInProgress(make, goalPath);
-			const result = await display.build();
+			const result = await runBuild(make, goalPath);
+
 			process.exit(result ? 0 : 1);
 		});
 
@@ -54,10 +63,29 @@ export function cli(fn: CliFn): void {
 		.argument('[goal]', 'The goal target to be built')
 		.option('--development', devDesc, true)
 		.action(async function (goal?: string) {
-			const make = makeMakefile(this.opts());
+			const opts = this.opts();
+			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
-			const display = new Vt100BuildInProgress(make, goalPath);
-			display.watch();
+
+			const watcher = new SourceWatcher(make.srcRoot, {
+				debounceMs: 300,
+				excludeDir: make.buildRoot,
+			});
+
+			watcher.on('change', () => {
+				runBuild(make, goalPath);
+			});
+
+			watcher.on('unknown', (type: string) => {
+				console.warn(`Unhandled ${SourceWatcher.name} event type '${type}'`);
+			});
+
+			const closeWatcher = () => watcher.close();
+			const drainStdin = () => process.stdin.read();
+			process.stdin.on('close', closeWatcher);
+			process.stdin.on('data', drainStdin);
+
+			runBuild(make, goalPath);
 		});
 
 	program

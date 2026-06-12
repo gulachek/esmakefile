@@ -35,13 +35,11 @@ export class RecipeArgs {
 	private _roots: IPathRoots;
 	private _postreqs: Set<string>;
 	private _log: Logger;
-	readonly logStream: Vt100Stream;
 
 	constructor(roots: IPathRoots, postreqs: Set<string>) {
 		this._roots = roots;
 		this._postreqs = postreqs;
 		this._log = getLogger({ name: 'esmakefile.RecipeArgs' });
-		this.logStream = new Vt100Stream();
 	}
 
 	abs(path: Path): string {
@@ -85,13 +83,14 @@ export class RecipeArgs {
 		}
 		const proc = spawn(cmd, cmdArgs, { stdio: 'pipe' });
 
-		proc.stdout.pipe(this.logStream, { end: false });
-		proc.stderr.pipe(this.logStream, { end: false });
+		const stream = new Vt100Stream();
+		proc.stdout.pipe(stream, { end: false });
+		proc.stderr.pipe(stream, { end: false });
 
 		return new Promise<boolean>((res) => {
 			proc.on('close', async (code) => {
-				this.logStream.end();
-				const content = this.logStream.contents();
+				stream.end();
+				const content = stream.contents();
 				if (content.length > 0) {
 					const store = getArtifactStore();
 

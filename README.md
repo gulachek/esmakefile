@@ -245,3 +245,14 @@ way to run an esmakefile build system. It accepts a `Makefile`
 and an optional `goal` to update the given goal. This is notably
 useful in automated testing scenarios for higher level tools
 built on top of esmakefile.
+
+### Observability
+
+esmakefile builds on top of
+[OpenTelemetry](https://opentelemetry.io/). The goal is to
+provide rich analysis and diagnostic information for the user's
+build system. The goal is _not_ to require users to set up
+complex backend databases to store this telemetry like with high
+availability cloud services, but rather to build on top of a
+rich industry-standard framework. Hence, esmakefile's CLI acts
+as an otel collector for local analysis.

@@ -25,3 +25,17 @@ export {
 	InstrumentationScope,
 } from './logs.js';
 export { InMemoryLoggerProvider } from './InMemoryLoggerProvider.js';
+export {
+	ArtifactID,
+	ArtifactPutRequest,
+	ArtifactPutResponse,
+	ArtifactGetResponse,
+	IArtifactStoreImpl,
+	setArtifactStoreImpl,
+	ArtifactPutOpts,
+	ArtifactPutStreamOpts,
+	ArtifactContent,
+	ArtifactContentStream,
+	ArtifactStore,
+	getArtifactStore,
+} from './artifacts.js';

@@ -24,3 +24,4 @@ export {
 	setLoggerProvider,
 	InstrumentationScope,
 } from './logs.js';
+export { InMemoryLoggerProvider } from './InMemoryLoggerProvider.js';

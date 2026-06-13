@@ -341,3 +341,9 @@ async function uploadHelloAndLog() {
 	});
 }
 ```
+
+#### Semantic Conventions
+
+For semantic conventions specific to esmakefile, such as logging
+child process output, see
+[docs/otel-conventions.md](./docs/otel-conventions.md).

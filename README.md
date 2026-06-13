@@ -256,3 +256,56 @@ complex backend databases to store this telemetry like with high
 availability cloud services, but rather to build on top of a
 rich industry-standard framework. Hence, esmakefile's CLI acts
 as an otel collector for local analysis.
+
+#### Logs
+
+Because the `@opentelemetry/api@1.9.1` package does not support
+logs, esmakefile currently exposes a basic logging framework.
+
+See the following example for basic usage.
+
+```js
+import { cli, getLogger, LogLevel } from 'esmakefile';
+
+cli((make) => {
+	const logger = getLogger({ name: 'my.logger.name' });
+
+    if (logger.enabled({ level: LogLevel.trace })) {
+        logger.trace('My trace log');
+    }
+
+    if (logger.enabled({ level: LogLevel.debug })) {
+        logger.debug('My debug log');
+    }
+
+    logger.warn('beware');
+
+	make.add('info', () => {
+		logger.info('info target recipe is being run');
+		logger.info({
+            eventName: 'my.event.name',
+            body: 'A display message',
+            attributes: {
+                'my.attribute': 'value'
+            }
+        });
+	});
+
+	make.add('error', () => {
+        try {
+            throw new Error('hehe');
+        } catch (ex) {
+            logger.error({
+                body: 'This is a test error',
+                exception: ex
+            });
+        }
+		return false;
+	});
+
+    if (/* really bad condition */) {
+        logger.fatal('uhhhh wut?');
+        process.exit(1);
+    }
+});
+```

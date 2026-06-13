@@ -309,3 +309,35 @@ cli((make) => {
     }
 });
 ```
+
+#### Artifact Storage
+
+In addition to OpenTelemetry, esmakefile exposes a simple
+S3-inspired API for artifact storage. This is intended for
+special cases where telemetry may need to be enhanced with
+potentially large payloads, such as associating a log or trace
+with the output of a process. In this case, the process output
+would be stored as an artifact with metadata like the output's
+file format, and then visualization tools would confidently know
+how to render the process's output when correlated with the
+other telemetry.
+
+See the following example for usage.
+
+```js
+import { getArtifactStore, getLogger, ATTR_ARTIFACT_ID } from 'esmakefile';
+
+async function uploadHelloAndLog() {
+	const store = getArtifactStore();
+	const content = new TextEncoder().encode('hello');
+	const artifactId = await store.put({ content, contentType: 'text/plain' });
+
+	const logger = getLogger({ name: 'my.logger' });
+	logger.info({
+		body: 'Uploaded "hello"',
+		attributes: {
+			[ATTR_ARTIFACT_ID]: artifactId,
+		},
+	});
+}
+```

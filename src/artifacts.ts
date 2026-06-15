@@ -6,7 +6,7 @@ export interface ArtifactPutRequest {
 	id?: ArtifactID;
 	body: ReadableStream<Uint8Array>;
 	contentType: string;
-	contentLength: number;
+	contentLength?: number;
 }
 
 export interface ArtifactPutResponse {
@@ -50,7 +50,7 @@ export type ArtifactPutStreamOpts = {
 	id?: ArtifactID;
 	content: ReadableStream<Uint8Array>;
 	contentType: string;
-	contentLength: number;
+	contentLength?: number;
 };
 
 export type ArtifactContent = {

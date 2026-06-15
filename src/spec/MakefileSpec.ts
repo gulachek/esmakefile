@@ -7,7 +7,6 @@ import {
 	Path,
 	PathLike,
 	RecipeArgs,
-	RuleID,
 	updateTarget,
 } from '../index.js';
 import {
@@ -29,6 +28,15 @@ import { expect } from 'chai';
 import { dirname, resolve, join } from 'node:path';
 import { existsSync, Stats, statSync } from 'node:fs';
 import { Build } from '../Build.js';
+import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
+import { LogLevel, setLoggerProvider } from '../logs.js';
+import { ATTR_EXCEPTION_MESSAGE } from '@opentelemetry/semantic-conventions';
+import {
+	EVENT_RECIPE_BEGIN,
+	EVENT_RECIPE_EXCEPTION,
+	EVENT_TARGET_STALE_NO_RECIPE,
+	EVENT_TARGET_UP_TO_DATE,
+} from '../names.js';
 
 abstract class TestRule {
 	public buildCount: number = 0;
@@ -68,8 +76,6 @@ class WriteFileRule extends TestRule implements IRule {
 	}
 
 	override async onBuild(args: RecipeArgs) {
-		args.logStream.write(`Writing ${this.path}`, 'utf8');
-
 		const path = args.abs(this.path);
 		await writeFile(path, this.txt, 'utf8');
 		return true;
@@ -166,6 +172,13 @@ function waitMs(ms: number): Promise<void> {
 }
 
 describe('Makefile', () => {
+	let logs: InMemoryLoggerProvider;
+
+	beforeEach(() => {
+		logs = new InMemoryLoggerProvider();
+		setLoggerProvider(logs);
+	});
+
 	describe('targets', () => {
 		it('lists targets by path relative to build dir', () => {
 			const make = new Makefile();
@@ -289,6 +302,19 @@ describe('Makefile', () => {
 			expect(result).to.be.true;
 		});
 
+		it('debug logs when a recipe begins', async () => {
+			make.add('all', () => {});
+			await updateTarget(make);
+
+			const evts = logs.findEvents(EVENT_RECIPE_BEGIN);
+			expect(evts.length).to.equal(
+				1,
+				`Expected an event named ${EVENT_RECIPE_BEGIN}`,
+			);
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.debug);
+		});
+
 		it('builds a phony target', async () => {
 			let count = 0;
 			make.add('all', () => {
@@ -355,6 +381,24 @@ describe('Makefile', () => {
 
 			const result = await updateTarget(make, path);
 			expect(result).to.be.false;
+		});
+
+		it('logs an exception event when recipe throws', async () => {
+			const thrownMsg = 'thrown message';
+			make.add('throw', () => {
+				throw new Error(thrownMsg);
+			});
+
+			await updateTarget(make);
+
+			const evts = logs.findEvents(EVENT_RECIPE_EXCEPTION);
+			expect(evts.length).to.equal(
+				1,
+				'expected an esmakefile.recipe.exception event',
+			);
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.error, 'expected error level');
+			expect(e.attributes[ATTR_EXCEPTION_MESSAGE]).to.equal(thrownMsg);
 		});
 
 		it('builds first target by default', async () => {
@@ -734,6 +778,26 @@ describe('Makefile', () => {
 			expect(copy.buildCount).to.equal(1);
 		});
 
+		it('logs a debug event when a target is already up to date', async () => {
+			const srcPath = Path.src('src.txt');
+			const outPath = Path.build('out.txt');
+
+			await writePath(srcPath, 'contents');
+
+			const copy = new CopyFileRule(srcPath, outPath);
+			make.add(copy);
+
+			await updateTarget(make, outPath);
+			await waitMs(1);
+			logs.clear();
+			await updateTarget(make, outPath);
+
+			const evts = logs.findEvents(EVENT_TARGET_UP_TO_DATE);
+			expect(evts).not.to.be.empty;
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.debug);
+		});
+
 		describe('with postreqs', () => {
 			const aPath = Path.src('a.txt');
 			const bPath = Path.src('b.txt');
@@ -949,10 +1013,10 @@ describe('Makefile', () => {
 			const result = await build.run();
 			expect(result).to.be.true;
 
-			expect(build.warnings[0].msg.indexOf(stale.rel())).to.be.greaterThan(
-				-1,
-				'build did not warn of stale target with no means to update',
-			);
+			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
+			expect(evts).not.to.be.empty;
+			const e = evts[0];
+			expect(e.level).to.equal(LogLevel.warn);
 		});
 
 		it('does not warn if a phony target without a recipe is stale', async () => {
@@ -967,42 +1031,8 @@ describe('Makefile', () => {
 			const result = await build.run();
 			expect(result).to.be.true;
 
-			expect(build.warnings.length).to.equal(0);
-		});
-
-		it('notifies caller of updated target', async () => {
-			const targ = Path.build('test');
-			make.add(targ, () => {});
-			let updateCalled = false;
-
-			const build = new Build(make, targ);
-
-			build.on('update', () => {
-				updateCalled = true;
-			});
-
-			await build.run();
-
-			expect(updateCalled, 'update called').to.be.true;
-		});
-
-		it('notifies caller when recipe logs information', async () => {
-			const out = Path.build('out.txt');
-			const write = new WriteFileRule(out, 'hello');
-			const id = make.add(write);
-			let logCalled = false;
-
-			const build = new Build(make, out);
-
-			build.on('recipe-log', (rid: RuleID, data: Buffer) => {
-				expect(rid).to.equal(id);
-				expect(data.toString('utf8')).to.match(/^Writing/);
-				logCalled = true;
-			});
-
-			await build.run();
-
-			expect(logCalled, 'log called').to.be.true;
+			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
+			expect(evts).to.be.empty;
 		});
 
 		it('is an error when the srcRoot is not a directory', async () => {
@@ -1011,12 +1041,13 @@ describe('Makefile', () => {
 			await rm(srcRoot, { recursive: true });
 
 			const build = new Build(make);
+
 			const result = await build.run();
 			expect(result, 'should fail').to.be.false;
-			expect(build.errors[0].msg.indexOf(srcRoot)).to.be.greaterThan(
-				-1,
+			expect(
+				logs.find(LogLevel.error, srcRoot),
 				'build did not indicate srcRoot is unreadable',
-			);
+			).not.to.be.null;
 		});
 
 		it('is an error when the buildRoot is not created', async () => {
@@ -1034,10 +1065,10 @@ describe('Makefile', () => {
 			await restoreDirWriting(nested);
 
 			expect(result, 'should fail').to.be.false;
-			expect(build.errors[0].msg.indexOf(myBuild)).to.be.greaterThan(
-				-1,
+			expect(
+				logs.find(LogLevel.error, myBuild),
 				'build did not indicate buildRoot is not writable',
-			);
+			).not.to.be.null;
 		});
 
 		it('is an error when a cycle exists', async () => {
@@ -1048,9 +1079,13 @@ describe('Makefile', () => {
 			make.add(b, a);
 
 			const build = new Build(make, a);
+
 			const result = await build.run();
 			expect(result).to.be.false;
-			expect(/[Cc]ircular/.test(build.errors[0].msg)).to.be.true;
+			expect(
+				logs.find(LogLevel.error, /[Cc]ircular/),
+				'build did not indicate a circular dependency was found',
+			).not.to.be.null;
 		});
 	});
 });

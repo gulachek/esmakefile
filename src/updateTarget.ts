@@ -1,7 +1,6 @@
 import { Makefile, RuleID } from './Makefile.js';
 import { Build } from './Build.js';
 import { BuildPathLike } from './Path.js';
-
 /**
  * Updates a target in a Makefile.  If no goal is specified,
  * then the first target in the Makefile will be the goal.
@@ -20,20 +19,13 @@ export function updateTarget(
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace experimental {
-	export interface IDiagnostic {
-		msg: string;
-	}
-
 	export interface IRecipeResults {
-		consoleOutput: string;
 		result: boolean;
 	}
 
 	interface IUpdateTargetResults {
 		result: boolean;
 		recipes: Map<RuleID, IRecipeResults>;
-		errors: IDiagnostic[];
-		warnings: IDiagnostic[];
 	}
 
 	export async function updateTarget(
@@ -41,23 +33,19 @@ export namespace experimental {
 		goal?: BuildPathLike,
 	): Promise<IUpdateTargetResults> {
 		const build = new Build(make, goal);
-		const result = await build.run();
 
-		const { errors, warnings } = build;
+		const result = await build.run();
 
 		const recipes = new Map<RuleID, IRecipeResults>();
 
 		for (const [ruleId, _, completeInfo] of build.completedRecipes()) {
 			recipes.set(ruleId, {
 				result: completeInfo.result,
-				consoleOutput: build.contentOfLog(ruleId) || '',
 			});
 		}
 
 		return {
 			result,
-			errors,
-			warnings,
 			recipes,
 		};
 	}

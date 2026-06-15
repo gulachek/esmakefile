@@ -1,9 +1,10 @@
 import { writeFile } from 'fs/promises';
-import { Path, cli, Makefile, ICliFnOpts } from '../index.js';
+import { Path, cli, Makefile, ICliFnOpts, getLogger } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
 
 cli((make: Makefile, opts: ICliFnOpts) => {
+	const logger = getLogger({ name: 'esmakefile.example.make' });
 	const scssFile = Path.src('src/style.scss');
 	const main = Path.build('main');
 	const css = Path.build('style.css');
@@ -13,8 +14,8 @@ cli((make: Makefile, opts: ICliFnOpts) => {
 
 	addSass(make, scssFile, 'style.css');
 
-	make.add(checkIsDev, (args) => {
-		args.logStream.write(`Is development? ${opts.isDevelopment}`);
+	make.add(checkIsDev, () => {
+		logger.info(`Is development? ${opts.isDevelopment}`);
 	});
 
 	addClangExecutable(make, 'main', ['src/main.cpp', 'src/hello.cpp']);
@@ -23,32 +24,26 @@ cli((make: Makefile, opts: ICliFnOpts) => {
 		return args.spawn(args.abs(main), []);
 	});
 
-	make.add('line-feed', (args) => {
-		args.logStream.write('one\ntwo\nthree\n\n\n');
-		return false;
-	});
-
-	make.add('carriage-return', (args) => {
-		args.logStream.write('one\r\ntwo\r\nthree');
-		return false;
-	});
-
 	make.add('missing-prereq', 'does-not-exist', () => {
 		return true;
 	});
 
-	make.add('warning', (args) => {
-		args.logStream.write('Warning: this is a test warning.');
+	make.add('warning', () => {
+		logger.warn('This is a test warning.');
 		return true;
 	});
 
-	make.add('error', (args) => {
-		args.logStream.write('Error: this is a test error.');
+	make.add('error', () => {
+		logger.error('This is a test error');
 		return false;
 	});
 
-	make.add('white-space-log', (args) => {
-		args.logStream.write('   \n\t\r\n  \n\n  \n');
+	make.add('throw', () => {
+		throw new Error('hehehe');
+	});
+
+	make.add('white-space-log', () => {
+		logger.info('   \n\t\r\n  \n\n  \n');
 		return true;
 	});
 
@@ -69,8 +64,8 @@ cli((make: Makefile, opts: ICliFnOpts) => {
 		});
 	});
 
-	make.add(['grouped-error', 'grouped-error2'], (args) => {
-		args.logStream.write('Error message for grouped targets');
+	make.add(['grouped-error', 'grouped-error2'], () => {
+		logger.error('Error message for grouped targets');
 		return false;
 	});
 

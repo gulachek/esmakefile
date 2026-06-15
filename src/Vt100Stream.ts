@@ -28,7 +28,7 @@ export class Vt100Stream extends Writable {
 	}
 
 	contents() {
-		return this._chunks.map((b) => b.toString()).join('');
+		return Buffer.concat(this._chunks);
 	}
 
 	vtOn<E extends BuildEvent>(e: E, l: Listener<E>): void {

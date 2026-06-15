@@ -13,14 +13,18 @@ import {
 	RecipeArgs,
 } from './Rule.js';
 import { BuildPathLike, IBuildPath, IPathRoots, Path } from './Path.js';
-import { Vt100Stream } from './Vt100Stream.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
-import { EventEmitter } from 'node:events';
-import { Writable } from 'node:stream';
 import { resolve } from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
+import { Logger, getLogger } from './logs.js';
+import {
+	EVENT_RECIPE_BEGIN,
+	EVENT_RECIPE_EXCEPTION,
+	EVENT_TARGET_STALE_NO_RECIPE,
+	EVENT_TARGET_UP_TO_DATE,
+} from './names.js';
 
 type RecipeInProgressInfo = {
 	complete: false;
@@ -62,35 +66,24 @@ export class Build {
 	private _make: Makefile;
 	public readonly goal: IBuildPath;
 
-	private _event = new EventEmitter();
 	private _rules = new Map<RuleID, RuleInfo>();
 
 	private _targets = new Map<string, TargetInfo>();
 	private _builtTargets = new Map<string, TargetCompleteInfo>();
 
 	private _info = new Map<RuleID, RecipeBuildInfo>();
-	private _logs = new Map<RuleID, Vt100Stream>();
 	private _recipeResults: RecipeResults[] = [];
-
-	public readonly errors: BuildDiagnostic[] = [];
-	public readonly warnings: BuildDiagnostic[] = [];
+	private _logger: Logger;
 
 	constructor(make: Makefile, goal?: BuildPathLike) {
 		this._make = make;
 		this.goal = (goal && Path.build(goal)) || make.defaultGoal;
 		this._roots = { build: make.buildRoot, src: make.srcRoot };
+		this._logger = getLogger({ name: 'esmakefile.Build' });
 
 		for (const { rule, id } of make.rules()) {
 			this._rules.set(id, this.normalizeRule(id, rule));
 		}
-	}
-
-	on<E extends BuildEvent>(e: E, l: Listener<E>): void {
-		this._event.on(e, l);
-	}
-
-	off<E extends BuildEvent>(e: E, l: Listener<E>): void {
-		this._event.off(e, l);
 	}
 
 	elapsedMsOf(ruleId: RuleID, now?: number): number {
@@ -103,12 +96,6 @@ export class Build {
 		}
 	}
 
-	contentOfLog(ruleId: RuleID): string | null {
-		const stream = this._logs.get(ruleId);
-		if (!stream) return null;
-		return stream.contents();
-	}
-
 	private normalizeRule(id: RuleID, rule: IRule): RuleInfo {
 		const prereqs = rulePrereqs(rule);
 		const targets = ruleTargets(rule);
@@ -118,8 +105,7 @@ export class Build {
 		if (innerRecipe) {
 			recipe = async () => {
 				const src = new Set<string>();
-				const stream = this.createLogStream(id);
-				const recipeArgs = new RecipeArgs(this._roots, src, stream);
+				const recipeArgs = new RecipeArgs(this._roots, src);
 
 				const result = await innerRecipe(recipeArgs);
 
@@ -133,10 +119,6 @@ export class Build {
 		}
 
 		return { sources: prereqs, targets, recipe };
-	}
-
-	private _emit<E extends BuildEvent>(e: E, ...data: BuildEventMap[E]): void {
-		this._event.emit(e, ...data);
 	}
 
 	private _reportCycle(): boolean {
@@ -157,7 +139,7 @@ export class Build {
 		const cycle = cd.findCycle();
 		if (cycle) {
 			const pathStr = cycle.path.map((p) => p.rel()).join(' -> ');
-			this.addError(`Circular dependency detected: ${pathStr}`);
+			this._logger.error(`Circular dependency detected: ${pathStr}`);
 			return true;
 		}
 
@@ -180,7 +162,9 @@ export class Build {
 		}
 
 		if (!(stats && stats.isDirectory())) {
-			this.addError(`Source directory '${src}' is not a readable directory`);
+			this._logger.error(
+				`Source directory '${src}' is not a readable directory`,
+			);
 			return false;
 		}
 
@@ -189,7 +173,9 @@ export class Build {
 		try {
 			await mkdir(esmakefileDir, { recursive: true });
 		} catch (ex) {
-			this.addError(`Failed to make build directory ${build}: ${ex.message}`);
+			this._logger.error(
+				`Failed to make build directory ${build}: ${ex.message}`,
+			);
 			return false;
 		}
 
@@ -206,7 +192,13 @@ export class Build {
 
 		this._recipeResults = [];
 
+		this._logger.info(`Updating goal '${this.goal.rel()}'`);
 		const result = await this.updateAll([this.goal]);
+		if (result) {
+			this._logger.info(`Successfully updated goal '${this.goal.rel()}'`);
+		} else {
+			this._logger.error(`Failed to update goal '${this.goal.rel()}'`);
+		}
 
 		await this._make._save(this._recipeResults);
 
@@ -224,20 +216,15 @@ export class Build {
 		return results.every((b) => b);
 	}
 
-	createLogStream(id: RuleID): Writable {
-		const stream = new Vt100Stream();
-		stream.vtOn('data', (buf: Buffer) => {
-			this._emit('recipe-log', id, buf);
-		});
-		this._logs.set(id, stream);
-		return stream;
-	}
-
 	private async _findOrStartBuild(target: IBuildPath): Promise<boolean> {
 		const rel = target.rel();
+		this._logger.trace(`_findOrStartBuild('${rel}')`);
 
 		const built = this._builtTargets.get(rel);
 		if (built) {
+			this._logger.trace(
+				`_findOrStartBuild: '${rel}' is already updated. Skipping.`,
+			);
 			return built.result;
 		}
 
@@ -246,7 +233,7 @@ export class Build {
 		let targetGroup = [target];
 		const info = this._targets.get(rel);
 		if (!info) {
-			this.addError(`Makefile has no target '${rel}'.`);
+			this._logger.error(`Makefile has no target '${rel}'.`);
 			return false;
 		}
 
@@ -256,7 +243,7 @@ export class Build {
 			targetGroup = ruleInfo.targets;
 		}
 
-		result = await this._startBuild(targetGroup, recipeRule);
+		result = await this._startBuild(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
 			this._builtTargets.set(t.rel(), { result });
 		}
@@ -269,13 +256,13 @@ export class Build {
 	}
 
 	private endTarget(result: boolean): boolean {
-		this._emit('update');
 		return result;
 	}
 
 	private async _startBuild(
 		targetGroup: IBuildPath[],
 		recipeRule: RuleID | null,
+		requestedTarget: IBuildPath,
 	): Promise<boolean> {
 		const srcToBuild: IBuildPath[] = [];
 		const allSrc: Path[] = [];
@@ -310,15 +297,20 @@ export class Build {
 		}
 
 		if (targetStatus === NeedsBuildValue.upToDate) {
+			this._logger.debug({
+				eventName: EVENT_TARGET_UP_TO_DATE,
+				body: `Target '${requestedTarget.rel()}' is up to date`,
+			});
 			return this.endTarget(true);
 		}
 
 		if (!isRuleID(recipeRule)) {
 			if (targetStatus === NeedsBuildValue.stale) {
 				const rels = targetGroup.map((t) => t.rel()).join(', ');
-				this.addWarning(
-					`Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,
-				);
+				this._logger.warn({
+					eventName: EVENT_TARGET_STALE_NO_RECIPE,
+					body: `Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,
+				});
 			}
 
 			return this.endTarget(true);
@@ -350,16 +342,23 @@ export class Build {
 			await mkdir(t.dir().abs(this._roots.build), { recursive: true });
 		}
 
-		this._emit('update');
-
 		let result = false;
 		let exception: Error | undefined;
 
 		try {
+			this._logger.debug({
+				eventName: EVENT_RECIPE_BEGIN,
+				body: `Updating target '${requestedTarget.rel()}'`,
+			});
 			result = await recipeInfo.recipe();
 		} catch (err) {
 			exception = err;
 			result = false;
+			this._logger.error({
+				eventName: EVENT_RECIPE_EXCEPTION,
+				body: 'Recipe threw an exception',
+				exception: err,
+			});
 		}
 
 		const completeInfo: RecipeCompleteInfo = {
@@ -370,18 +369,13 @@ export class Build {
 			exception,
 		};
 
+		if (!result) {
+			this._logger.error(`Failed to update target '${requestedTarget.rel()}'`);
+		}
+
 		resolve(completeInfo);
 		this._info.set(recipeRule, completeInfo);
 		return this.endTarget(result);
-	}
-
-	private addError(msg: string) {
-		this._event.emit('diagnostic');
-		this.errors.push({ msg });
-	}
-
-	private addWarning(msg: string) {
-		this.warnings.push({ msg });
 	}
 
 	private _needsBuild(
@@ -399,7 +393,7 @@ export class Build {
 			} else if (prereq.isBuildPath() && this._targets.has(prereq.rel())) {
 				newestDepMtimeMs = Infinity;
 			} else {
-				this.addError(`Missing prereq file '${abs}'.`);
+				this._logger.error(`Missing prereq file '${abs}'.`);
 				return NeedsBuildValue.missingSrc;
 			}
 		}
@@ -465,16 +459,6 @@ function makePromise<T>(): IPromisePieces<T> {
 	});
 	return { resolve, reject, promise };
 }
-
-type BuildEventMap = {
-	update: [];
-	diagnostic: [];
-	'recipe-log': [RuleID, Buffer];
-};
-
-export type BuildEvent = keyof BuildEventMap;
-
-type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
 
 export type RuleInfo = {
 	recipe: () => Promise<boolean> | null;

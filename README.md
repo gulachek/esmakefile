@@ -245,3 +245,105 @@ way to run an esmakefile build system. It accepts a `Makefile`
 and an optional `goal` to update the given goal. This is notably
 useful in automated testing scenarios for higher level tools
 built on top of esmakefile.
+
+### Observability
+
+esmakefile builds on top of
+[OpenTelemetry](https://opentelemetry.io/). The goal is to
+provide rich analysis and diagnostic information for the user's
+build system. The goal is _not_ to require users to set up
+complex backend databases to store this telemetry like with high
+availability cloud services, but rather to build on top of a
+rich industry-standard framework. Hence, esmakefile's CLI acts
+as an otel collector for local analysis.
+
+#### Logs
+
+Because the `@opentelemetry/api@1.9.1` package does not support
+logs, esmakefile currently exposes a basic logging framework.
+
+See the following example for basic usage.
+
+```js
+import { cli, getLogger, LogLevel } from 'esmakefile';
+
+cli((make) => {
+	const logger = getLogger({ name: 'my.logger.name' });
+
+    if (logger.enabled({ level: LogLevel.trace })) {
+        logger.trace('My trace log');
+    }
+
+    if (logger.enabled({ level: LogLevel.debug })) {
+        logger.debug('My debug log');
+    }
+
+    logger.warn('beware');
+
+	make.add('info', () => {
+		logger.info('info target recipe is being run');
+		logger.info({
+            eventName: 'my.event.name',
+            body: 'A display message',
+            attributes: {
+                'my.attribute': 'value'
+            }
+        });
+	});
+
+	make.add('error', () => {
+        try {
+            throw new Error('hehe');
+        } catch (ex) {
+            logger.error({
+                body: 'This is a test error',
+                exception: ex
+            });
+        }
+		return false;
+	});
+
+    if (/* really bad condition */) {
+        logger.fatal('uhhhh wut?');
+        process.exit(1);
+    }
+});
+```
+
+#### Artifact Storage
+
+In addition to OpenTelemetry, esmakefile exposes a simple
+S3-inspired API for artifact storage. This is intended for
+special cases where telemetry may need to be enhanced with
+potentially large payloads, such as associating a log or trace
+with the output of a process. In this case, the process output
+would be stored as an artifact with metadata like the output's
+file format, and then visualization tools would confidently know
+how to render the process's output when correlated with the
+other telemetry.
+
+See the following example for usage.
+
+```js
+import { getArtifactStore, getLogger, ATTR_ARTIFACT_ID } from 'esmakefile';
+
+async function uploadHelloAndLog() {
+	const store = getArtifactStore();
+	const content = new TextEncoder().encode('hello');
+	const artifactId = await store.put({ content, contentType: 'text/plain' });
+
+	const logger = getLogger({ name: 'my.logger' });
+	logger.info({
+		body: 'Uploaded "hello"',
+		attributes: {
+			[ATTR_ARTIFACT_ID]: artifactId,
+		},
+	});
+}
+```
+
+#### Semantic Conventions
+
+For semantic conventions specific to esmakefile, such as logging
+child process output, see
+[docs/otel-conventions.md](./docs/otel-conventions.md).

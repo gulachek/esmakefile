@@ -58,7 +58,7 @@ describe('RecipeArgs', () => {
 			const { content, contentType } = artifact!;
 			expect(contentType).to.equal(MIME_TYPE_ANSI_STREAM);
 			const contentStr = new TextDecoder('ascii').decode(content);
-			expect(contentStr).to.equal('Hello\n');
+			expect(contentStr).to.equal('Hello\r\n');
 		});
 
 		it('logs an error event when command output fails to upload', async () => {
@@ -99,7 +99,7 @@ describe('RecipeArgs', () => {
 			const { content, contentType } = artifact!;
 			expect(contentType).to.equal(MIME_TYPE_ANSI_STREAM);
 			const contentStr = new TextDecoder('ascii').decode(content);
-			expect(contentStr).to.equal('Hello\n');
+			expect(contentStr).to.equal('Hello\r\n');
 		});
 	});
 });

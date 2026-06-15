@@ -24,8 +24,23 @@ import {
 	ATTR_EXCEPTION_MESSAGE,
 	ATTR_EXCEPTION_STACKTRACE,
 	ATTR_EXCEPTION_TYPE,
+	ATTR_SERVICE_NAME,
+	ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
-import { ATTR_ARTIFACT_ID, EVENT_RECIPE_CHILD_PROCESS_OUTPUT } from './names.js';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import {
+	ATTR_ARTIFACT_ID,
+	EVENT_RECIPE_CHILD_PROCESS_OUTPUT,
+} from './names.js';
+
+const sdk = new NodeSDK({
+	resource: resourceFromAttributes({
+		[ATTR_SERVICE_NAME]: 'esmakefile',
+		[ATTR_SERVICE_VERSION]: '0.6.3', // TODO: make this more automatic
+	}),
+});
+sdk.start();
 
 export interface ICliFnOpts {
 	isDevelopment: boolean;

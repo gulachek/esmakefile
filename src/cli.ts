@@ -91,6 +91,7 @@ export function cli(fn: CliFn): void {
 		.action(async function (goal?: string) {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
+			loggerProvider.resume();
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
 			const result = await runBuild(make, goalPath);
@@ -106,6 +107,7 @@ export function cli(fn: CliFn): void {
 		.action(async function (goal?: string) {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
+			loggerProvider.resume();
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
 

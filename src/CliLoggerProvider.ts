@@ -29,7 +29,7 @@ export class CliLoggerProvider implements ILoggerProvider {
 	private evt: LoggerEventEmitter;
 	private logger: Logger;
 	private store: ArtifactStore;
-	private paused: boolean = false;
+	private paused: boolean = true;
 	private q: LogRecord[] = [];
 	private loggers = new WeakLinkedList<Logger>();
 

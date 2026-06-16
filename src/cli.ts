@@ -227,6 +227,15 @@ class CliLoggerProvider implements ILoggerProvider {
 		return l;
 	}
 
+	pause(): void {
+		this.paused = true;
+	}
+
+	resume(): void {
+		this.paused = false;
+		this.processQ();
+	}
+
 	private log(l: LogRecord): void {
 		if (l.level < this.level) return;
 		if (this.paused) {
@@ -259,7 +268,7 @@ class CliLoggerProvider implements ILoggerProvider {
 			const artifactId = attributes && attributes[ATTR_ARTIFACT_ID];
 			if (typeof artifactId !== 'string') return;
 
-			this.paused = true;
+			this.pause();
 			this.store
 				.getStream(artifactId)
 				.then((artifact) => {
@@ -283,8 +292,7 @@ class CliLoggerProvider implements ILoggerProvider {
 					});
 				})
 				.finally(() => {
-					this.paused = false;
-					this.processQ();
+					this.resume();
 				});
 		}
 	}

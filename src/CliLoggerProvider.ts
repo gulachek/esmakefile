@@ -73,7 +73,6 @@ export class CliLoggerProvider implements ILoggerProvider {
 	}
 
 	private log(l: LogRecord): void {
-		if (l.level < this.level) return;
 		if (this.paused) {
 			this.q.push(l);
 		} else {
@@ -83,6 +82,8 @@ export class CliLoggerProvider implements ILoggerProvider {
 
 	private printLog(l: LogRecord): void {
 		const { timeStamp, body, level, eventName, attributes } = l;
+
+		if (level < this.level) return;
 
 		const tStr =
 			'[' + chalk.cyan(fmtElapsedTime(timeStamp - this.tStart)) + ']';

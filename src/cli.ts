@@ -19,6 +19,10 @@ const artifactImpl = new InMemoryArtifactStore();
 setArtifactStoreImpl(artifactImpl);
 const store = new ArtifactStore(artifactImpl);
 
+const loggerProvider = setLoggerProvider(
+	new CliLoggerProvider(performance.now(), store),
+);
+
 const sdk = new NodeSDK({
 	resource: resourceFromAttributes({
 		[ATTR_SERVICE_NAME]: 'esmakefile',
@@ -86,9 +90,6 @@ export function cli(fn: CliFn): void {
 		.argument('[goal]', 'The goal target to be built')
 		.action(async function (goal?: string) {
 			const opts = this.opts();
-			const loggerProvider = setLoggerProvider(
-				new CliLoggerProvider(performance.now(), store),
-			);
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
@@ -104,9 +105,6 @@ export function cli(fn: CliFn): void {
 		.option('--development', devDesc, true)
 		.action(async function (goal?: string) {
 			const opts = this.opts();
-			const loggerProvider = setLoggerProvider(
-				new CliLoggerProvider(performance.now(), store),
-			);
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);

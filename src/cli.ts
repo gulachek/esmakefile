@@ -35,6 +35,10 @@ import {
 } from './names.js';
 import { WeakLinkedList } from './WeakLinkedList.js';
 
+const artifactImpl = new InMemoryArtifactStore();
+setArtifactStoreImpl(artifactImpl);
+const store = new ArtifactStore(artifactImpl);
+
 const sdk = new NodeSDK({
 	resource: resourceFromAttributes({
 		[ATTR_SERVICE_NAME]: 'esmakefile',
@@ -50,10 +54,6 @@ export interface ICliFnOpts {
 export type CliFn = (make: Makefile, opts: ICliFnOpts) => void;
 
 export function cli(fn: CliFn): void {
-	const artifactImpl = new InMemoryArtifactStore();
-	setArtifactStoreImpl(artifactImpl);
-	const store = new ArtifactStore(artifactImpl);
-
 	const program = new Command();
 
 	const devDesc = 'Specifies this is a development build';

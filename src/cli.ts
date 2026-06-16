@@ -106,9 +106,10 @@ export function cli(fn: CliFn): void {
 		.argument('[goal]', 'The goal target to be built')
 		.action(async function (goal?: string) {
 			const opts = this.opts();
-			setLoggerProvider(
-				new CliLoggerProvider(performance.now(), parseLogLevel(opts), store),
+			const loggerProvider = setLoggerProvider(
+				new CliLoggerProvider(performance.now(), store),
 			);
+			loggerProvider.setLogLevel(parseLogLevel(opts));
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
 			const result = await runBuild(make, goalPath);
@@ -123,12 +124,10 @@ export function cli(fn: CliFn): void {
 		.option('--development', devDesc, true)
 		.action(async function (goal?: string) {
 			const opts = this.opts();
-			const loggerProvider = new CliLoggerProvider(
-				performance.now(),
-				parseLogLevel(opts),
-				store,
+			const loggerProvider = setLoggerProvider(
+				new CliLoggerProvider(performance.now(), store),
 			);
-			setLoggerProvider(loggerProvider);
+			loggerProvider.setLogLevel(parseLogLevel(opts));
 			const make = makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
 
@@ -206,9 +205,8 @@ class CliLoggerProvider implements ILoggerProvider {
 	private q: LogRecord[] = [];
 	private loggers = new WeakLinkedList<Logger>();
 
-	constructor(tStart: number, level: LogLevel, store: ArtifactStore) {
+	constructor(tStart: number, store: ArtifactStore) {
 		this.store = store;
-		this.level = level;
 		this.evt = new EventEmitter() as LoggerEventEmitter;
 		this.evt.on('log', (r) => this.log(r));
 		this.logger = this.getLogger({ name: 'esmakefile.CliLoggerProvider' });

@@ -150,7 +150,7 @@ class NoopLoggerProvider implements ILoggerProvider {
 
 let loggerProvider: ILoggerProvider = new NoopLoggerProvider();
 
-export function setLoggerProvider(provider: ILoggerProvider): ILoggerProvider {
+export function setLoggerProvider<T extends ILoggerProvider>(provider: T): T {
 	return (loggerProvider = provider);
 }
 

@@ -33,6 +33,7 @@ import {
 	ATTR_ARTIFACT_ID,
 	EVENT_RECIPE_CHILD_PROCESS_OUTPUT,
 } from './names.js';
+import { WeakLinkedList } from './WeakLinkedList.js';
 
 const sdk = new NodeSDK({
 	resource: resourceFromAttributes({
@@ -203,6 +204,7 @@ class CliLoggerProvider implements ILoggerProvider {
 	private store: ArtifactStore;
 	private paused: boolean = false;
 	private q: LogRecord[] = [];
+	private loggers = new WeakLinkedList<Logger>();
 
 	constructor(tStart: number, level: LogLevel, store: ArtifactStore) {
 		this.store = store;
@@ -224,7 +226,15 @@ class CliLoggerProvider implements ILoggerProvider {
 	getLogger(opts: GetLoggerOpts): Logger {
 		const l = new Logger(this.evt, opts);
 		l.setLogLevel(this.level);
+		this.loggers.push(l);
 		return l;
+	}
+
+	setLogLevel(level: LogLevel): LogLevel {
+		for (const l of this.loggers) {
+			l.setLogLevel(level);
+		}
+		return (this.level = level);
 	}
 
 	pause(): void {

@@ -8,8 +8,8 @@ export {
 	isBuildPathLike,
 	BuildPathGenOpts,
 } from './Path.js';
-export { cli, CliFn } from './cli.js';
-export { Makefile, RuleID } from './Makefile.js';
+export { cli } from './cli.js';
+export { Makefile, MakefileFn, RuleID } from './Makefile.js';
 export { IRule, RecipeArgs } from './Rule.js';
 export { updateTarget, experimental } from './updateTarget.js';
 export {

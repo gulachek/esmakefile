@@ -1,4 +1,4 @@
-import { Makefile } from './Makefile.js';
+import { Makefile, MakefileFn } from './Makefile.js';
 import { Path, IBuildPath } from './Path.js';
 import { Build } from './Build.js';
 import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
@@ -31,9 +31,7 @@ const sdk = new NodeSDK({
 });
 sdk.start();
 
-export type CliFn = (make: Makefile) => void | Promise<void>;
-
-export function cli(fn: CliFn): void {
+export function cli(fn: MakefileFn): void {
 	const program = new Command();
 	const logger = loggerProvider.getLogger({ name: 'esmakefile.cli' });
 

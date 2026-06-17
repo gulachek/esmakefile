@@ -89,7 +89,18 @@ export function cli(fn: CliFn): void {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
-			const make = await makeMakefile(opts);
+
+			let make: Makefile;
+			try {
+				make = await makeMakefile(opts);
+			} catch (ex) {
+				logger.fatal({
+					body: 'Failed to create Makefile',
+					exception: ex,
+				});
+				process.exit(1);
+			}
+
 			const goalPath = goal && Path.build(goal);
 			const result = await runBuild(make, goalPath);
 
@@ -105,7 +116,18 @@ export function cli(fn: CliFn): void {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
-			const make = await makeMakefile(opts);
+
+			let make: Makefile;
+			try {
+				make = await makeMakefile(opts);
+			} catch (ex) {
+				logger.fatal({
+					body: 'Failed to create Makefile',
+					exception: ex,
+				});
+				process.exit(1);
+			}
+
 			const goalPath = goal && Path.build(goal);
 
 			const watcher = new SourceWatcher(make.srcRoot, {
@@ -137,7 +159,19 @@ export function cli(fn: CliFn): void {
 		.command('list')
 		.description('List all targets')
 		.action(async function () {
-			const make = await makeMakefile(this.opts());
+			let make: Makefile;
+			try {
+				make = await makeMakefile(this.opts());
+			} catch (ex) {
+				// TODO - make this command work with logs
+				loggerProvider.resume();
+				logger.fatal({
+					body: 'Failed to create Makefile',
+					exception: ex,
+				});
+				process.exit(1);
+			}
+
 			for (const t of make.targets()) {
 				console.log(t);
 			}

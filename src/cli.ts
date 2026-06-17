@@ -31,11 +31,7 @@ const sdk = new NodeSDK({
 });
 sdk.start();
 
-export interface ICliFnOpts {
-	isDevelopment: boolean;
-}
-
-export type CliFn = (make: Makefile, opts: ICliFnOpts) => void;
+export type CliFn = (make: Makefile) => void;
 
 export function cli(fn: CliFn): void {
 	const program = new Command();
@@ -62,7 +58,7 @@ export function cli(fn: CliFn): void {
 			srcRoot: opts['srcdir'],
 			buildRoot: opts['outdir'],
 		});
-		fn(make, { isDevelopment: !!opts['development'] });
+		fn(make);
 		return make;
 	};
 

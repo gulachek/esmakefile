@@ -31,7 +31,7 @@ const sdk = new NodeSDK({
 });
 sdk.start();
 
-export type CliFn = (make: Makefile) => void;
+export type CliFn = (make: Makefile) => void | Promise<void>;
 
 export function cli(fn: CliFn): void {
 	const program = new Command();
@@ -52,13 +52,13 @@ export function cli(fn: CliFn): void {
 	program.option('--trace', 'Sets the log level to "trace"', false);
 	program.option('-v, --debug', 'Sets the log level to "debug"', false);
 
-	const makeMakefile = (cmdOpts: OptionValues) => {
+	const makeMakefile = async (cmdOpts: OptionValues) => {
 		const opts = { ...program.opts(), ...cmdOpts };
 		const make = new Makefile({
 			srcRoot: opts['srcdir'],
 			buildRoot: opts['outdir'],
 		});
-		fn(make);
+		await Promise.resolve(fn(make));
 		return make;
 	};
 
@@ -88,7 +88,7 @@ export function cli(fn: CliFn): void {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
-			const make = makeMakefile(opts);
+			const make = await makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
 			const result = await runBuild(make, goalPath);
 
@@ -104,7 +104,7 @@ export function cli(fn: CliFn): void {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
-			const make = makeMakefile(opts);
+			const make = await makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
 
 			const logger = loggerProvider.getLogger({ name: 'esmakefile.cli.watch' });
@@ -137,8 +137,8 @@ export function cli(fn: CliFn): void {
 	program
 		.command('list')
 		.description('List all targets')
-		.action(function () {
-			const make = makeMakefile(this.opts());
+		.action(async function () {
+			const make = await makeMakefile(this.opts());
 			for (const t of make.targets()) {
 				console.log(t);
 			}

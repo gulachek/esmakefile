@@ -35,6 +35,7 @@ export type CliFn = (make: Makefile) => void | Promise<void>;
 
 export function cli(fn: CliFn): void {
 	const program = new Command();
+	const logger = loggerProvider.getLogger({ name: 'esmakefile.cli' });
 
 	const devDesc = 'Specifies this is a development build';
 	program.option('--development', devDesc, false);
@@ -106,8 +107,6 @@ export function cli(fn: CliFn): void {
 			loggerProvider.resume();
 			const make = await makeMakefile(opts);
 			const goalPath = goal && Path.build(goal);
-
-			const logger = loggerProvider.getLogger({ name: 'esmakefile.cli.watch' });
 
 			const watcher = new SourceWatcher(make.srcRoot, {
 				debounceMs: 300,

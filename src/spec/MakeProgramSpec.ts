@@ -1,5 +1,6 @@
 import {
 	Makefile,
+	MakeProgram,
 	IRule,
 	BuildPathLike,
 	IBuildPath,
@@ -8,6 +9,7 @@ import {
 	PathLike,
 	RecipeArgs,
 	updateTarget,
+	MakefileFn,
 } from '../index.js';
 import {
 	writeFile,
@@ -27,7 +29,6 @@ import { expect } from 'chai';
 
 import { dirname, resolve, join } from 'node:path';
 import { existsSync, Stats, statSync } from 'node:fs';
-import { Build } from '../Build.js';
 import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
 import { LogLevel, setLoggerProvider } from '../logs.js';
 import { ATTR_EXCEPTION_MESSAGE } from '@opentelemetry/semantic-conventions';
@@ -171,7 +172,7 @@ function waitMs(ms: number): Promise<void> {
 	return new Promise((res) => setTimeout(res, ms));
 }
 
-describe('Makefile', () => {
+describe('MakeProgram', () => {
 	let logs: InMemoryLoggerProvider;
 
 	beforeEach(() => {
@@ -272,6 +273,10 @@ describe('Makefile', () => {
 
 		function rmPath(path: Path): Promise<void> {
 			return rm(abs(path));
+		}
+
+		async function parse(makeFn: MakefileFn): Promise<MakeProgram> {
+			return MakeProgram.parse(makeFn, { srcRoot, buildRoot });
 		}
 
 		function resetMakefile(): void {
@@ -1010,11 +1015,11 @@ describe('Makefile', () => {
 			await waitMs(1);
 			await writePath(src, 'src');
 
-			make.add(stale, src);
+			const prg = await parse((make) => {
+				make.add(stale, src);
+			});
 
-			const build = new Build(make, stale);
-
-			const result = await build.run();
+			const result = await prg.update(stale);
 			expect(result).to.be.true;
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
@@ -1028,11 +1033,11 @@ describe('Makefile', () => {
 
 			await writePath(src, 'src');
 
-			make.add('phony', src);
+			const prg = await parse((make) => {
+				make.add('phony', src);
+			});
 
-			const build = new Build(make, 'phony');
-
-			const result = await build.run();
+			const result = await prg.update('phony');
 			expect(result).to.be.true;
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
@@ -1040,13 +1045,13 @@ describe('Makefile', () => {
 		});
 
 		it('is an error when the srcRoot is not a directory', async () => {
-			make.add('simple', () => {});
+			const prg = await parse((make) => {
+				make.add('simple', () => {});
+			});
 
 			await rm(srcRoot, { recursive: true });
 
-			const build = new Build(make);
-
-			const result = await build.run();
+			const result = await prg.update();
 			expect(result, 'should fail').to.be.false;
 			expect(
 				logs.find(LogLevel.error, srcRoot),
@@ -1058,14 +1063,16 @@ describe('Makefile', () => {
 			const nested = join(srcRoot, 'nested');
 			const myBuild = join(nested, 'build');
 			await mkdir(nested, { recursive: true });
-			const make = new Makefile({ srcRoot, buildRoot: myBuild });
 
-			make.add('simple', () => {});
-
-			const build = new Build(make);
+			const prg = await MakeProgram.parse(
+				(make) => {
+					make.add('simple', () => {});
+				},
+				{ srcRoot, buildRoot: myBuild },
+			);
 
 			await makeReadOnlyDir(nested);
-			const result = await build.run();
+			const result = await prg.update();
 			await restoreDirWriting(nested);
 
 			expect(result, 'should fail').to.be.false;
@@ -1079,12 +1086,12 @@ describe('Makefile', () => {
 			const a = Path.build('a');
 			const b = Path.build('b');
 
-			make.add(a, b);
-			make.add(b, a);
+			const prg = await parse((make) => {
+				make.add(a, b);
+				make.add(b, a);
+			});
 
-			const build = new Build(make, a);
-
-			const result = await build.run();
+			const result = await prg.update();
 			expect(result).to.be.false;
 			expect(
 				logs.find(LogLevel.error, /[Cc]ircular/),

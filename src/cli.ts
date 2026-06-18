@@ -1,8 +1,8 @@
-import { Makefile, MakefileFn } from './Makefile.js';
-import { Path, IBuildPath } from './Path.js';
-import { Build } from './Build.js';
+import { MakefileFn } from './Makefile.js';
+import { Path } from './Path.js';
 import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
 import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';
+import { MakeProgram } from './MakeProgram.js';
 
 import { Command, OptionValues } from 'commander';
 import { LogLevel, setLoggerProvider } from './logs.js';
@@ -51,14 +51,12 @@ export function cli(fn: MakefileFn): void {
 	program.option('--trace', 'Sets the log level to "trace"', false);
 	program.option('-v, --debug', 'Sets the log level to "debug"', false);
 
-	const makeMakefile = async (cmdOpts: OptionValues) => {
+	const makeProgram = async (cmdOpts: OptionValues) => {
 		const opts = { ...program.opts(), ...cmdOpts };
-		const make = new Makefile({
+		return MakeProgram.parse(fn, {
 			srcRoot: opts['srcdir'],
 			buildRoot: opts['outdir'],
 		});
-		await Promise.resolve(fn(make));
-		return make;
 	};
 
 	const parseLogLevel = (cmdOpts: OptionValues): LogLevel => {
@@ -72,13 +70,6 @@ export function cli(fn: MakefileFn): void {
 		return i;
 	};
 
-	const runBuild = async (make: Makefile, goalPath: IBuildPath) => {
-		const build = new Build(make, goalPath);
-		const result = await build.run();
-
-		return result;
-	};
-
 	program
 		.command('build', { isDefault: true })
 		.description('Build a specified target')
@@ -88,9 +79,9 @@ export function cli(fn: MakefileFn): void {
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
 
-			let make: Makefile;
+			let prg: MakeProgram;
 			try {
-				make = await makeMakefile(opts);
+				prg = await makeProgram(opts);
 			} catch (ex) {
 				logger.fatal({
 					body: 'Failed to create Makefile',
@@ -100,7 +91,7 @@ export function cli(fn: MakefileFn): void {
 			}
 
 			const goalPath = goal && Path.build(goal);
-			const result = await runBuild(make, goalPath);
+			const result = await prg.update(goalPath);
 
 			process.exit(result ? 0 : 1);
 		});
@@ -115,9 +106,9 @@ export function cli(fn: MakefileFn): void {
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
 
-			let make: Makefile;
+			let prg: MakeProgram;
 			try {
-				make = await makeMakefile(opts);
+				prg = await makeProgram(opts);
 			} catch (ex) {
 				logger.fatal({
 					body: 'Failed to create Makefile',
@@ -128,15 +119,15 @@ export function cli(fn: MakefileFn): void {
 
 			const goalPath = goal && Path.build(goal);
 
-			const watcher = new SourceWatcher(make.srcRoot, {
+			const watcher = new SourceWatcher(prg.srcRoot, {
 				debounceMs: 300,
-				excludeDir: make.buildRoot,
+				excludeDir: prg.buildRoot,
 			});
 
 			watcher.on('change', () => {
 				loggerProvider.resetClock();
 				logger.info('Detected change. Restarting update.');
-				runBuild(make, goalPath);
+				prg.update(goalPath);
 			});
 
 			watcher.on('unknown', (type: string) => {
@@ -148,18 +139,18 @@ export function cli(fn: MakefileFn): void {
 			process.stdin.on('close', closeWatcher);
 			process.stdin.on('data', drainStdin);
 
-			logger.info(`Watching '${make.srcRoot}'`);
+			logger.info(`Watching '${prg.srcRoot}'`);
 			logger.info('Close input stream to stop (usually Ctrl+D)');
-			runBuild(make, goalPath);
+			prg.update(goalPath);
 		});
 
 	program
 		.command('list')
 		.description('List all targets')
 		.action(async function () {
-			let make: Makefile;
+			let prg: MakeProgram;
 			try {
-				make = await makeMakefile(this.opts());
+				prg = await makeProgram(this.opts());
 			} catch (ex) {
 				// TODO - make this command work with logs
 				loggerProvider.resume();
@@ -170,7 +161,7 @@ export function cli(fn: MakefileFn): void {
 				process.exit(1);
 			}
 
-			for (const t of make.targets()) {
+			for (const t of prg.targets()) {
 				console.log(t);
 			}
 		});

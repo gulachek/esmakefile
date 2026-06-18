@@ -251,24 +251,28 @@ describe('Makefile', () => {
 	describe('recipe', () => {
 		let make: Makefile;
 
+		const srcRoot = resolve('test-src');
+		const buildRoot = resolve(srcRoot, 'build');
+
+		function abs(path: Path): string {
+			return path.abs({ src: srcRoot, build: buildRoot });
+		}
+
 		function writePath(path: Path, contents: string): Promise<void> {
-			return writeFile(make.abs(path), contents, 'utf8');
+			return writeFile(abs(path), contents, 'utf8');
 		}
 
 		function readPath(path: Path): Promise<string> {
-			return readFile(make.abs(path), 'utf8');
+			return readFile(abs(path), 'utf8');
 		}
 
 		function statsPath(path: Path): Promise<Stats> {
-			return stat(make.abs(path));
+			return stat(abs(path));
 		}
 
 		function rmPath(path: Path): Promise<void> {
-			return rm(make.abs(path));
+			return rm(abs(path));
 		}
-
-		const srcRoot = resolve('test-src');
-		const buildRoot = resolve(srcRoot, 'build');
 
 		function resetMakefile(): void {
 			make = new Makefile({ srcRoot, buildRoot });
@@ -944,7 +948,7 @@ describe('Makefile', () => {
 					++buildCount;
 					await writePath(outPath, 'test');
 					// only after build
-					args.addPostreq(make.abs(cpPath));
+					args.addPostreq(abs(cpPath));
 					return true;
 				},
 			};

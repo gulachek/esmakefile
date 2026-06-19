@@ -11,7 +11,6 @@ export {
 export { cli } from './cli.js';
 export { Makefile, MakefileFn, RuleID } from './Makefile.js';
 export { IRule, RecipeArgs } from './Rule.js';
-export { updateTarget, experimental } from './updateTarget.js';
 export {
 	getLogger,
 	GetLoggerOpts,

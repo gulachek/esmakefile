@@ -180,12 +180,13 @@ describe('MakeProgram', () => {
 	});
 
 	describe('targets', () => {
-		it('lists targets by path relative to build dir', () => {
-			const mk = new Makefile();
-			mk.add(new WriteFileRule('write.txt', 'hello'));
-			mk.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
+		it('lists targets by path relative to build dir', async () => {
+			const make = await MakeProgram.parse((mk) => {
+				mk.add(new WriteFileRule('write.txt', 'hello'));
+				mk.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
+			});
 
-			const targets = new Set(mk.targets());
+			const targets = new Set(make.targets());
 
 			expect(targets.size).to.equal(2);
 			expect(targets.has('write.txt')).to.be.true;
@@ -211,46 +212,58 @@ describe('MakeProgram', () => {
 		});
 
 		it('throws if two recipes are given for a target', async () => {
-			const mk = new Makefile();
-			const path = Path.build('conflict.txt');
-			const write = new WriteFileRule(path, 'hello');
-			const copy = new CopyFileRule('something.txt', path);
+			let expectationsRan = false;
+			await MakeProgram.parse((mk) => {
+				const path = Path.build('conflict.txt');
+				const write = new WriteFileRule(path, 'hello');
+				const copy = new CopyFileRule('something.txt', path);
 
-			mk.add(write);
-			expect(() => mk.add(copy)).to.throw();
+				mk.add(write);
+				expect(() => mk.add(copy)).to.throw();
+				expectationsRan = true;
+			});
+
+			expect(expectationsRan).to.be.true;
 		});
 
 		it('can add multiple rules for the same target', async () => {
-			const mk = new Makefile();
-			const target = Path.build('target.txt');
-			const anotherDep = Path.src('dep.txt');
-			const write = new WriteFileRule(target, 'hello');
-			mk.add(write);
-			expect(() => mk.add(target, anotherDep)).not.to.throw();
+			let expectationsRan = false;
+			await MakeProgram.parse((mk) => {
+				const target = Path.build('target.txt');
+				const anotherDep = Path.src('dep.txt');
+				const write = new WriteFileRule(target, 'hello');
+				mk.add(write);
+				expect(() => mk.add(target, anotherDep)).not.to.throw();
+				expectationsRan = true;
+			});
+			expect(expectationsRan).to.be.true;
 		});
 	});
 
 	describe('hasTarget', () => {
-		it('returns true if target is added to a rule', () => {
-			const mk = new Makefile();
-			mk.add('foo', () => {});
+		it('returns true if target is added to a rule', async () => {
+			const make = await MakeProgram.parse((mk) => {
+				mk.add('foo', () => {});
+			});
 
-			expect(mk.hasTarget('foo')).to.be.true;
-			expect(mk.hasTarget(Path.build('foo'))).to.be.true;
+			expect(make.hasTarget('foo')).to.be.true;
+			expect(make.hasTarget(Path.build('foo'))).to.be.true;
 		});
 
-		it('returns false if target is not added to a rule', () => {
-			const mk = new Makefile();
-			mk.add('foo', () => {});
+		it('returns false if target is not added to a rule', async () => {
+			const make = await MakeProgram.parse((mk) => {
+				mk.add('foo', () => {});
+			});
 
-			expect(mk.hasTarget('bar')).to.be.false;
+			expect(make.hasTarget('bar')).to.be.false;
 		});
 
-		it('throws if src path given as argument', () => {
-			const mk = new Makefile();
-			mk.add('foo', () => {});
+		it('throws if src path given as argument', async () => {
+			const make = await MakeProgram.parse((mk) => {
+				mk.add('foo', () => {});
+			});
 
-			expect(() => mk.hasTarget(Path.src('foo') as IBuildPath)).to.throw();
+			expect(() => make.hasTarget(Path.src('foo') as IBuildPath)).to.throw();
 		});
 	});
 

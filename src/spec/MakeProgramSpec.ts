@@ -196,14 +196,14 @@ describe('MakeProgram', () => {
 	describe('add', () => {
 		it('cannot add while an update is in progress', async () => {
 			let outerMk: Makefile;
-			const prg = await MakeProgram.parse((mk) => {
+			const make = await MakeProgram.parse((mk) => {
 				outerMk = mk;
 				mk.add(new WriteFileRule('write.txt', 'hello'));
 			});
 
 			// TODO shouldn't be allowed after parsing either
 
-			const prom = prg.update();
+			const prom = make.update();
 			expect(() =>
 				outerMk.add(new CopyFileRule('src.txt', '/sub/dest.txt')),
 			).to.throw();
@@ -300,23 +300,23 @@ describe('MakeProgram', () => {
 		it('updates a target', async () => {
 			const path = Path.build('output.txt');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				const write = new WriteFileRule(path, 'hello');
 				mk.add(write);
 			});
 
-			const result = await prg.update(path);
+			const result = await make.update(path);
 			const contents = await readPath(path);
 			expect(contents).to.equal('hello');
 			expect(result).to.be.true;
 		});
 
 		it('debug logs when a recipe begins', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => {});
 			});
 
-			await prg.update();
+			await make.update();
 
 			const evts = logs.findEvents(EVENT_RECIPE_BEGIN);
 			expect(evts.length).to.equal(
@@ -330,13 +330,13 @@ describe('MakeProgram', () => {
 		it('updates a phony target', async () => {
 			let count = 0;
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => {
 					++count;
 				});
 			});
 
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 			expect(count).to.equal(1);
 		});
@@ -344,63 +344,63 @@ describe('MakeProgram', () => {
 		it('remakes a phony target', async () => {
 			let count = 0;
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => {
 					++count;
 				});
 			});
 
-			await prg.update();
-			await prg.update();
+			await make.update();
+			await make.update();
 			expect(count).to.equal(2);
 		});
 
 		it('fails if recipe returns false', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => false);
 			});
 
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if recipe is void', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => {});
 			});
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is true', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => true);
 			});
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 		});
 
 		it('fails if recipe returns Promise<false>', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => Promise.resolve(false));
 			});
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if recipe is Promise<void>', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => Promise.resolve());
 			});
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is Promise<true>', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', () => Promise.resolve(true));
 			});
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 		});
 
@@ -408,25 +408,25 @@ describe('MakeProgram', () => {
 			const path = Path.build('test.txt');
 			const write = new WriteFileRule(path, 'test');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				write.throwOnBuild(new Error('test'));
 				mk.add(write);
 			});
 
-			const result = await prg.update(path);
+			const result = await make.update(path);
 			expect(result).to.be.false;
 		});
 
 		it('logs an exception event when recipe throws', async () => {
 			const thrownMsg = 'thrown message';
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('throw', () => {
 					throw new Error(thrownMsg);
 				});
 			});
 
-			await prg.update();
+			await make.update();
 
 			const evts = logs.findEvents(EVENT_RECIPE_EXCEPTION);
 			expect(evts.length).to.equal(
@@ -444,12 +444,12 @@ describe('MakeProgram', () => {
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(writeOne);
 				mk.add(writeTwo);
 			});
 
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 			expect(writeOne.buildCount).to.equal(1);
 			expect(writeTwo.buildCount).to.equal(0);
@@ -461,12 +461,12 @@ describe('MakeProgram', () => {
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(writeOne);
 				mk.add(writeTwo);
 			});
 
-			const result = await prg.update(pTwo);
+			const result = await make.update(pTwo);
 			expect(result).to.be.true;
 			expect(writeOne.buildCount).to.equal(0);
 			expect(writeTwo.buildCount).to.equal(1);
@@ -478,12 +478,12 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(write);
 				mk.add(cp);
 			});
 
-			await prg.update(cpPath);
+			await make.update(cpPath);
 
 			const contents = await readPath(cpPath);
 			expect(contents).to.equal('hello');
@@ -493,7 +493,7 @@ describe('MakeProgram', () => {
 		it('defaults a string type prereq to build path if it is a target at time of update', async () => {
 			let prereqBuilt = false;
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', 'prereq');
 
 				mk.add('prereq', () => {
@@ -501,7 +501,7 @@ describe('MakeProgram', () => {
 				});
 			});
 
-			await prg.update();
+			await make.update();
 			expect(prereqBuilt).to.be.true;
 		});
 
@@ -511,18 +511,18 @@ describe('MakeProgram', () => {
 
 			let contents: string = '';
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', 'prereq', async () => {
 					contents = await readPath(prereq);
 				});
 			});
 
-			await prg.update();
+			await make.update();
 			expect(contents).to.equal('prereq');
 		});
 
 		it('updates a phony target without a recipe', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				const srcPath = Path.build('src.txt');
 
 				mk.add('all', srcPath);
@@ -531,34 +531,34 @@ describe('MakeProgram', () => {
 				mk.add(write);
 			});
 
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 		});
 
 		it("fails if a src prereq doesn't exist", async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', 'prereq');
 			});
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.false;
 		});
 
 		it("fails if a build prereq doesn't have a recipe", async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', Path.build('prereq'));
 			});
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if a build prereq does have a recipe that succeeds', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				const prereq = Path.build('prereq');
 				mk.add('all', prereq);
 				mk.add(prereq, () => {});
 			});
 
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.true;
 		});
 
@@ -571,7 +571,7 @@ describe('MakeProgram', () => {
 
 			let count = 0;
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(a, [phony, src], async () => {
 					count += 1;
 					await writePath(a, 'a');
@@ -580,10 +580,10 @@ describe('MakeProgram', () => {
 				mk.add(phony, () => {});
 			});
 
-			await prg.update(a);
+			await make.update(a);
 			expect(count).to.equal(1);
 
-			await prg.update(a);
+			await make.update(a);
 			expect(count).to.equal(2);
 		});
 
@@ -594,12 +594,12 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('sub/cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(write);
 				mk.add(cp);
 			});
 
-			await prg.update(cpPath);
+			await make.update(cpPath);
 
 			const dirStat = await statsPath(cpPath.dir());
 			expect(dirStat.isDirectory()).to.be.true;
@@ -612,13 +612,13 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(write);
 				mk.add(cp);
 			});
 
-			await prg.update(cpPath);
-			await prg.update(cpPath);
+			await make.update(cpPath);
+			await make.update(cpPath);
 
 			expect(cp.buildCount).to.equal(1);
 		});
@@ -629,15 +629,15 @@ describe('MakeProgram', () => {
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(cp);
 			});
 
-			await prg.update(cpPath);
+			await make.update(cpPath);
 			await waitMs(1);
 			await writePath(srcPath, 'update');
 
-			await prg.update(cpPath);
+			await make.update(cpPath);
 
 			expect(cp.buildCount).to.equal(2);
 			const contents = await readPath(cpPath);
@@ -653,16 +653,16 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(cp);
 				mk.add(cpPath, otherPath);
 			});
 
-			await prg.update(cpPath);
+			await make.update(cpPath);
 			await waitMs(1);
 			await writePath(otherPath, 'update');
 
-			await prg.update(cpPath);
+			await make.update(cpPath);
 
 			expect(cp.buildCount).to.equal(2);
 			const contents = await readPath(cpPath);
@@ -676,13 +676,13 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(write);
 				mk.add(cp);
 			});
 
-			const first = prg.update(cpPath);
-			const second = prg.update(cpPath);
+			const first = make.update(cpPath);
+			const second = make.update(cpPath);
 			await Promise.all([first, second]);
 
 			expect(write.buildCount).to.equal(1);
@@ -694,14 +694,14 @@ describe('MakeProgram', () => {
 			const first = Path.build('first');
 			const second = Path.build('second');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', [first, second]);
 				mk.add([first, second], () => {
 					count += 1;
 				});
 			});
 
-			await prg.update();
+			await make.update();
 
 			expect(count).to.equal(1);
 		});
@@ -715,7 +715,7 @@ describe('MakeProgram', () => {
 			let cCount = 0;
 			let dCount = 0;
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add([a, b], () => {});
 				mk.add(a, c);
 				mk.add(b, d);
@@ -727,7 +727,7 @@ describe('MakeProgram', () => {
 				});
 			});
 
-			await prg.update(a);
+			await make.update(a);
 
 			expect(cCount).to.equal(1, "goal's prereq is not updated");
 			expect(dCount).to.equal(1, "non-goal's prereq is not updated");
@@ -741,7 +741,7 @@ describe('MakeProgram', () => {
 
 			let bCount = 0;
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add([a, b], async () => {
 					bCount += 1;
 					await writePath(a, 'a');
@@ -758,7 +758,7 @@ describe('MakeProgram', () => {
 				});
 			});
 
-			await prg.update(a);
+			await make.update(a);
 			expect(bCount).to.equal(1);
 
 			await waitMs(1);
@@ -768,7 +768,7 @@ describe('MakeProgram', () => {
 
 			// Above sets up where b is older than c, even though
 			// b does not have any rule that says it depends on c
-			await prg.update(a);
+			await make.update(a);
 
 			expect(bCount).to.equal(2);
 		});
@@ -781,7 +781,7 @@ describe('MakeProgram', () => {
 			await writePath(c, 'c');
 			let count = 0;
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add([a, b], c, async () => {
 					await writePath(a, 'a');
 					await writePath(b, 'b');
@@ -789,12 +789,12 @@ describe('MakeProgram', () => {
 				});
 			});
 
-			await prg.update(a);
+			await make.update(a);
 			expect(count).to.equal(1);
 
 			await rmPath(b);
 
-			await prg.update(a);
+			await make.update(a);
 			expect(count).to.equal(2);
 		});
 
@@ -808,7 +808,7 @@ describe('MakeProgram', () => {
 
 			await writePath(c, 'c');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add([a, b], c);
 				mk.add(a, async () => {
 					aCount += 1;
@@ -821,7 +821,7 @@ describe('MakeProgram', () => {
 				});
 			});
 
-			await prg.update(a);
+			await make.update(a);
 			expect(aCount).to.equal(1);
 			expect(bCount).to.equal(0);
 		});
@@ -834,12 +834,12 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(write);
 				mk.add(cp);
 			});
 
-			const result = await prg.update(cpPath);
+			const result = await make.update(cpPath);
 
 			expect(cp.buildCount).to.equal(0);
 			expect(result).to.be.false;
@@ -852,18 +852,18 @@ describe('MakeProgram', () => {
 			await writePath(srcPath, 'contents');
 
 			const copy = new CopyFileRule(srcPath, outPath);
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(copy);
 			});
 
-			let result = await prg.update(outPath);
+			let result = await make.update(outPath);
 			expect(result).to.be.true;
 			expect(copy.buildCount).to.equal(1);
 
 			// now delete (hits case where target path does exist prior)
 			await rmPath(srcPath);
 
-			result = await prg.update(outPath);
+			result = await make.update(outPath);
 			expect(result).to.be.false;
 			expect(copy.buildCount).to.equal(1);
 		});
@@ -875,14 +875,14 @@ describe('MakeProgram', () => {
 			await writePath(srcPath, 'contents');
 
 			const copy = new CopyFileRule(srcPath, outPath);
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(copy);
 			});
 
-			await prg.update(outPath);
+			await make.update(outPath);
 			await waitMs(1);
 			logs.clear();
-			await prg.update(outPath);
+			await make.update(outPath);
 
 			const evts = logs.findEvents(EVENT_TARGET_UP_TO_DATE);
 			expect(evts).not.to.be.empty;
@@ -916,15 +916,15 @@ describe('MakeProgram', () => {
 			});
 
 			it('remakes when postreq changes', async () => {
-				const prg = await parse();
-				let result = await prg.update(catPath); // build once
+				const make = await parse();
+				let result = await make.update(catPath); // build once
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
 				await waitMs(2);
 				await writePath(aPath, 'A change\n');
-				result = await prg.update(catPath);
+				result = await make.update(catPath);
 
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(2);
@@ -932,20 +932,20 @@ describe('MakeProgram', () => {
 			});
 
 			it('does not remake if postreq does not change', async () => {
-				const prg = await parse();
-				let result = await prg.update(catPath);
+				const make = await parse();
+				let result = await make.update(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
-				result = await prg.update(catPath);
+				result = await make.update(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 			});
 
 			it('tracks postreq across runs', async () => {
-				const prg = await parse();
-				let result = await prg.update(catPath);
+				const make = await parse();
+				let result = await make.update(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
@@ -967,14 +967,14 @@ describe('MakeProgram', () => {
 			});
 
 			it('attempts to update target if static postreq does not exist', async () => {
-				const prg = await parse();
-				let result = await prg.update(catPath);
+				const make = await parse();
+				let result = await make.update(catPath);
 				expect(result).to.be.true;
 				expect(cat.buildCount).to.equal(1);
 				expect(await readPath(catPath)).to.equal('A\nB\n');
 
 				await rmPath(aPath);
-				result = await prg.update(catPath);
+				result = await make.update(catPath);
 				expect(result).to.be.false;
 				expect(cat.buildCount).to.equal(2);
 			});
@@ -989,7 +989,7 @@ describe('MakeProgram', () => {
 
 			const counts = { foo: 0, phony: 0 };
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('all', [foo, phony]);
 
 				mk.add(foo, async (args) => {
@@ -1005,19 +1005,19 @@ describe('MakeProgram', () => {
 				});
 			});
 
-			await prg.update();
+			await make.update();
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(1, 'phony');
 
 			await waitMs(1);
-			await prg.update();
+			await make.update();
 			expect(counts.foo).to.equal(1, 'foo');
 			expect(counts.phony).to.equal(2, 'phony');
 
 			await waitMs(1);
 			await writePath(req, 'update');
 
-			await prg.update();
+			await make.update();
 			expect(counts.foo).to.equal(2, 'foo');
 			expect(counts.phony).to.equal(3, 'phony');
 		});
@@ -1041,7 +1041,7 @@ describe('MakeProgram', () => {
 			await writePath(srcPath, 'src');
 			const copy = new CopyFileRule(srcPath, cpPath);
 			let buildCount = 0;
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(copy);
 
 				// no a priori depencency on cpPath
@@ -1061,9 +1061,9 @@ describe('MakeProgram', () => {
 				mk.add(adHocRecipe);
 			});
 
-			expect(await prg.update(cpPath)).to.be.true;
+			expect(await make.update(cpPath)).to.be.true;
 
-			let result = await prg.update(outPath);
+			let result = await make.update(outPath);
 			expect(result).to.be.true;
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
@@ -1071,7 +1071,7 @@ describe('MakeProgram', () => {
 			// now presumably knows postreqs
 
 			await writePath(srcPath, 'update');
-			result = await prg.update(outPath);
+			result = await make.update(outPath);
 			expect(buildCount).to.equal(1);
 			expect(copy.buildCount).to.equal(1);
 		});
@@ -1083,7 +1083,7 @@ describe('MakeProgram', () => {
 
 			await writePath(c, 'c');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(a, async () => {
 					writePath(a, 'a');
 				});
@@ -1094,8 +1094,8 @@ describe('MakeProgram', () => {
 				});
 			});
 
-			await prg.update(a);
-			await prg.update(b);
+			await make.update(a);
+			await make.update(b);
 
 			// now both exist and b has postreq on c
 			let count = 0;
@@ -1121,11 +1121,11 @@ describe('MakeProgram', () => {
 			await waitMs(1);
 			await writePath(src, 'src');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(stale, src);
 			});
 
-			const result = await prg.update(stale);
+			const result = await make.update(stale);
 			expect(result).to.be.true;
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
@@ -1139,11 +1139,11 @@ describe('MakeProgram', () => {
 
 			await writePath(src, 'src');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('phony', src);
 			});
 
-			const result = await prg.update('phony');
+			const result = await make.update('phony');
 			expect(result).to.be.true;
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
@@ -1151,13 +1151,13 @@ describe('MakeProgram', () => {
 		});
 
 		it('is an error when the srcRoot is not a directory', async () => {
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add('simple', () => {});
 			});
 
 			await rm(srcRoot, { recursive: true });
 
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result, 'should fail').to.be.false;
 			expect(
 				logs.find(LogLevel.error, srcRoot),
@@ -1170,7 +1170,7 @@ describe('MakeProgram', () => {
 			const myBuild = join(nested, 'build');
 			await mkdir(nested, { recursive: true });
 
-			const prg = await MakeProgram.parse(
+			const make = await MakeProgram.parse(
 				(mk) => {
 					mk.add('simple', () => {});
 				},
@@ -1178,7 +1178,7 @@ describe('MakeProgram', () => {
 			);
 
 			await makeReadOnlyDir(nested);
-			const result = await prg.update();
+			const result = await make.update();
 			await restoreDirWriting(nested);
 
 			expect(result, 'should fail').to.be.false;
@@ -1192,12 +1192,12 @@ describe('MakeProgram', () => {
 			const a = Path.build('a');
 			const b = Path.build('b');
 
-			const prg = await parse((mk) => {
+			const make = await parse((mk) => {
 				mk.add(a, b);
 				mk.add(b, a);
 			});
 
-			const result = await prg.update();
+			const result = await make.update();
 			expect(result).to.be.false;
 			expect(
 				logs.find(LogLevel.error, /[Cc]ircular/),

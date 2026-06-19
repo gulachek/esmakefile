@@ -79,9 +79,9 @@ export function cli(fn: MakefileFn): void {
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
 
-			let prg: MakeProgram;
+			let make: MakeProgram;
 			try {
-				prg = await makeProgram(opts);
+				make = await makeProgram(opts);
 			} catch (ex) {
 				logger.fatal({
 					body: 'Failed to create Makefile',
@@ -91,7 +91,7 @@ export function cli(fn: MakefileFn): void {
 			}
 
 			const goalPath = goal && Path.build(goal);
-			const result = await prg.update(goalPath);
+			const result = await make.update(goalPath);
 
 			process.exit(result ? 0 : 1);
 		});
@@ -106,9 +106,9 @@ export function cli(fn: MakefileFn): void {
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
 
-			let prg: MakeProgram;
+			let make: MakeProgram;
 			try {
-				prg = await makeProgram(opts);
+				make = await makeProgram(opts);
 			} catch (ex) {
 				logger.fatal({
 					body: 'Failed to create Makefile',
@@ -119,15 +119,15 @@ export function cli(fn: MakefileFn): void {
 
 			const goalPath = goal && Path.build(goal);
 
-			const watcher = new SourceWatcher(prg.srcRoot, {
+			const watcher = new SourceWatcher(make.srcRoot, {
 				debounceMs: 300,
-				excludeDir: prg.buildRoot,
+				excludeDir: make.buildRoot,
 			});
 
 			watcher.on('change', () => {
 				loggerProvider.resetClock();
 				logger.info('Detected change. Restarting update.');
-				prg.update(goalPath);
+				make.update(goalPath);
 			});
 
 			watcher.on('unknown', (type: string) => {
@@ -139,18 +139,18 @@ export function cli(fn: MakefileFn): void {
 			process.stdin.on('close', closeWatcher);
 			process.stdin.on('data', drainStdin);
 
-			logger.info(`Watching '${prg.srcRoot}'`);
+			logger.info(`Watching '${make.srcRoot}'`);
 			logger.info('Close input stream to stop (usually Ctrl+D)');
-			prg.update(goalPath);
+			make.update(goalPath);
 		});
 
 	program
 		.command('list')
 		.description('List all targets')
 		.action(async function () {
-			let prg: MakeProgram;
+			let make: MakeProgram;
 			try {
-				prg = await makeProgram(this.opts());
+				make = await makeProgram(this.opts());
 			} catch (ex) {
 				// TODO - make this command work with logs
 				loggerProvider.resume();
@@ -161,7 +161,7 @@ export function cli(fn: MakefileFn): void {
 				process.exit(1);
 			}
 
-			for (const t of prg.targets()) {
+			for (const t of make.targets()) {
 				console.log(t);
 			}
 		});

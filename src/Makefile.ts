@@ -45,8 +45,7 @@ export class Makefile {
 	private _targets = new Map<string, TargetInfo>();
 	private _writtenMtime: Date | null = null;
 
-	constructor(opts?: IMakefileOpts) {
-		opts = opts || {};
+	constructor(opts: IMakefileOpts) {
 		this.srcRoot = resolve(opts.srcRoot || '.');
 		this.buildRoot = resolve(opts.buildRoot || 'build');
 		this._roots = {

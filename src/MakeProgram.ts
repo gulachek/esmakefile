@@ -13,7 +13,7 @@ export class MakeProgram {
 		makeFn: MakefileFn,
 		opts?: IMakefileOpts,
 	): Promise<MakeProgram> {
-		const mk = new Makefile(opts);
+		const mk = new Makefile(opts || {});
 		await makeFn(mk);
 		return new MakeProgram(mk);
 	}

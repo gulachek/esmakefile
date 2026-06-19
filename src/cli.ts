@@ -1,8 +1,8 @@
-import { Makefile } from './Makefile.js';
-import { Path, IBuildPath } from './Path.js';
-import { Build } from './Build.js';
+import { MakefileFn } from './Makefile.js';
+import { Path } from './Path.js';
 import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
 import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';
+import { MakeProgram } from './MakeProgram.js';
 
 import { Command, OptionValues } from 'commander';
 import { LogLevel, setLoggerProvider } from './logs.js';
@@ -31,14 +31,9 @@ const sdk = new NodeSDK({
 });
 sdk.start();
 
-export interface ICliFnOpts {
-	isDevelopment: boolean;
-}
-
-export type CliFn = (make: Makefile, opts: ICliFnOpts) => void;
-
-export function cli(fn: CliFn): void {
+export function cli(fn: MakefileFn): void {
 	const program = new Command();
+	const logger = loggerProvider.getLogger({ name: 'esmakefile.cli' });
 
 	const devDesc = 'Specifies this is a development build';
 	program.option('--development', devDesc, false);
@@ -56,14 +51,12 @@ export function cli(fn: CliFn): void {
 	program.option('--trace', 'Sets the log level to "trace"', false);
 	program.option('-v, --debug', 'Sets the log level to "debug"', false);
 
-	const makeMakefile = (cmdOpts: OptionValues) => {
+	const makeProgram = async (cmdOpts: OptionValues) => {
 		const opts = { ...program.opts(), ...cmdOpts };
-		const make = new Makefile({
+		return MakeProgram.parse(fn, {
 			srcRoot: opts['srcdir'],
 			buildRoot: opts['outdir'],
 		});
-		fn(make, { isDevelopment: !!opts['development'] });
-		return make;
 	};
 
 	const parseLogLevel = (cmdOpts: OptionValues): LogLevel => {
@@ -77,13 +70,6 @@ export function cli(fn: CliFn): void {
 		return i;
 	};
 
-	const runBuild = async (make: Makefile, goalPath: IBuildPath) => {
-		const build = new Build(make, goalPath);
-		const result = await build.run();
-
-		return result;
-	};
-
 	program
 		.command('build', { isDefault: true })
 		.description('Build a specified target')
@@ -92,9 +78,20 @@ export function cli(fn: CliFn): void {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
-			const make = makeMakefile(opts);
+
+			let make: MakeProgram;
+			try {
+				make = await makeProgram(opts);
+			} catch (ex) {
+				logger.fatal({
+					body: 'Failed to create Makefile',
+					exception: ex,
+				});
+				process.exit(1);
+			}
+
 			const goalPath = goal && Path.build(goal);
-			const result = await runBuild(make, goalPath);
+			const result = await make.update(goalPath);
 
 			process.exit(result ? 0 : 1);
 		});
@@ -108,10 +105,19 @@ export function cli(fn: CliFn): void {
 			const opts = this.opts();
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
-			const make = makeMakefile(opts);
-			const goalPath = goal && Path.build(goal);
 
-			const logger = loggerProvider.getLogger({ name: 'esmakefile.cli.watch' });
+			let make: MakeProgram;
+			try {
+				make = await makeProgram(opts);
+			} catch (ex) {
+				logger.fatal({
+					body: 'Failed to create Makefile',
+					exception: ex,
+				});
+				process.exit(1);
+			}
+
+			const goalPath = goal && Path.build(goal);
 
 			const watcher = new SourceWatcher(make.srcRoot, {
 				debounceMs: 300,
@@ -121,7 +127,7 @@ export function cli(fn: CliFn): void {
 			watcher.on('change', () => {
 				loggerProvider.resetClock();
 				logger.info('Detected change. Restarting update.');
-				runBuild(make, goalPath);
+				make.update(goalPath);
 			});
 
 			watcher.on('unknown', (type: string) => {
@@ -135,14 +141,26 @@ export function cli(fn: CliFn): void {
 
 			logger.info(`Watching '${make.srcRoot}'`);
 			logger.info('Close input stream to stop (usually Ctrl+D)');
-			runBuild(make, goalPath);
+			make.update(goalPath);
 		});
 
 	program
 		.command('list')
 		.description('List all targets')
-		.action(function () {
-			const make = makeMakefile(this.opts());
+		.action(async function () {
+			let make: MakeProgram;
+			try {
+				make = await makeProgram(this.opts());
+			} catch (ex) {
+				// TODO - make this command work with logs
+				loggerProvider.resume();
+				logger.fatal({
+					body: 'Failed to create Makefile',
+					exception: ex,
+				});
+				process.exit(1);
+			}
+
 			for (const t of make.targets()) {
 				console.log(t);
 			}

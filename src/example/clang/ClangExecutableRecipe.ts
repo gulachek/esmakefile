@@ -44,7 +44,7 @@ export class ClangExecutableRecipe implements IRule {
 }
 
 export function addClangExecutable(
-	make: Makefile,
+	mk: Makefile,
 	out: BuildPathLike,
 	src: PathLike[],
 ): ClangExecutableRecipe {
@@ -55,15 +55,15 @@ export function addClangExecutable(
 	compileCommands.addText('[');
 
 	for (const s of src) {
-		const obj = addClangObject(make, s);
+		const obj = addClangObject(mk, s);
 		exe.addObj(obj);
 		compileCommands.addPath(obj.compileCommands);
 	}
 
 	compileCommands.addText(']');
 
-	make.add(exe);
-	make.add(compileCommands);
+	mk.add(exe);
+	mk.add(compileCommands);
 
 	return exe;
 }

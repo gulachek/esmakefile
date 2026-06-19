@@ -57,9 +57,9 @@ class ScssRecipe implements IRule {
 }
 
 export function addSass(
-	make: Makefile,
+	mk: Makefile,
 	src: PathLike,
 	genOpts: BuildPathGenOpts,
 ) {
-	make.add(new ScssRecipe(src, genOpts));
+	mk.add(new ScssRecipe(src, genOpts));
 }

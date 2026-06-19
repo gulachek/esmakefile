@@ -1,70 +1,65 @@
 import { writeFile } from 'fs/promises';
-import { Path, cli, Makefile, ICliFnOpts, getLogger } from '../index.js';
+import { Path, cli, Makefile, getLogger } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
 
-cli((make: Makefile, opts: ICliFnOpts) => {
+cli((mk: Makefile) => {
 	const logger = getLogger({ name: 'esmakefile.example.make' });
 	const scssFile = Path.src('src/style.scss');
 	const main = Path.build('main');
 	const css = Path.build('style.css');
-	const checkIsDev = Path.build('check-is-dev');
 
-	make.add('all', [css, main, checkIsDev]);
+	mk.add('all', [css, main]);
 
-	addSass(make, scssFile, 'style.css');
+	addSass(mk, scssFile, 'style.css');
 
-	make.add(checkIsDev, () => {
-		logger.info(`Is development? ${opts.isDevelopment}`);
-	});
+	addClangExecutable(mk, 'main', ['src/main.cpp', 'src/hello.cpp']);
 
-	addClangExecutable(make, 'main', ['src/main.cpp', 'src/hello.cpp']);
-
-	make.add('run-main', main, (args) => {
+	mk.add('run-main', main, (args) => {
 		return args.spawn(args.abs(main), []);
 	});
 
-	make.add('missing-prereq', 'does-not-exist', () => {
+	mk.add('missing-prereq', 'does-not-exist', () => {
 		return true;
 	});
 
-	make.add('warning', () => {
+	mk.add('warning', () => {
 		logger.warn('This is a test warning.');
 		return true;
 	});
 
-	make.add('error', () => {
+	mk.add('error', () => {
 		logger.error('This is a test error');
 		return false;
 	});
 
-	make.add('throw', () => {
+	mk.add('throw', () => {
 		throw new Error('hehehe');
 	});
 
-	make.add('white-space-log', () => {
+	mk.add('white-space-log', () => {
 		logger.info('   \n\t\r\n  \n\n  \n');
 		return true;
 	});
 
-	make.add('write-both-streams', (args) => {
+	mk.add('write-both-streams', (args) => {
 		const script = args.abs(Path.src('src/logs.cjs'));
 		return args.spawn(process.execPath, [script]);
 	});
 
-	make.add('medium-long-task', () => {
+	mk.add('medium-long-task', () => {
 		return new Promise<boolean>((res) => {
 			setTimeout(() => res(true), 15000);
 		});
 	});
 
-	make.add('long-task', () => {
+	mk.add('long-task', () => {
 		return new Promise<boolean>((res) => {
 			setTimeout(() => res(true), 65000);
 		});
 	});
 
-	make.add(['grouped-error', 'grouped-error2'], () => {
+	mk.add(['grouped-error', 'grouped-error2'], () => {
 		logger.error('Error message for grouped targets');
 		return false;
 	});
@@ -72,8 +67,8 @@ cli((make: Makefile, opts: ICliFnOpts) => {
 	const staleTarget = Path.build('warn-stale-target');
 	const stalePrereq = Path.build('warn-stale-target-prereq');
 
-	make.add(staleTarget, stalePrereq);
-	make.add(stalePrereq, async (args) => {
+	mk.add(staleTarget, stalePrereq);
+	mk.add(stalePrereq, async (args) => {
 		// this isn't supposed to make sense
 		await writeFile(args.abs(staleTarget), 'stale');
 		await waitMs(5);

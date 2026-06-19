@@ -32,7 +32,7 @@ Hence, it is expected that prior to running tests, you have run
 the specs are testing. This is rarely an issue when running `npx
 tsc -w`.
 
-The most notable spec is `src/spec/MakefileSpec.ts`, which
+The most notable spec is `src/spec/MakeProgramSpec.ts`, which
 operates more as an end-to-end or integration test.
 
 The testing paradigm is that the project should strive to only

@@ -8,10 +8,9 @@ export {
 	isBuildPathLike,
 	BuildPathGenOpts,
 } from './Path.js';
-export { cli, CliFn, ICliFnOpts } from './cli.js';
-export { Makefile, RuleID } from './Makefile.js';
+export { cli } from './cli.js';
+export { Makefile, MakefileFn, RuleID } from './Makefile.js';
 export { IRule, RecipeArgs } from './Rule.js';
-export { updateTarget, experimental } from './updateTarget.js';
 export {
 	getLogger,
 	GetLoggerOpts,
@@ -45,3 +44,4 @@ export {
 	EVENT_RECIPE_CHILD_PROCESS_OUTPUT_UPLOAD_EXCEPTION,
 	MIME_TYPE_ANSI_STREAM,
 } from './names.js';
+export { MakeProgram } from './MakeProgram.js';

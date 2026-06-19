@@ -177,23 +177,27 @@ function parseAttrException(r: LogRecord): AttrException | null {
 function fmtLogLevel(level: LogLevel): string {
 	// This will throw if level is invalid. Not throwing means
 	// range is valid
-	const s = logLevelToStr(level).padEnd(6);
+	const s = logLevelToStr(level);
+	const padding = ' '.repeat(Math.max(0, 6 - s.length));
+	let out = s;
 
 	if (level < LogLevel.debug)
 		// trace
-		return chalk.bold.magenta(s);
+		out = chalk.bold.magenta(s);
 	else if (level < LogLevel.info)
 		// debug
-		return chalk.bold.cyan(s);
+		out = chalk.bold.cyan(s);
 	else if (level < LogLevel.warn)
 		// info
-		return chalk.bold.white(s);
+		out = chalk.bold.white(s);
 	else if (level < LogLevel.error)
 		// warn
-		return chalk.bold.yellow(s);
+		out = chalk.bold.yellow(s);
 	else if (level < LogLevel.fatal)
 		// error
-		return chalk.bold.red(s);
+		out = chalk.bold.red(s);
 	// fatal
-	else return chalk.bold.bgRed.white(s);
+	else out = chalk.bold.bgRed.white(s);
+
+	return out + padding;
 }

@@ -33,6 +33,8 @@ function normalizeTargets(t: Targets): IBuildPath | IBuildPath[] {
 	return t.map((t) => Path.build(t));
 }
 
+export type MakefileFn = (make: Makefile) => void | Promise<void>;
+
 export class Makefile {
 	readonly buildRoot: string;
 	readonly srcRoot: string;

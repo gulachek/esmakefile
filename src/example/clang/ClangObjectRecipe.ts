@@ -62,7 +62,7 @@ export class ClangObjectRecipe implements IRule {
 }
 
 export function addClangObject(
-	make: Makefile,
+	mk: Makefile,
 	src: PathLike,
 	genOpts?: BuildPathGenOpts,
 ) {
@@ -72,7 +72,7 @@ export function addClangObject(
 		: Path.gen(srcPath, { ext: '.o', ...genOpts });
 
 	const obj = new ClangObjectRecipe(srcPath, destPath);
-	make.add(obj);
+	mk.add(obj);
 
 	return obj;
 }

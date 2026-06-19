@@ -1,6 +1,6 @@
 import { Makefile, MakefileFn, IMakefileOpts } from './Makefile.js';
 import { BuildPathLike } from './Path.js';
-import { Build } from './Build.js';
+import { UpdateExecution } from './UpdateExecution.js';
 
 export class MakeProgram {
 	private make: Makefile;
@@ -19,7 +19,7 @@ export class MakeProgram {
 	}
 
 	update(goal?: BuildPathLike): Promise<boolean> {
-		const build = new Build(this.make, goal);
+		const build = new UpdateExecution(this.make, goal);
 		return build.run();
 	}
 

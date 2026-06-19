@@ -57,7 +57,7 @@ type TargetCompleteInfo = {
 
 type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
-export class Build {
+export class UpdateExecution {
 	private _roots: IPathRoots;
 	private _make: Makefile;
 	public readonly goal: IBuildPath;

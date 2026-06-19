@@ -237,14 +237,27 @@ updates the goal specified at the command line.
 node make.mjs watch [goal]
 ```
 
-### `updateTarget` Programmatic Driver
+### `MakeProgram` Programmatic Driver
 
 In cases where esmakefile needs to be run outside the context of
-a CLI environment, `updateTarget` is exposed as a programmatic
-way to run an esmakefile build system. It accepts a `Makefile`
-and an optional `goal` to update the given goal. This is notably
-useful in automated testing scenarios for higher level tools
-built on top of esmakefile.
+a CLI environment, `MakeProgram` is exposed as a programmatic
+way to run an esmakefile build system. First, it must be
+"parsed" via `MakeProgram.parse`. Then, the parsed
+`MakeProgram` can update a goal target with the `update()`
+function. The goal that's updated can optionally be specified.
+
+```js
+import { MakeProgram } from 'esmakefile';
+
+const make = await MakeProgram.parse((mk) => {
+	mk.add('target', () => {
+		// ...
+	});
+});
+
+const success = await make.update(); // default goal
+const success2 = await make.update(goal); // specific goal
+```
 
 ### Observability
 

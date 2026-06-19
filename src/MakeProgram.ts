@@ -34,4 +34,8 @@ export class MakeProgram {
 	targets(): string[] {
 		return this.mk.targets();
 	}
+
+	hasTarget(t: BuildPathLike): boolean {
+		return this.mk.hasTarget(t);
+	}
 }

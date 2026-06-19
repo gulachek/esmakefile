@@ -35,7 +35,7 @@ type RecipeInProgressInfo = {
 	completePromise: Promise<RecipeCompleteInfo>;
 };
 
-export type RecipeCompleteInfo = {
+type RecipeCompleteInfo = {
 	complete: true;
 
 	/** performance.now() when recipe() was started */
@@ -56,10 +56,6 @@ type TargetCompleteInfo = {
 };
 
 type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
-
-export type BuildDiagnostic = {
-	msg: string;
-};
 
 export class Build {
 	private _roots: IPathRoots;
@@ -83,16 +79,6 @@ export class Build {
 
 		for (const { rule, id } of make.rules()) {
 			this._rules.set(id, this.normalizeRule(id, rule));
-		}
-	}
-
-	elapsedMsOf(ruleId: RuleID, now?: number): number {
-		const info = this._info.get(ruleId);
-		if (!info) return 0;
-		if (info.complete) {
-			return info.endTime - info.startTime;
-		} else {
-			return (now || performance.now()) - info.startTime;
 		}
 	}
 
@@ -460,7 +446,7 @@ function makePromise<T>(): IPromisePieces<T> {
 	return { resolve, reject, promise };
 }
 
-export type RuleInfo = {
+type RuleInfo = {
 	recipe: () => Promise<boolean> | null;
 	sources: Path[];
 	targets: IBuildPath[];

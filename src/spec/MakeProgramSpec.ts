@@ -181,11 +181,11 @@ describe('MakeProgram', () => {
 
 	describe('targets', () => {
 		it('lists targets by path relative to build dir', () => {
-			const make = new Makefile();
-			make.add(new WriteFileRule('write.txt', 'hello'));
-			make.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
+			const mk = new Makefile();
+			mk.add(new WriteFileRule('write.txt', 'hello'));
+			mk.add(new CopyFileRule('src.txt', '/sub/dest.txt'));
 
-			const targets = new Set(make.targets());
+			const targets = new Set(mk.targets());
 
 			expect(targets.size).to.equal(2);
 			expect(targets.has('write.txt')).to.be.true;
@@ -196,9 +196,9 @@ describe('MakeProgram', () => {
 	describe('add', () => {
 		it('cannot add while an update is in progress', async () => {
 			let outerMk: Makefile;
-			const prg = await MakeProgram.parse((make) => {
-				outerMk = make;
-				make.add(new WriteFileRule('write.txt', 'hello'));
+			const prg = await MakeProgram.parse((mk) => {
+				outerMk = mk;
+				mk.add(new WriteFileRule('write.txt', 'hello'));
 			});
 
 			// TODO shouldn't be allowed after parsing either
@@ -211,46 +211,46 @@ describe('MakeProgram', () => {
 		});
 
 		it('throws if two recipes are given for a target', async () => {
-			const make = new Makefile();
+			const mk = new Makefile();
 			const path = Path.build('conflict.txt');
 			const write = new WriteFileRule(path, 'hello');
 			const copy = new CopyFileRule('something.txt', path);
 
-			make.add(write);
-			expect(() => make.add(copy)).to.throw();
+			mk.add(write);
+			expect(() => mk.add(copy)).to.throw();
 		});
 
 		it('can add multiple rules for the same target', async () => {
-			const make = new Makefile();
+			const mk = new Makefile();
 			const target = Path.build('target.txt');
 			const anotherDep = Path.src('dep.txt');
 			const write = new WriteFileRule(target, 'hello');
-			make.add(write);
-			expect(() => make.add(target, anotherDep)).not.to.throw();
+			mk.add(write);
+			expect(() => mk.add(target, anotherDep)).not.to.throw();
 		});
 	});
 
 	describe('hasTarget', () => {
 		it('returns true if target is added to a rule', () => {
-			const make = new Makefile();
-			make.add('foo', () => {});
+			const mk = new Makefile();
+			mk.add('foo', () => {});
 
-			expect(make.hasTarget('foo')).to.be.true;
-			expect(make.hasTarget(Path.build('foo'))).to.be.true;
+			expect(mk.hasTarget('foo')).to.be.true;
+			expect(mk.hasTarget(Path.build('foo'))).to.be.true;
 		});
 
 		it('returns false if target is not added to a rule', () => {
-			const make = new Makefile();
-			make.add('foo', () => {});
+			const mk = new Makefile();
+			mk.add('foo', () => {});
 
-			expect(make.hasTarget('bar')).to.be.false;
+			expect(mk.hasTarget('bar')).to.be.false;
 		});
 
 		it('throws if src path given as argument', () => {
-			const make = new Makefile();
-			make.add('foo', () => {});
+			const mk = new Makefile();
+			mk.add('foo', () => {});
 
-			expect(() => make.hasTarget(Path.src('foo') as IBuildPath)).to.throw();
+			expect(() => mk.hasTarget(Path.src('foo') as IBuildPath)).to.throw();
 		});
 	});
 
@@ -300,9 +300,9 @@ describe('MakeProgram', () => {
 		it('updates a target', async () => {
 			const path = Path.build('output.txt');
 
-			const prg = await parse((make) => {
+			const prg = await parse((mk) => {
 				const write = new WriteFileRule(path, 'hello');
-				make.add(write);
+				mk.add(write);
 			});
 
 			const result = await prg.update(path);
@@ -312,8 +312,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('debug logs when a recipe begins', async () => {
-			const prg = await parse((make) => {
-				make.add('all', () => {});
+			const prg = await parse((mk) => {
+				mk.add('all', () => {});
 			});
 
 			await prg.update();
@@ -330,8 +330,8 @@ describe('MakeProgram', () => {
 		it('updates a phony target', async () => {
 			let count = 0;
 
-			const prg = await parse((make) => {
-				make.add('all', () => {
+			const prg = await parse((mk) => {
+				mk.add('all', () => {
 					++count;
 				});
 			});
@@ -344,8 +344,8 @@ describe('MakeProgram', () => {
 		it('remakes a phony target', async () => {
 			let count = 0;
 
-			const prg = await parse((make) => {
-				make.add('all', () => {
+			const prg = await parse((mk) => {
+				mk.add('all', () => {
 					++count;
 				});
 			});
@@ -356,8 +356,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('fails if recipe returns false', async () => {
-			const prg = await parse((make) => {
-				make.add('all', () => false);
+			const prg = await parse((mk) => {
+				mk.add('all', () => false);
 			});
 
 			const result = await prg.update();
@@ -365,40 +365,40 @@ describe('MakeProgram', () => {
 		});
 
 		it('succeeds if recipe is void', async () => {
-			const prg = await parse((make) => {
-				make.add('all', () => {});
+			const prg = await parse((mk) => {
+				mk.add('all', () => {});
 			});
 			const result = await prg.update();
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is true', async () => {
-			const prg = await parse((make) => {
-				make.add('all', () => true);
+			const prg = await parse((mk) => {
+				mk.add('all', () => true);
 			});
 			const result = await prg.update();
 			expect(result).to.be.true;
 		});
 
 		it('fails if recipe returns Promise<false>', async () => {
-			const prg = await parse((make) => {
-				make.add('all', () => Promise.resolve(false));
+			const prg = await parse((mk) => {
+				mk.add('all', () => Promise.resolve(false));
 			});
 			const result = await prg.update();
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if recipe is Promise<void>', async () => {
-			const prg = await parse((make) => {
-				make.add('all', () => Promise.resolve());
+			const prg = await parse((mk) => {
+				mk.add('all', () => Promise.resolve());
 			});
 			const result = await prg.update();
 			expect(result).to.be.true;
 		});
 
 		it('succeeds if recipe is Promise<true>', async () => {
-			const prg = await parse((make) => {
-				make.add('all', () => Promise.resolve(true));
+			const prg = await parse((mk) => {
+				mk.add('all', () => Promise.resolve(true));
 			});
 			const result = await prg.update();
 			expect(result).to.be.true;
@@ -408,9 +408,9 @@ describe('MakeProgram', () => {
 			const path = Path.build('test.txt');
 			const write = new WriteFileRule(path, 'test');
 
-			const prg = await parse((make) => {
+			const prg = await parse((mk) => {
 				write.throwOnBuild(new Error('test'));
-				make.add(write);
+				mk.add(write);
 			});
 
 			const result = await prg.update(path);
@@ -420,8 +420,8 @@ describe('MakeProgram', () => {
 		it('logs an exception event when recipe throws', async () => {
 			const thrownMsg = 'thrown message';
 
-			const prg = await parse((make) => {
-				make.add('throw', () => {
+			const prg = await parse((mk) => {
+				mk.add('throw', () => {
 					throw new Error(thrownMsg);
 				});
 			});
@@ -444,9 +444,9 @@ describe('MakeProgram', () => {
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
 
-			const prg = await parse((make) => {
-				make.add(writeOne);
-				make.add(writeTwo);
+			const prg = await parse((mk) => {
+				mk.add(writeOne);
+				mk.add(writeTwo);
 			});
 
 			const result = await prg.update();
@@ -461,9 +461,9 @@ describe('MakeProgram', () => {
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
 
-			const prg = await parse((make) => {
-				make.add(writeOne);
-				make.add(writeTwo);
+			const prg = await parse((mk) => {
+				mk.add(writeOne);
+				mk.add(writeTwo);
 			});
 
 			const result = await prg.update(pTwo);
@@ -478,9 +478,9 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((make) => {
-				make.add(write);
-				make.add(cp);
+			const prg = await parse((mk) => {
+				mk.add(write);
+				mk.add(cp);
 			});
 
 			await prg.update(cpPath);
@@ -493,10 +493,10 @@ describe('MakeProgram', () => {
 		it('defaults a string type prereq to build path if it is a target at time of update', async () => {
 			let prereqBuilt = false;
 
-			const prg = await parse((make) => {
-				make.add('all', 'prereq');
+			const prg = await parse((mk) => {
+				mk.add('all', 'prereq');
 
-				make.add('prereq', () => {
+				mk.add('prereq', () => {
 					prereqBuilt = true;
 				});
 			});
@@ -511,8 +511,8 @@ describe('MakeProgram', () => {
 
 			let contents: string = '';
 
-			const prg = await parse((make) => {
-				make.add('all', 'prereq', async () => {
+			const prg = await parse((mk) => {
+				mk.add('all', 'prereq', async () => {
 					contents = await readPath(prereq);
 				});
 			});
@@ -522,13 +522,13 @@ describe('MakeProgram', () => {
 		});
 
 		it('updates a phony target without a recipe', async () => {
-			const prg = await parse((make) => {
+			const prg = await parse((mk) => {
 				const srcPath = Path.build('src.txt');
 
-				make.add('all', srcPath);
+				mk.add('all', srcPath);
 
 				const write = new WriteFileRule(srcPath, 'hello');
-				make.add(write);
+				mk.add(write);
 			});
 
 			const result = await prg.update();
@@ -536,26 +536,26 @@ describe('MakeProgram', () => {
 		});
 
 		it("fails if a src prereq doesn't exist", async () => {
-			const prg = await parse((make) => {
-				make.add('all', 'prereq');
+			const prg = await parse((mk) => {
+				mk.add('all', 'prereq');
 			});
 			const result = await prg.update();
 			expect(result).to.be.false;
 		});
 
 		it("fails if a build prereq doesn't have a recipe", async () => {
-			const prg = await parse((make) => {
-				make.add('all', Path.build('prereq'));
+			const prg = await parse((mk) => {
+				mk.add('all', Path.build('prereq'));
 			});
 			const result = await prg.update();
 			expect(result).to.be.false;
 		});
 
 		it('succeeds if a build prereq does have a recipe that succeeds', async () => {
-			const prg = await parse((make) => {
+			const prg = await parse((mk) => {
 				const prereq = Path.build('prereq');
-				make.add('all', prereq);
-				make.add(prereq, () => {});
+				mk.add('all', prereq);
+				mk.add(prereq, () => {});
 			});
 
 			const result = await prg.update();
@@ -571,13 +571,13 @@ describe('MakeProgram', () => {
 
 			let count = 0;
 
-			const prg = await parse((make) => {
-				make.add(a, [phony, src], async () => {
+			const prg = await parse((mk) => {
+				mk.add(a, [phony, src], async () => {
 					count += 1;
 					await writePath(a, 'a');
 				});
 
-				make.add(phony, () => {});
+				mk.add(phony, () => {});
 			});
 
 			await prg.update(a);
@@ -594,9 +594,9 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('sub/cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((make) => {
-				make.add(write);
-				make.add(cp);
+			const prg = await parse((mk) => {
+				mk.add(write);
+				mk.add(cp);
 			});
 
 			await prg.update(cpPath);
@@ -612,9 +612,9 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((make) => {
-				make.add(write);
-				make.add(cp);
+			const prg = await parse((mk) => {
+				mk.add(write);
+				mk.add(cp);
 			});
 
 			await prg.update(cpPath);
@@ -629,8 +629,8 @@ describe('MakeProgram', () => {
 
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
-			const prg = await parse((make) => {
-				make.add(cp);
+			const prg = await parse((mk) => {
+				mk.add(cp);
 			});
 
 			await prg.update(cpPath);
@@ -653,9 +653,9 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((make) => {
-				make.add(cp);
-				make.add(cpPath, otherPath);
+			const prg = await parse((mk) => {
+				mk.add(cp);
+				mk.add(cpPath, otherPath);
 			});
 
 			await prg.update(cpPath);
@@ -676,9 +676,9 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((make) => {
-				make.add(write);
-				make.add(cp);
+			const prg = await parse((mk) => {
+				mk.add(write);
+				mk.add(cp);
 			});
 
 			const first = prg.update(cpPath);
@@ -694,9 +694,9 @@ describe('MakeProgram', () => {
 			const first = Path.build('first');
 			const second = Path.build('second');
 
-			const prg = await parse((make) => {
-				make.add('all', [first, second]);
-				make.add([first, second], () => {
+			const prg = await parse((mk) => {
+				mk.add('all', [first, second]);
+				mk.add([first, second], () => {
 					count += 1;
 				});
 			});
@@ -715,14 +715,14 @@ describe('MakeProgram', () => {
 			let cCount = 0;
 			let dCount = 0;
 
-			const prg = await parse((make) => {
-				make.add([a, b], () => {});
-				make.add(a, c);
-				make.add(b, d);
-				make.add(c, () => {
+			const prg = await parse((mk) => {
+				mk.add([a, b], () => {});
+				mk.add(a, c);
+				mk.add(b, d);
+				mk.add(c, () => {
 					cCount += 1;
 				});
-				make.add(d, () => {
+				mk.add(d, () => {
 					dCount += 1;
 				});
 			});
@@ -741,19 +741,19 @@ describe('MakeProgram', () => {
 
 			let bCount = 0;
 
-			const prg = await parse((make) => {
-				make.add([a, b], async () => {
+			const prg = await parse((mk) => {
+				mk.add([a, b], async () => {
 					bCount += 1;
 					await writePath(a, 'a');
 					await writePath(b, 'b');
 				});
 
-				make.add(a, c);
-				make.add(b, d);
-				make.add(c, async () => {
+				mk.add(a, c);
+				mk.add(b, d);
+				mk.add(c, async () => {
 					await writePath(c, 'c');
 				});
-				make.add(d, async () => {
+				mk.add(d, async () => {
 					await writePath(d, 'd');
 				});
 			});
@@ -781,8 +781,8 @@ describe('MakeProgram', () => {
 			await writePath(c, 'c');
 			let count = 0;
 
-			const prg = await parse((make) => {
-				make.add([a, b], c, async () => {
+			const prg = await parse((mk) => {
+				mk.add([a, b], c, async () => {
 					await writePath(a, 'a');
 					await writePath(b, 'b');
 					count += 1;
@@ -808,14 +808,14 @@ describe('MakeProgram', () => {
 
 			await writePath(c, 'c');
 
-			const prg = await parse((make) => {
-				make.add([a, b], c);
-				make.add(a, async () => {
+			const prg = await parse((mk) => {
+				mk.add([a, b], c);
+				mk.add(a, async () => {
 					aCount += 1;
 					await writePath(a, 'a');
 				});
 
-				make.add(b, async () => {
+				mk.add(b, async () => {
 					bCount += 1;
 					await writePath(b, 'b');
 				});
@@ -834,9 +834,9 @@ describe('MakeProgram', () => {
 			const cpPath = Path.build('cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
-			const prg = await parse((make) => {
-				make.add(write);
-				make.add(cp);
+			const prg = await parse((mk) => {
+				mk.add(write);
+				mk.add(cp);
 			});
 
 			const result = await prg.update(cpPath);
@@ -852,8 +852,8 @@ describe('MakeProgram', () => {
 			await writePath(srcPath, 'contents');
 
 			const copy = new CopyFileRule(srcPath, outPath);
-			const prg = await parse((make) => {
-				make.add(copy);
+			const prg = await parse((mk) => {
+				mk.add(copy);
 			});
 
 			let result = await prg.update(outPath);
@@ -875,8 +875,8 @@ describe('MakeProgram', () => {
 			await writePath(srcPath, 'contents');
 
 			const copy = new CopyFileRule(srcPath, outPath);
-			const prg = await parse((make) => {
-				make.add(copy);
+			const prg = await parse((mk) => {
+				mk.add(copy);
 			});
 
 			await prg.update(outPath);
@@ -899,9 +899,9 @@ describe('MakeProgram', () => {
 
 			function parse(fn?: MakefileFn): Promise<MakeProgram> {
 				return MakeProgram.parse(
-					(make) => {
-						make.add(cat);
-						fn && fn(make);
+					(mk) => {
+						mk.add(cat);
+						fn && fn(mk);
 					},
 					{ srcRoot, buildRoot },
 				);
@@ -952,8 +952,8 @@ describe('MakeProgram', () => {
 
 				// make a new instance to avoid any state in object
 				const newPrg = await MakeProgram.parse(
-					(make) => {
-						make.add(cat);
+					(mk) => {
+						mk.add(cat);
 					},
 					{ srcRoot, buildRoot },
 				);
@@ -989,17 +989,17 @@ describe('MakeProgram', () => {
 
 			const counts = { foo: 0, phony: 0 };
 
-			const prg = await parse((make) => {
-				make.add('all', [foo, phony]);
+			const prg = await parse((mk) => {
+				mk.add('all', [foo, phony]);
 
-				make.add(foo, async (args) => {
+				mk.add(foo, async (args) => {
 					counts.foo += 1;
 					args.addPostreq(args.abs(req));
 					await writePath(foo, counts.foo.toString());
 					return true;
 				});
 
-				make.add(phony, () => {
+				mk.add(phony, () => {
 					counts.phony += 1;
 					return true;
 				});
@@ -1041,8 +1041,8 @@ describe('MakeProgram', () => {
 			await writePath(srcPath, 'src');
 			const copy = new CopyFileRule(srcPath, cpPath);
 			let buildCount = 0;
-			const prg = await parse((make) => {
-				make.add(copy);
+			const prg = await parse((mk) => {
+				mk.add(copy);
 
 				// no a priori depencency on cpPath
 				const adHocRecipe: IRule = {
@@ -1058,7 +1058,7 @@ describe('MakeProgram', () => {
 					},
 				};
 
-				make.add(adHocRecipe);
+				mk.add(adHocRecipe);
 			});
 
 			expect(await prg.update(cpPath)).to.be.true;
@@ -1083,12 +1083,12 @@ describe('MakeProgram', () => {
 
 			await writePath(c, 'c');
 
-			const prg = await parse((make) => {
-				make.add(a, async () => {
+			const prg = await parse((mk) => {
+				mk.add(a, async () => {
 					writePath(a, 'a');
 				});
 
-				make.add(b, async (args) => {
+				mk.add(b, async (args) => {
 					args.addPostreq(args.abs(c));
 					await writePath(b, 'b');
 				});
@@ -1099,8 +1099,8 @@ describe('MakeProgram', () => {
 
 			// now both exist and b has postreq on c
 			let count = 0;
-			const prg2 = await parse((make) => {
-				make.add([a, b], () => {
+			const prg2 = await parse((mk) => {
+				mk.add([a, b], () => {
 					count += 1;
 				});
 			});
@@ -1121,8 +1121,8 @@ describe('MakeProgram', () => {
 			await waitMs(1);
 			await writePath(src, 'src');
 
-			const prg = await parse((make) => {
-				make.add(stale, src);
+			const prg = await parse((mk) => {
+				mk.add(stale, src);
 			});
 
 			const result = await prg.update(stale);
@@ -1139,8 +1139,8 @@ describe('MakeProgram', () => {
 
 			await writePath(src, 'src');
 
-			const prg = await parse((make) => {
-				make.add('phony', src);
+			const prg = await parse((mk) => {
+				mk.add('phony', src);
 			});
 
 			const result = await prg.update('phony');
@@ -1151,8 +1151,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('is an error when the srcRoot is not a directory', async () => {
-			const prg = await parse((make) => {
-				make.add('simple', () => {});
+			const prg = await parse((mk) => {
+				mk.add('simple', () => {});
 			});
 
 			await rm(srcRoot, { recursive: true });
@@ -1171,8 +1171,8 @@ describe('MakeProgram', () => {
 			await mkdir(nested, { recursive: true });
 
 			const prg = await MakeProgram.parse(
-				(make) => {
-					make.add('simple', () => {});
+				(mk) => {
+					mk.add('simple', () => {});
 				},
 				{ srcRoot, buildRoot: myBuild },
 			);
@@ -1192,9 +1192,9 @@ describe('MakeProgram', () => {
 			const a = Path.build('a');
 			const b = Path.build('b');
 
-			const prg = await parse((make) => {
-				make.add(a, b);
-				make.add(b, a);
+			const prg = await parse((mk) => {
+				mk.add(a, b);
+				mk.add(b, a);
 			});
 
 			const result = await prg.update();

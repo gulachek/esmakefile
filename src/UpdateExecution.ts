@@ -59,7 +59,7 @@ type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
 export class UpdateExecution {
 	private _roots: IPathRoots;
-	private _make: Makefile;
+	private _mk: Makefile;
 	public readonly goal: IBuildPath;
 
 	private _rules = new Map<RuleID, RuleInfo>();
@@ -71,13 +71,13 @@ export class UpdateExecution {
 	private _recipeResults: RecipeResults[] = [];
 	private _logger: Logger;
 
-	constructor(make: Makefile, goal?: BuildPathLike) {
-		this._make = make;
-		this.goal = (goal && Path.build(goal)) || make.defaultGoal;
-		this._roots = { build: make.buildRoot, src: make.srcRoot };
+	constructor(mk: Makefile, goal?: BuildPathLike) {
+		this._mk = mk;
+		this.goal = (goal && Path.build(goal)) || mk.defaultGoal;
+		this._roots = { build: mk.buildRoot, src: mk.srcRoot };
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
-		for (const { rule, id } of make.rules()) {
+		for (const { rule, id } of mk.rules()) {
 			this._rules.set(id, this.normalizeRule(id, rule));
 		}
 	}
@@ -137,7 +137,7 @@ export class UpdateExecution {
 	 * @returns A promise that resolves when the build is done
 	 */
 	async run(): Promise<boolean> {
-		using _ = await this._make._lockAsync();
+		using _ = await this._mk._lockAsync();
 
 		const { src, build } = this._roots;
 		let stats: Stats | null = null;
@@ -165,11 +165,11 @@ export class UpdateExecution {
 			return false;
 		}
 
-		await this._make._load();
+		await this._mk._load();
 
 		this._targets = new Map<string, TargetInfo>();
-		for (const t of this._make.targets()) {
-			this._targets.set(t, this._make.target(t));
+		for (const t of this._mk.targets()) {
+			this._targets.set(t, this._mk.target(t));
 		}
 
 		if (this._reportCycle()) {
@@ -186,7 +186,7 @@ export class UpdateExecution {
 			this._logger.error(`Failed to update goal '${this.goal.rel()}'`);
 		}
 
-		await this._make._save(this._recipeResults);
+		await this._mk._save(this._recipeResults);
 
 		return result;
 	}

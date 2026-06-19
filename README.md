@@ -29,21 +29,21 @@ npm install -D esmakefile
 // make.mjs - (Script can technically be named anything)
 import { cli, Path } from 'esmakefile';
 
-cli((make) => {
+cli((mk) => {
 	const hello = Path.build('hello');
 	const hello_o = Path.build('hello.o');
 	const hello_c = Path.src('hello.c');
 
 	// 'all' phony target depends on 'hello'
-	make.add('all', [hello]);
+	mk.add('all', [hello]);
 
 	// Link 'hello' executable from compiled object files
-	make.add(hello, [hello_o], (args) => {
+	mk.add(hello, [hello_o], (args) => {
 		return args.spawn('cc', ['-o', args.abs(hello), args.abs(hello_o)]);
 	});
 
 	// Compile C source into object files
-	make.add(hello_o, [hello_c], (args) => {
+	mk.add(hello_o, [hello_c], (args) => {
 		return args.spawn('cc', ['-c', '-o', args.abs(hello_o), args.abs(hello_c)]);
 	});
 });
@@ -85,7 +85,7 @@ dependencies on other sources called _prerequisites_, which
 themselves can also be targets with their own rules. The set of
 steps to run in order to update a target is called a _recipe_.
 
-In the "Quick Start" example above, the `make` object is an
+In the "Quick Start" example above, the `mk` object is an
 instance of a `Makefile`. Each call to the `add` function adds a
 new _rule_ to the `Makefile`. The first argument to `add`
 specifies the rule's _target_. The other arguments can be a set
@@ -113,7 +113,7 @@ See the following example.
 const fileList = Path.src('file-list.txt');
 const concat = Path.build('concat.txt');
 
-make.add(concat, [fileList], async (args) => {
+mk.add(concat, [fileList], async (args) => {
 	const paths = await parseFileList(fileList);
 	const contents = [];
 
@@ -280,7 +280,7 @@ See the following example for basic usage.
 ```js
 import { cli, getLogger, LogLevel } from 'esmakefile';
 
-cli((make) => {
+cli((mk) => {
 	const logger = getLogger({ name: 'my.logger.name' });
 
     if (logger.enabled({ level: LogLevel.trace })) {
@@ -293,7 +293,7 @@ cli((make) => {
 
     logger.warn('beware');
 
-	make.add('info', () => {
+	mk.add('info', () => {
 		logger.info('info target recipe is being run');
 		logger.info({
             eventName: 'my.event.name',
@@ -304,7 +304,7 @@ cli((make) => {
         });
 	});
 
-	make.add('error', () => {
+	mk.add('error', () => {
         try {
             throw new Error('hehe');
         } catch (ex) {

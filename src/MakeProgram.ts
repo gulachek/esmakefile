@@ -1,12 +1,15 @@
 import { Makefile, MakefileFn, IMakefileOpts } from './Makefile.js';
 import { BuildPathLike } from './Path.js';
+import { Mutex } from './Mutex.js';
 import { UpdateExecution } from './UpdateExecution.js';
 
 export class MakeProgram {
 	private mk: Makefile;
+	private mtx: Mutex;
 
 	private constructor(mk: Makefile) {
 		this.mk = mk;
+		this.mtx = new Mutex();
 	}
 
 	static async parse(
@@ -18,9 +21,12 @@ export class MakeProgram {
 		return new MakeProgram(mk);
 	}
 
-	update(goal?: BuildPathLike): Promise<boolean> {
+	async update(goal?: BuildPathLike): Promise<boolean> {
+		await using _ = await this.mtx.lockAsync();
 		const build = new UpdateExecution(this.mk, goal);
-		return build.run();
+		// important to not simply return build.run() promise as it would unlock mtx too early
+		const result = await build.run();
+		return result;
 	}
 
 	get srcRoot(): string {

@@ -137,8 +137,6 @@ export class UpdateExecution {
 	 * @returns A promise that resolves when the build is done
 	 */
 	async run(): Promise<boolean> {
-		using _ = await this._mk._lockAsync();
-
 		const { src, build } = this._roots;
 		let stats: Stats | null = null;
 		try {

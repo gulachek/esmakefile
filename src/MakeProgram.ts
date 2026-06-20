@@ -1,7 +1,13 @@
-import { Makefile, MakefileFn, IMakefileOpts } from './Makefile.js';
-import { BuildPathLike } from './Path.js';
+import { MakeDatabase } from './MakeDatabase.js';
+import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
+import { BuildPathLike, Path } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
+
+export interface IMakeProgramParseOpts {
+	srcRoot?: string;
+	buildRoot?: string;
+}
 
 export class MakeProgram {
 	private mk: Makefile;
@@ -14,10 +20,21 @@ export class MakeProgram {
 
 	static async parse(
 		makeFn: MakefileFn,
-		opts?: IMakefileOpts,
+		opts?: IMakeProgramParseOpts,
 	): Promise<MakeProgram> {
-		const mk = new Makefile(opts || {});
+		const db = new MakeDatabase({});
+		const mainMk = Path.build('Makefile');
+
+		// Create and parse root Makefile
+		const mkOpts = {
+			...opts,
+			db,
+			path: mainMk,
+		};
+		const mk = new Makefile(mkOpts);
 		await makeFn(mk);
+		db.updateMakefile({ path: mainMk, isParsed: true });
+
 		return new MakeProgram(mk);
 	}
 

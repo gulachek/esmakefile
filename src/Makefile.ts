@@ -1,5 +1,4 @@
 import { IRule, RecipeFunction, ruleTargets } from './Rule.js';
-import { Lock, Mutex } from './Mutex.js';
 import {
 	IBuildPath,
 	BuildPathLike,
@@ -13,10 +12,13 @@ import {
 import { stat, readFile, writeFile, mkdir } from 'node:fs/promises';
 
 import { resolve, dirname } from 'node:path';
+import { MakeDatabase, MakefileInfo } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;
 	srcRoot?: string;
+	db: MakeDatabase;
+	path: IBuildPath;
 }
 
 type Prereqs = PathLike | PathLike[];
@@ -39,8 +41,9 @@ export class Makefile {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
+	private _path: IBuildPath;
+	private _db: MakeDatabase;
 	private _roots: IPathRoots;
-	private _mutex = new Mutex();
 	private _rules: IRule[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
 	private _writtenMtime: Date | null = null;
@@ -52,15 +55,19 @@ export class Makefile {
 			src: this.srcRoot,
 			build: this.buildRoot,
 		};
+		this._db = opts.db;
+		this._path = opts.path;
+
+		// register with db
+		this._db.insertMakefile(this._path);
 	}
 
-	/**
-	 * For internal use only. Lock Makefile for building
-	 * @internal
-	 * @returns A Promise that resolves with a Lock object when available
-	 */
-	public _lockAsync(): Promise<Lock> {
-		return this._mutex.lockAsync();
+	private _info(): MakefileInfo {
+		const info = this._db.selectMakefile(this._path);
+		if (!info) {
+			throw new Error(`Makefile '${this._path.rel()}' not found`);
+		}
+		return info;
 	}
 
 	/**
@@ -242,9 +249,9 @@ export class Makefile {
 			throw new Error(`Added targets without any prereqs or recipe`);
 		}
 
-		using lock = this._mutex.tryLock();
-		if (!lock) {
-			throw new Error('Cannot add while Makefile is locked');
+		const { isParsed } = this._info();
+		if (isParsed) {
+			throw new Error('Cannot add() to a Makefile that is done parsing');
 		}
 
 		const id: RuleID = this._rules.length;

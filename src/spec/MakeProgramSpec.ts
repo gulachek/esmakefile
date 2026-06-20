@@ -195,20 +195,16 @@ describe('MakeProgram', () => {
 	});
 
 	describe('add', () => {
-		it('cannot add while an update is in progress', async () => {
+		it('cannot add to Makefile after parsing is complete', async () => {
 			let outerMk: Makefile;
-			const make = await MakeProgram.parse((mk) => {
+			await MakeProgram.parse((mk) => {
 				outerMk = mk;
 				mk.add(new WriteFileRule('write.txt', 'hello'));
 			});
 
-			// TODO shouldn't be allowed after parsing either
-
-			const prom = make.update();
 			expect(() =>
 				outerMk.add(new CopyFileRule('src.txt', '/sub/dest.txt')),
 			).to.throw();
-			await prom;
 		});
 
 		it('throws if two recipes are given for a target', async () => {

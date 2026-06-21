@@ -16,7 +16,12 @@ import {
 } from './Path.js';
 
 import { resolve } from 'node:path';
-import { MakeDatabase, MakefileInfo, TargetInfo } from './MakeDatabase.js';
+import {
+	MakeDatabase,
+	MakefileInfo,
+	TargetInfo,
+	RuleInfo,
+} from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;

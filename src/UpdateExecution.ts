@@ -1,5 +1,5 @@
 import { Makefile } from './Makefile.js';
-import { TargetInfo } from './MakeDatabase.js';
+import { TargetInfo, RuleInfo } from './MakeDatabase.js';
 import {
 	IRule,
 	rulePrereqs,
@@ -427,9 +427,3 @@ function makePromise<T>(): IPromisePieces<T> {
 	});
 	return { resolve, reject, promise };
 }
-
-type RuleInfo = {
-	recipe: () => Promise<boolean> | null;
-	prereqs: Path[];
-	targets: IBuildPath[];
-};

@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { IBuildPath } from './Path.js';
+import { IBuildPath, Path } from './Path.js';
 import { RuleID } from './Rule.js';
 
 export interface IMakeDatabaseOpts {
@@ -13,6 +13,12 @@ export type MakefileInfo = {
 };
 
 export type RowID = number;
+
+export type RuleInfo = {
+	recipe: () => Promise<boolean> | null;
+	prereqs: Path[];
+	targets: IBuildPath[];
+};
 
 export type TargetInfo = {
 	rules: Set<RuleID>;

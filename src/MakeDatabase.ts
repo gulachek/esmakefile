@@ -15,6 +15,7 @@ export type MakefileInfo = {
 export type RowID = number;
 
 export type RuleInfo = {
+	id: RuleID;
 	recipe: (args: RecipeArgs) => Promise<boolean> | null;
 	prereqs: Path[];
 	targets: IBuildPath[];

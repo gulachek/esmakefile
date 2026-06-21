@@ -63,8 +63,8 @@ export class UpdateExecution {
 		this._roots = { build: mk.buildRoot, src: mk.srcRoot };
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
-		for (const { rule, id } of mk.rules()) {
-			this._rules.set(id, rule);
+		for (const rule of mk.rules()) {
+			this._rules.set(rule.id, rule);
 		}
 	}
 

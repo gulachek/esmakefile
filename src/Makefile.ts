@@ -83,9 +83,9 @@ export class Makefile {
 	/**
 	 * @internal
 	 */
-	public *rules(): Generator<{ rule: RuleInfo; id: RuleID }> {
+	public *rules(): Generator<RuleInfo> {
 		for (let id = 0; id < this._rules.length; ++id) {
-			yield { id, rule: this._rules[id] };
+			yield this._rules[id];
 		}
 	}
 
@@ -171,6 +171,7 @@ export class Makefile {
 		const id: RuleID = this._rules.length;
 		const hasRecipe = !!rule.recipe;
 		this._rules.push({
+			id,
 			targets: ruleTargets(rule),
 			prereqs: rulePrereqs(rule),
 			recipe: ruleRecipe(rule),

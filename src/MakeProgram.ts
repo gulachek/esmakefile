@@ -1,7 +1,7 @@
 import { MakeDatabase } from './MakeDatabase.js';
 import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
-import { BuildPathLike, Path } from './Path.js';
+import { BuildPathLike, Path, IBuildPath } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
 
 export interface IMakeProgramParseOpts {
@@ -53,7 +53,7 @@ export class MakeProgram {
 
 	async update(goal?: BuildPathLike): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
-		const goalPath = (goal && Path.build(goal)) || this.mk.defaultGoal;
+		const goalPath = (goal && Path.build(goal)) || defaultGoal(this.db);
 		const build = new UpdateExecution(this.mk, this.db);
 		// important to not simply return build.run() promise as it would unlock mtx too early
 		const result = await build.run(goalPath);
@@ -75,4 +75,12 @@ export class MakeProgram {
 	hasTarget(t: BuildPathLike): boolean {
 		return this.mk.hasTarget(t);
 	}
+}
+
+function defaultGoal(db: MakeDatabase): IBuildPath {
+	for (const rule of db.selectRules()) {
+		for (const t of rule.targets) return t;
+	}
+
+	throw new Error('No targets exist to select a default goal');
 }

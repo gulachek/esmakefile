@@ -186,10 +186,6 @@ export class Makefile {
 		return id;
 	}
 
-	public get defaultGoal(): IBuildPath {
-		return this._firstTarget();
-	}
-
 	public include(target: BuildPathLike, mkFn: MakefileFn): IBuildPath {
 		const path = Path.build(target);
 		mkFn(this);
@@ -211,14 +207,6 @@ export class Makefile {
 	private normalizePrereqs(p: Prereqs): Path | Path[] {
 		if (isPathLike(p)) return this.normalizeIndividualPrereq(p);
 		return p.map((p) => this.normalizeIndividualPrereq(p));
-	}
-
-	private _firstTarget(): IBuildPath {
-		for (const rule of this._db.selectRules()) {
-			for (const t of rule.targets) return t;
-		}
-
-		throw new Error('No targets exist in Makefile');
 	}
 
 	public abs(path: Path): string {

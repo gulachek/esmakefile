@@ -14,6 +14,12 @@ export type MakefileInfo = {
 
 export type RowID = number;
 
+export type TargetInfo = {
+	rules: Set<RuleID>;
+	recipeRule: RuleID | null;
+	postreqs?: string[];
+};
+
 export class MakeDatabase {
 	readonly srcRoot: string;
 	readonly buildRoot: string;

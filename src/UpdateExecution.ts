@@ -1,4 +1,5 @@
-import { Makefile, TargetInfo } from './Makefile.js';
+import { Makefile } from './Makefile.js';
+import { TargetInfo } from './MakeDatabase.js';
 import {
 	IRule,
 	rulePrereqs,

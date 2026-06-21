@@ -16,7 +16,7 @@ import {
 } from './Path.js';
 
 import { resolve } from 'node:path';
-import { MakeDatabase, MakefileInfo } from './MakeDatabase.js';
+import { MakeDatabase, MakefileInfo, TargetInfo } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;
@@ -243,9 +243,3 @@ export class Makefile {
 		return path.abs(this._roots);
 	}
 }
-
-export type TargetInfo = {
-	rules: Set<RuleID>;
-	recipeRule: RuleID | null;
-	postreqs?: string[];
-};

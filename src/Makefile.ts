@@ -26,20 +26,6 @@ type RecipeFunction = (
 	args: RecipeArgs,
 ) => Promise<boolean | void> | boolean | void;
 
-function ruleRecipe(
-	rule: IRule,
-): (args: RecipeArgs) => Promise<boolean> | null {
-	if (rule.recipe) {
-		return async (args: RecipeArgs) => {
-			const result = await rule.recipe(args);
-			if (typeof result === 'undefined') return true;
-			return result;
-		};
-	}
-
-	return null;
-}
-
 function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 	if (typeof ruleOrTargets === 'string') return false;
 	return 'targets' in ruleOrTargets;
@@ -53,6 +39,21 @@ function normalizeTargets(t: Targets): IBuildPath[] {
 function normalizePrereqs(p: Prereqs): Path[] {
 	if (isPathLike(p)) return [Path.src(p)];
 	return p.map((p) => Path.src(p));
+}
+
+function normalizeRecipe(
+	instance: IRule | undefined,
+	fn?: RecipeFunction,
+): (args: RecipeArgs) => Promise<boolean> | null {
+	if (fn) {
+		return async (args: RecipeArgs) => {
+			const result = await fn.call(instance, args);
+			if (typeof result === 'undefined') return true;
+			return result;
+		};
+	}
+
+	return null;
 }
 
 export type MakefileFn = (make: Makefile) => void | Promise<void>;
@@ -122,51 +123,30 @@ export class Makefile {
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
 	): RuleID {
-		let rule: IRule;
 		let targets: IBuildPath[];
 		let prereqs: Path[];
+		let recipe: (args: RecipeArgs) => Promise<boolean> | null = null;
 		if (recipeFn) {
 			// targets, prereqs, recipe
 			targets = normalizeTargets(ruleOrTargets as Targets);
 			prereqs = normalizePrereqs(prereqsOrRecipe as Prereqs);
-			rule = {
-				targets() {
-					return normalizeTargets(ruleOrTargets as Targets);
-				},
-				prereqs() {
-					return normalizePrereqs(prereqsOrRecipe as Prereqs);
-				},
-				recipe: recipeFn,
-			};
+			recipe = normalizeRecipe(undefined, recipeFn);
 		} else if (typeof prereqsOrRecipe === 'function') {
 			// targets, recipe
 			targets = normalizeTargets(ruleOrTargets as Targets);
 			prereqs = [];
-			rule = {
-				targets() {
-					return normalizeTargets(ruleOrTargets as Targets);
-				},
-				recipe: prereqsOrRecipe,
-			};
+			recipe = normalizeRecipe(undefined, prereqsOrRecipe);
 		} else if (prereqsOrRecipe) {
 			// targets, prereqs
 			targets = normalizeTargets(ruleOrTargets as Targets);
 			prereqs = normalizePrereqs(prereqsOrRecipe);
-			rule = {
-				targets() {
-					return normalizeTargets(ruleOrTargets as Targets);
-				},
-				prereqs() {
-					return normalizePrereqs(prereqsOrRecipe);
-				},
-			};
 		} else if (isRule(ruleOrTargets)) {
 			// rule
 			targets = normalizeTargets(ruleOrTargets.targets());
 			prereqs = ruleOrTargets.prereqs
 				? normalizePrereqs(ruleOrTargets.prereqs())
 				: [];
-			rule = ruleOrTargets;
+			recipe = normalizeRecipe(ruleOrTargets, ruleOrTargets.recipe);
 		} else {
 			// targets
 			throw new Error(`Added targets without any prereqs or recipe`);
@@ -177,11 +157,11 @@ export class Makefile {
 			throw new Error('Cannot add() to a Makefile that is done parsing');
 		}
 
-		const hasRecipe = !!rule.recipe;
+		const hasRecipe = !!recipe;
 		const { id } = this._db.insertRule({
 			targets,
 			prereqs,
-			recipe: ruleRecipe(rule),
+			recipe,
 		});
 
 		for (const p of targets) {

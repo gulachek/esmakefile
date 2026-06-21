@@ -499,22 +499,7 @@ describe('MakeProgram', () => {
 			expect(write.buildCount).to.equal(1);
 		});
 
-		it('defaults a string type prereq to build path if it is a target at time of update', async () => {
-			let prereqBuilt = false;
-
-			const make = await parse((mk) => {
-				mk.add('all', 'prereq');
-
-				mk.add('prereq', () => {
-					prereqBuilt = true;
-				});
-			});
-
-			await make.update();
-			expect(prereqBuilt).to.be.true;
-		});
-
-		it('defaults a string type prereq to src path if it is not a target at time of update', async () => {
+		it('defaults a string type prereq to src path', async () => {
 			const prereq = Path.src('prereq');
 			await writePath(prereq, 'prereq');
 

@@ -4,6 +4,8 @@ import {
 	ruleTargets,
 	RuleID,
 	isRuleID,
+	rulePrereqs,
+	ruleRecipe,
 } from './Rule.js';
 import {
 	IBuildPath,
@@ -53,7 +55,7 @@ export class Makefile {
 	private _path: IBuildPath;
 	private _db: MakeDatabase;
 	private _roots: IPathRoots;
-	private _rules: IRule[] = []; // index is RuleID
+	private _rules: RuleInfo[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
 
 	constructor(opts: IMakefileOpts) {
@@ -81,7 +83,7 @@ export class Makefile {
 	/**
 	 * @internal
 	 */
-	public *rules(): Generator<{ rule: IRule; id: RuleID }> {
+	public *rules(): Generator<{ rule: RuleInfo; id: RuleID }> {
 		for (let id = 0; id < this._rules.length; ++id) {
 			yield { id, rule: this._rules[id] };
 		}
@@ -168,7 +170,11 @@ export class Makefile {
 
 		const id: RuleID = this._rules.length;
 		const hasRecipe = !!rule.recipe;
-		this._rules.push(rule);
+		this._rules.push({
+			targets: ruleTargets(rule),
+			prereqs: rulePrereqs(rule),
+			recipe: ruleRecipe(rule),
+		});
 
 		for (const p of ruleTargets(rule)) {
 			const rel = p.rel();
@@ -227,7 +233,7 @@ export class Makefile {
 		for (let id = 0; id < this._rules.length; ++id) {
 			const rule = this._rules[id];
 
-			for (const t of ruleTargets(rule)) return t;
+			for (const t of rule.targets) return t;
 		}
 
 		throw new Error('No targets exist in Makefile');

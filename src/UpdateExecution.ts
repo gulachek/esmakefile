@@ -1,14 +1,6 @@
 import { Makefile } from './Makefile.js';
 import { TargetInfo, RuleInfo } from './MakeDatabase.js';
-import {
-	IRule,
-	rulePrereqs,
-	ruleTargets,
-	ruleRecipe,
-	RecipeArgs,
-	RuleID,
-	isRuleID,
-} from './Rule.js';
+import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
 import { IBuildPath, IPathRoots, Path } from './Path.js';
 
 import { mkdir } from 'node:fs/promises';
@@ -72,16 +64,8 @@ export class UpdateExecution {
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
 		for (const { rule, id } of mk.rules()) {
-			this._rules.set(id, this.normalizeRule(id, rule));
+			this._rules.set(id, rule);
 		}
-	}
-
-	private normalizeRule(_: RuleID, rule: IRule): RuleInfo {
-		const prereqs = rulePrereqs(rule);
-		const targets = ruleTargets(rule);
-		const recipe = ruleRecipe(rule);
-
-		return { prereqs, targets, recipe };
 	}
 
 	private _reportCycle(): boolean {

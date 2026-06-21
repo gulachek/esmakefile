@@ -166,3 +166,9 @@ function isIterable<T>(obj: object): obj is Iterable<T> {
 		obj && Symbol.iterator in obj && typeof obj[Symbol.iterator] === 'function'
 	);
 }
+
+export type RuleID = number;
+
+export function isRuleID(id: unknown): id is RuleID {
+	return typeof id === 'number';
+}

@@ -1,4 +1,10 @@
-import { IRule, RecipeFunction, ruleTargets } from './Rule.js';
+import {
+	IRule,
+	RecipeFunction,
+	ruleTargets,
+	RuleID,
+	isRuleID,
+} from './Rule.js';
 import {
 	IBuildPath,
 	BuildPathLike,
@@ -236,12 +242,6 @@ export class Makefile {
 	public abs(path: Path): string {
 		return path.abs(this._roots);
 	}
-}
-
-export type RuleID = number;
-
-export function isRuleID(id: unknown): id is RuleID {
-	return typeof id === 'number';
 }
 
 export type TargetInfo = {

@@ -1,10 +1,12 @@
-import { Makefile, RuleID, TargetInfo, isRuleID } from './Makefile.js';
+import { Makefile, TargetInfo } from './Makefile.js';
 import {
 	IRule,
 	rulePrereqs,
 	ruleTargets,
 	ruleRecipe,
 	RecipeArgs,
+	RuleID,
+	isRuleID,
 } from './Rule.js';
 import { IBuildPath, IPathRoots, Path } from './Path.js';
 

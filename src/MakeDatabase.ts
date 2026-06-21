@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { IBuildPath } from './Path.js';
+import { RuleID } from './Rule.js';
 
 export interface IMakeDatabaseOpts {
 	srcRoot?: string;

@@ -100,8 +100,12 @@ executable file.
 
 #### Postreqs
 
+> [!TODO]
+> Postreqs are currently disabled and are under construction to
+> be a convenience API built on top of `Makefile.include`
+
 A "postreq" in esmakefile is a conceptual addition to the Make
-model, and it's related to the "prereq" (prerequisite) concept
+model, and its related to the "prereq" (prerequisite) concept
 discussed above. For a given rule, both prereqs and postreqs are
 required to functionally update the associated target. The
 difference lies at _when_ this dependency is expressed in the

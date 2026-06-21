@@ -35,6 +35,13 @@ export class MakeProgram {
 		await makeFn(mk);
 		db.updateMakefile({ path: mainMk, isParsed: true });
 
+		// while (unparsed includes) {
+		//   for (const mk of includes) {
+		//     update(mk);
+		//     parse(mk);
+		//   }
+		// }
+
 		return new MakeProgram(mk);
 	}
 

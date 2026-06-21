@@ -1,10 +1,4 @@
-import {
-	Makefile,
-	RecipeResults,
-	RuleID,
-	TargetInfo,
-	isRuleID,
-} from './Makefile.js';
+import { Makefile, RuleID, TargetInfo, isRuleID } from './Makefile.js';
 import {
 	IRule,
 	rulePrereqs,
@@ -68,7 +62,6 @@ export class UpdateExecution {
 	private _builtTargets = new Map<string, TargetCompleteInfo>();
 
 	private _info = new Map<RuleID, RecipeBuildInfo>();
-	private _recipeResults: RecipeResults[] = [];
 	private _logger: Logger;
 
 	constructor(mk: Makefile, goal?: BuildPathLike) {
@@ -82,7 +75,7 @@ export class UpdateExecution {
 		}
 	}
 
-	private normalizeRule(id: RuleID, rule: IRule): RuleInfo {
+	private normalizeRule(_: RuleID, rule: IRule): RuleInfo {
 		const prereqs = rulePrereqs(rule);
 		const targets = ruleTargets(rule);
 		const innerRecipe = ruleRecipe(rule);
@@ -94,11 +87,6 @@ export class UpdateExecution {
 				const recipeArgs = new RecipeArgs(this._roots, src);
 
 				const result = await innerRecipe(recipeArgs);
-
-				this._recipeResults.push({
-					ruleId: id,
-					postreqs: [...src],
-				});
 
 				return result;
 			};
@@ -163,8 +151,6 @@ export class UpdateExecution {
 			return false;
 		}
 
-		await this._mk._load();
-
 		this._targets = new Map<string, TargetInfo>();
 		for (const t of this._mk.targets()) {
 			this._targets.set(t, this._mk.target(t));
@@ -174,8 +160,6 @@ export class UpdateExecution {
 			return false;
 		}
 
-		this._recipeResults = [];
-
 		this._logger.info(`Updating goal '${this.goal.rel()}'`);
 		const result = await this.updateAll([this.goal]);
 		if (result) {
@@ -183,8 +167,6 @@ export class UpdateExecution {
 		} else {
 			this._logger.error(`Failed to update goal '${this.goal.rel()}'`);
 		}
-
-		await this._mk._save(this._recipeResults);
 
 		return result;
 	}

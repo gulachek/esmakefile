@@ -32,6 +32,7 @@ export class MakeDatabase {
 	readonly buildRoot: string;
 
 	private _makefiles = new Map<string, MakefileInfo>();
+	private _rules: RuleInfo[] = [];
 
 	constructor(opts: IMakeDatabaseOpts) {
 		this.srcRoot = resolve(opts.srcRoot || '.');
@@ -67,5 +68,16 @@ export class MakeDatabase {
 		}
 
 		Object.assign(stored, info);
+	}
+
+	insertRule(rule: Omit<RuleInfo, 'id'>): RuleInfo {
+		const id = this._rules.length;
+		const info: RuleInfo = { ...rule, id };
+		this._rules.push(info);
+		return info;
+	}
+
+	selectRules(): RuleInfo[] {
+		return Array.from(this._rules);
 	}
 }

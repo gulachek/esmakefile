@@ -1,5 +1,5 @@
 import { Makefile } from './Makefile.js';
-import { TargetInfo, RuleInfo } from './MakeDatabase.js';
+import { TargetInfo, RuleInfo, MakeDatabase } from './MakeDatabase.js';
 import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
 import { IBuildPath, IPathRoots, Path } from './Path.js';
 
@@ -58,12 +58,12 @@ export class UpdateExecution {
 	private _info = new Map<RuleID, RecipeBuildInfo>();
 	private _logger: Logger;
 
-	constructor(mk: Makefile) {
+	constructor(mk: Makefile, db: MakeDatabase) {
 		this._mk = mk;
 		this._roots = { build: mk.buildRoot, src: mk.srcRoot };
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
-		for (const rule of mk.rules()) {
+		for (const rule of db.selectRules()) {
 			this._rules.set(rule.id, rule);
 		}
 	}

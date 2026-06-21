@@ -18,12 +18,7 @@ import {
 } from './Path.js';
 
 import { resolve } from 'node:path';
-import {
-	MakeDatabase,
-	MakefileInfo,
-	TargetInfo,
-	RuleInfo,
-} from './MakeDatabase.js';
+import { MakeDatabase, MakefileInfo, TargetInfo } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;
@@ -55,7 +50,6 @@ export class Makefile {
 	private _path: IBuildPath;
 	private _db: MakeDatabase;
 	private _roots: IPathRoots;
-	private _rules: RuleInfo[] = []; // index is RuleID
 	private _targets = new Map<string, TargetInfo>();
 
 	constructor(opts: IMakefileOpts) {
@@ -78,15 +72,6 @@ export class Makefile {
 			throw new Error(`Makefile '${this._path.rel()}' not found`);
 		}
 		return info;
-	}
-
-	/**
-	 * @internal
-	 */
-	public *rules(): Generator<RuleInfo> {
-		for (let id = 0; id < this._rules.length; ++id) {
-			yield this._rules[id];
-		}
 	}
 
 	public targets(): string[] {
@@ -168,10 +153,8 @@ export class Makefile {
 			throw new Error('Cannot add() to a Makefile that is done parsing');
 		}
 
-		const id: RuleID = this._rules.length;
 		const hasRecipe = !!rule.recipe;
-		this._rules.push({
-			id,
+		const { id } = this._db.insertRule({
 			targets: ruleTargets(rule),
 			prereqs: rulePrereqs(rule),
 			recipe: ruleRecipe(rule),
@@ -231,9 +214,7 @@ export class Makefile {
 	}
 
 	private _firstTarget(): IBuildPath {
-		for (let id = 0; id < this._rules.length; ++id) {
-			const rule = this._rules[id];
-
+		for (const rule of this._db.selectRules()) {
 			for (const t of rule.targets) return t;
 		}
 

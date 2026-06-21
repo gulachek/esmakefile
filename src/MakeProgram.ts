@@ -54,7 +54,7 @@ export class MakeProgram {
 	async update(goal?: BuildPathLike): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
 		const goalPath = (goal && Path.build(goal)) || this.mk.defaultGoal;
-		const build = new UpdateExecution(this.mk);
+		const build = new UpdateExecution(this.mk, this.db);
 		// important to not simply return build.run() promise as it would unlock mtx too early
 		const result = await build.run(goalPath);
 		return result;

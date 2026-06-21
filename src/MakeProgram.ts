@@ -11,10 +11,12 @@ export interface IMakeProgramParseOpts {
 
 export class MakeProgram {
 	private mk: Makefile;
+	private db: MakeDatabase;
 	private mtx: Mutex;
 
-	private constructor(mk: Makefile) {
+	private constructor(mk: Makefile, db: MakeDatabase) {
 		this.mk = mk;
+		this.db = db;
 		this.mtx = new Mutex();
 	}
 
@@ -22,7 +24,11 @@ export class MakeProgram {
 		makeFn: MakefileFn,
 		opts?: IMakeProgramParseOpts,
 	): Promise<MakeProgram> {
-		const db = new MakeDatabase({});
+		opts = opts || {};
+		const db = new MakeDatabase({
+			buildRoot: opts.buildRoot,
+			srcRoot: opts.srcRoot,
+		});
 		const mainMk = Path.build('Makefile');
 
 		// Create and parse root Makefile
@@ -42,7 +48,7 @@ export class MakeProgram {
 		//   }
 		// }
 
-		return new MakeProgram(mk);
+		return new MakeProgram(mk, db);
 	}
 
 	async update(goal?: BuildPathLike): Promise<boolean> {
@@ -55,11 +61,11 @@ export class MakeProgram {
 	}
 
 	get srcRoot(): string {
-		return this.mk.srcRoot;
+		return this.db.srcRoot;
 	}
 
 	get buildRoot(): string {
-		return this.mk.buildRoot;
+		return this.db.buildRoot;
 	}
 
 	targets(): string[] {

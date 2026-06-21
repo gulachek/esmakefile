@@ -30,10 +30,6 @@ function rulePrereqs(rule: IRule): Path[] {
 	return [];
 }
 
-function ruleTargets(rule: IRule): IBuildPath[] {
-	return normalize(rule.targets());
-}
-
 type RecipeFunction = (
 	args: RecipeArgs,
 ) => Promise<boolean | void> | boolean | void;
@@ -67,9 +63,8 @@ function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 	return 'targets' in ruleOrTargets;
 }
 
-function normalizeTargets(t: Targets): IBuildPath | IBuildPath[] {
-	if (isBuildPathLike(t)) return Path.build(t);
-
+function normalizeTargets(t: Targets): IBuildPath[] {
+	if (isBuildPathLike(t)) return [Path.build(t)];
 	return t.map((t) => Path.build(t));
 }
 
@@ -143,8 +138,10 @@ export class Makefile {
 		const norm = this.normalizePrereqs.bind(this);
 
 		let rule: IRule;
+		let targets: IBuildPath[];
 		if (recipeFn) {
 			// targets, prereqs, recipe
+			targets = normalizeTargets(ruleOrTargets as Targets);
 			rule = {
 				targets() {
 					return normalizeTargets(ruleOrTargets as Targets);
@@ -156,6 +153,7 @@ export class Makefile {
 			};
 		} else if (typeof prereqsOrRecipe === 'function') {
 			// targets, recipe
+			targets = normalizeTargets(ruleOrTargets as Targets);
 			rule = {
 				targets() {
 					return normalizeTargets(ruleOrTargets as Targets);
@@ -164,6 +162,7 @@ export class Makefile {
 			};
 		} else if (prereqsOrRecipe) {
 			// targets, prereqs
+			targets = normalizeTargets(ruleOrTargets as Targets);
 			rule = {
 				targets() {
 					return normalizeTargets(ruleOrTargets as Targets);
@@ -174,6 +173,7 @@ export class Makefile {
 			};
 		} else if (isRule(ruleOrTargets)) {
 			// rule
+			targets = normalizeTargets(ruleOrTargets.targets());
 			rule = ruleOrTargets;
 		} else {
 			// targets
@@ -187,12 +187,12 @@ export class Makefile {
 
 		const hasRecipe = !!rule.recipe;
 		const { id } = this._db.insertRule({
-			targets: ruleTargets(rule),
+			targets,
 			prereqs: rulePrereqs(rule),
 			recipe: ruleRecipe(rule),
 		});
 
-		for (const p of ruleTargets(rule)) {
+		for (const p of targets) {
 			const rel = p.rel();
 			let targetInfo = this._targets.get(rel);
 			if (!targetInfo) {

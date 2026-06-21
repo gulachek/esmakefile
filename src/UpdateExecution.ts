@@ -6,7 +6,7 @@ import {
 	ruleRecipe,
 	RecipeArgs,
 } from './Rule.js';
-import { BuildPathLike, IBuildPath, IPathRoots, Path } from './Path.js';
+import { IBuildPath, IPathRoots, Path } from './Path.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
@@ -54,7 +54,6 @@ type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 export class UpdateExecution {
 	private _roots: IPathRoots;
 	private _mk: Makefile;
-	public readonly goal: IBuildPath;
 
 	private _rules = new Map<RuleID, RuleInfo>();
 
@@ -64,9 +63,8 @@ export class UpdateExecution {
 	private _info = new Map<RuleID, RecipeBuildInfo>();
 	private _logger: Logger;
 
-	constructor(mk: Makefile, goal?: BuildPathLike) {
+	constructor(mk: Makefile) {
 		this._mk = mk;
-		this.goal = (goal && Path.build(goal)) || mk.defaultGoal;
 		this._roots = { build: mk.buildRoot, src: mk.srcRoot };
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
@@ -122,9 +120,10 @@ export class UpdateExecution {
 
 	/**
 	 * Top level build function. Runs exclusively
+	 * @param goal The goal to update
 	 * @returns A promise that resolves when the build is done
 	 */
-	async run(): Promise<boolean> {
+	async run(goal: IBuildPath): Promise<boolean> {
 		const { src, build } = this._roots;
 		let stats: Stats | null = null;
 		try {
@@ -160,12 +159,12 @@ export class UpdateExecution {
 			return false;
 		}
 
-		this._logger.info(`Updating goal '${this.goal.rel()}'`);
-		const result = await this.updateAll([this.goal]);
+		this._logger.info(`Updating goal '${goal.rel()}'`);
+		const result = await this.updateAll([goal]);
 		if (result) {
-			this._logger.info(`Successfully updated goal '${this.goal.rel()}'`);
+			this._logger.info(`Successfully updated goal '${goal.rel()}'`);
 		} else {
-			this._logger.error(`Failed to update goal '${this.goal.rel()}'`);
+			this._logger.error(`Failed to update goal '${goal.rel()}'`);
 		}
 
 		return result;

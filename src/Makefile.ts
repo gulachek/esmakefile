@@ -1,4 +1,4 @@
-import { IRule, RuleID, isRuleID, RecipeArgs } from './Rule.js';
+import { IRule, RuleID, RecipeArgs } from './Rule.js';
 import {
 	IBuildPath,
 	BuildPathLike,
@@ -10,7 +10,7 @@ import {
 } from './Path.js';
 
 import { resolve } from 'node:path';
-import { MakeDatabase, MakefileInfo, TargetInfo } from './MakeDatabase.js';
+import { MakeDatabase, MakefileInfo } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;
@@ -65,7 +65,6 @@ export class Makefile {
 	private _path: IBuildPath;
 	private _db: MakeDatabase;
 	private _roots: IPathRoots;
-	private _targets = new Map<string, TargetInfo>();
 
 	constructor(opts: IMakefileOpts) {
 		this.srcRoot = resolve(opts.srcRoot || '.');
@@ -87,28 +86,6 @@ export class Makefile {
 			throw new Error(`Makefile '${this._path.rel()}' not found`);
 		}
 		return info;
-	}
-
-	public targets(): string[] {
-		return [...this._targets.keys()];
-	}
-
-	/**
-	 * @internal
-	 */
-	public target(path: BuildPathLike): TargetInfo {
-		const rel = Path.build(path).rel();
-		const info = this._targets.get(rel);
-		if (!info) {
-			throw new Error(`Target with path '${rel}' not defined in Makefile`);
-		}
-
-		return info;
-	}
-
-	public hasTarget(target: BuildPathLike): boolean {
-		const path = Path.build(target);
-		return !!this._targets.get(path.rel());
 	}
 
 	public add(rule: IRule): RuleID;
@@ -157,35 +134,11 @@ export class Makefile {
 			throw new Error('Cannot add() to a Makefile that is done parsing');
 		}
 
-		const hasRecipe = !!recipe;
 		const { id } = this._db.insertRule({
 			targets,
 			prereqs,
 			recipe,
 		});
-
-		for (const p of targets) {
-			const rel = p.rel();
-			let targetInfo = this._targets.get(rel);
-			if (!targetInfo) {
-				targetInfo = {
-					rules: new Set(),
-					recipeRule: null,
-				};
-				this._targets.set(rel, targetInfo);
-			}
-
-			if (hasRecipe) {
-				if (isRuleID(targetInfo.recipeRule))
-					throw new Error(
-						`Target '${rel}' already has a recipe specified. Cannot add another one.`,
-					);
-
-				targetInfo.recipeRule = id;
-			}
-
-			targetInfo.rules.add(id);
-		}
 
 		return id;
 	}

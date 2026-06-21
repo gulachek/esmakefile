@@ -10,12 +10,10 @@ export interface IMakeProgramParseOpts {
 }
 
 export class MakeProgram {
-	private mk: Makefile;
 	private db: MakeDatabase;
 	private mtx: Mutex;
 
-	private constructor(mk: Makefile, db: MakeDatabase) {
-		this.mk = mk;
+	private constructor(db: MakeDatabase) {
 		this.db = db;
 		this.mtx = new Mutex();
 	}
@@ -48,13 +46,13 @@ export class MakeProgram {
 		//   }
 		// }
 
-		return new MakeProgram(mk, db);
+		return new MakeProgram(db);
 	}
 
 	async update(goal?: BuildPathLike): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
 		const goalPath = (goal && Path.build(goal)) || defaultGoal(this.db);
-		const build = new UpdateExecution(this.mk, this.db);
+		const build = new UpdateExecution(this.db);
 		// important to not simply return build.run() promise as it would unlock mtx too early
 		const result = await build.run(goalPath);
 		return result;
@@ -69,11 +67,15 @@ export class MakeProgram {
 	}
 
 	targets(): string[] {
-		return this.mk.targets();
+		const out: string[] = [];
+		for (const t of this.db.selectTargets()) {
+			out.push(t.path.rel());
+		}
+		return out;
 	}
 
 	hasTarget(t: BuildPathLike): boolean {
-		return this.mk.hasTarget(t);
+		return !!this.db.selectTarget(Path.build(t));
 	}
 }
 

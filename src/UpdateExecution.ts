@@ -1,4 +1,3 @@
-import { Makefile } from './Makefile.js';
 import { TargetInfo, RuleInfo, MakeDatabase } from './MakeDatabase.js';
 import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
 import { IBuildPath, IPathRoots, Path } from './Path.js';
@@ -48,7 +47,7 @@ type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
 export class UpdateExecution {
 	private _roots: IPathRoots;
-	private _mk: Makefile;
+	private _db: MakeDatabase;
 
 	private _rules = new Map<RuleID, RuleInfo>();
 
@@ -58,9 +57,9 @@ export class UpdateExecution {
 	private _info = new Map<RuleID, RecipeBuildInfo>();
 	private _logger: Logger;
 
-	constructor(mk: Makefile, db: MakeDatabase) {
-		this._mk = mk;
-		this._roots = { build: mk.buildRoot, src: mk.srcRoot };
+	constructor(db: MakeDatabase) {
+		this._db = db;
+		this._roots = { build: db.buildRoot, src: db.srcRoot };
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
 		for (const rule of db.selectRules()) {
@@ -126,8 +125,8 @@ export class UpdateExecution {
 		}
 
 		this._targets = new Map<string, TargetInfo>();
-		for (const t of this._mk.targets()) {
-			this._targets.set(t, this._mk.target(t));
+		for (const t of this._db.selectTargets()) {
+			this._targets.set(t.path.rel(), t);
 		}
 
 		if (this._reportCycle()) {

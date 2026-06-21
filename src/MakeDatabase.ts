@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { IBuildPath, Path } from './Path.js';
-import { RecipeArgs, RuleID } from './Rule.js';
+import { isRuleID, RecipeArgs, RuleID } from './Rule.js';
 
 export interface IMakeDatabaseOpts {
 	srcRoot?: string;
@@ -22,6 +22,7 @@ export type RuleInfo = {
 };
 
 export type TargetInfo = {
+	path: IBuildPath;
 	rules: Set<RuleID>;
 	recipeRule: RuleID | null;
 	postreqs?: string[];
@@ -33,6 +34,7 @@ export class MakeDatabase {
 
 	private _makefiles = new Map<string, MakefileInfo>();
 	private _rules: RuleInfo[] = [];
+	private _targets = new Map<string, TargetInfo>();
 
 	constructor(opts: IMakeDatabaseOpts) {
 		this.srcRoot = resolve(opts.srcRoot || '.');
@@ -74,10 +76,47 @@ export class MakeDatabase {
 		const id = this._rules.length;
 		const info: RuleInfo = { ...rule, id };
 		this._rules.push(info);
+
+		for (const t of info.targets) {
+			this.upsertTargetRule(t, info);
+		}
+
 		return info;
 	}
 
 	selectRules(): RuleInfo[] {
 		return Array.from(this._rules);
+	}
+
+	selectTargets(): TargetInfo[] {
+		return Array.from(this._targets.values());
+	}
+
+	selectTarget(path: IBuildPath): TargetInfo | null {
+		return this._targets.get(path.rel()) || null;
+	}
+
+	private upsertTargetRule(path: IBuildPath, rule: RuleInfo): void {
+		const rel = path.rel();
+		let targetInfo = this._targets.get(rel);
+		if (!targetInfo) {
+			targetInfo = {
+				path,
+				rules: new Set(),
+				recipeRule: null,
+			};
+			this._targets.set(rel, targetInfo);
+		}
+
+		if (rule.recipe) {
+			if (isRuleID(targetInfo.recipeRule))
+				throw new Error(
+					`Target '${rel}' already has a recipe specified. Cannot add another one.`,
+				);
+
+			targetInfo.recipeRule = rule.id;
+		}
+
+		targetInfo.rules.add(rule.id);
 	}
 }

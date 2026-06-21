@@ -1,12 +1,4 @@
-import {
-	IRule,
-	RecipeFunction,
-	ruleTargets,
-	RuleID,
-	isRuleID,
-	rulePrereqs,
-	ruleRecipe,
-} from './Rule.js';
+import { IRule, RuleID, isRuleID, RecipeArgs } from './Rule.js';
 import {
 	IBuildPath,
 	BuildPathLike,
@@ -29,6 +21,46 @@ export interface IMakefileOpts {
 
 type Prereqs = PathLike | PathLike[];
 type Targets = BuildPathLike | BuildPathLike[];
+
+function rulePrereqs(rule: IRule): Path[] {
+	if (typeof rule.prereqs === 'function') {
+		return normalize(rule.prereqs());
+	}
+
+	return [];
+}
+
+function ruleTargets(rule: IRule): IBuildPath[] {
+	return normalize(rule.targets());
+}
+
+type RecipeFunction = (
+	args: RecipeArgs,
+) => Promise<boolean | void> | boolean | void;
+
+function ruleRecipe(
+	rule: IRule,
+): (args: RecipeArgs) => Promise<boolean> | null {
+	if (rule.recipe) {
+		return async (args: RecipeArgs) => {
+			const result = await rule.recipe(args);
+			if (typeof result === 'undefined') return true;
+			return result;
+		};
+	}
+
+	return null;
+}
+
+type OneOrMany<T> = T | T[];
+
+function normalize<T>(val: OneOrMany<T>): T[] {
+	if (Array.isArray(val)) {
+		return val;
+	}
+
+	return [val];
+}
 
 function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 	if (typeof ruleOrTargets === 'string') return false;

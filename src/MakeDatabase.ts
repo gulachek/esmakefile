@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { IBuildPath, Path } from './Path.js';
-import { RuleID } from './Rule.js';
+import { RecipeArgs, RuleID } from './Rule.js';
 
 export interface IMakeDatabaseOpts {
 	srcRoot?: string;
@@ -15,7 +15,7 @@ export type MakefileInfo = {
 export type RowID = number;
 
 export type RuleInfo = {
-	recipe: () => Promise<boolean> | null;
+	recipe: (args: RecipeArgs) => Promise<boolean> | null;
 	prereqs: Path[];
 	targets: IBuildPath[];
 };

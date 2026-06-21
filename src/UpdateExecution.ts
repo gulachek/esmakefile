@@ -79,19 +79,7 @@ export class UpdateExecution {
 	private normalizeRule(_: RuleID, rule: IRule): RuleInfo {
 		const prereqs = rulePrereqs(rule);
 		const targets = ruleTargets(rule);
-		const innerRecipe = ruleRecipe(rule);
-
-		let recipe: () => Promise<boolean> | null = null;
-		if (innerRecipe) {
-			recipe = async () => {
-				const src = new Set<string>();
-				const recipeArgs = new RecipeArgs(this._roots, src);
-
-				const result = await innerRecipe(recipeArgs);
-
-				return result;
-			};
-		}
+		const recipe = ruleRecipe(rule);
 
 		return { prereqs, targets, recipe };
 	}
@@ -318,7 +306,8 @@ export class UpdateExecution {
 				eventName: EVENT_RECIPE_BEGIN,
 				body: `Updating target '${requestedTarget.rel()}'`,
 			});
-			result = await recipeInfo.recipe();
+			const args = new RecipeArgs(this._roots, new Set<string>());
+			result = await recipeInfo.recipe(args);
 		} catch (err) {
 			exception = err;
 			result = false;

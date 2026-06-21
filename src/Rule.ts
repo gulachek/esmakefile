@@ -12,21 +12,21 @@ import {
 import { getArtifactStore } from './artifacts.js';
 
 /**
- * A rule to build targets from sources
+ * A rule definition
  */
 export interface IRule {
 	/**
-	 * Target files that are outputs of the rule's build
+	 * Target files that are outputs of the rule's recipe
 	 */
 	targets(): IBuildPath | IBuildPath[];
 
 	/**
-	 * Files that the rule needs to build recipe
+	 * Files that the rule needs to execute the recipe
 	 */
 	prereqs?(): Path | Path[];
 
 	/**
-	 * Generate targets from sources
+	 * Generate targets from prereqs
 	 */
 	recipe?(args: RecipeArgs): Promise<boolean | void> | boolean | void;
 }

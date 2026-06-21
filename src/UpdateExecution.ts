@@ -93,7 +93,7 @@ export class UpdateExecution {
 			};
 		}
 
-		return { sources: prereqs, targets, recipe };
+		return { prereqs, targets, recipe };
 	}
 
 	private _reportCycle(): boolean {
@@ -102,8 +102,8 @@ export class UpdateExecution {
 		for (const [t, targetInfo] of this._targets) {
 			const tPath = Path.build(t);
 			for (const rule of targetInfo.rules) {
-				const { sources } = this._rules.get(rule);
-				for (const p of sources) {
+				const { prereqs } = this._rules.get(rule);
+				for (const p of prereqs) {
 					if (p.isBuildPath()) {
 						cd.addEdge(tPath, p);
 					}
@@ -242,8 +242,8 @@ export class UpdateExecution {
 			for (const ruleId of rules) {
 				const ruleInfo = this._rules.get(ruleId);
 
-				// build sources
-				for (const src of ruleInfo.sources) {
+				// build prereqs
+				for (const src of ruleInfo.prereqs) {
 					allSrc.push(src);
 					if (src.isBuildPath()) {
 						srcToBuild.push(src);
@@ -430,6 +430,6 @@ function makePromise<T>(): IPromisePieces<T> {
 
 type RuleInfo = {
 	recipe: () => Promise<boolean> | null;
-	sources: Path[];
+	prereqs: Path[];
 	targets: IBuildPath[];
 };

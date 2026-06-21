@@ -22,14 +22,6 @@ export interface IMakefileOpts {
 type Prereqs = PathLike | PathLike[];
 type Targets = BuildPathLike | BuildPathLike[];
 
-function rulePrereqs(rule: IRule): Path[] {
-	if (typeof rule.prereqs === 'function') {
-		return normalize(rule.prereqs());
-	}
-
-	return [];
-}
-
 type RecipeFunction = (
 	args: RecipeArgs,
 ) => Promise<boolean | void> | boolean | void;
@@ -48,16 +40,6 @@ function ruleRecipe(
 	return null;
 }
 
-type OneOrMany<T> = T | T[];
-
-function normalize<T>(val: OneOrMany<T>): T[] {
-	if (Array.isArray(val)) {
-		return val;
-	}
-
-	return [val];
-}
-
 function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 	if (typeof ruleOrTargets === 'string') return false;
 	return 'targets' in ruleOrTargets;
@@ -66,6 +48,11 @@ function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 function normalizeTargets(t: Targets): IBuildPath[] {
 	if (isBuildPathLike(t)) return [Path.build(t)];
 	return t.map((t) => Path.build(t));
+}
+
+function normalizePrereqs(p: Prereqs): Path[] {
+	if (isPathLike(p)) return [Path.src(p)];
+	return p.map((p) => Path.src(p));
 }
 
 export type MakefileFn = (make: Makefile) => void | Promise<void>;
@@ -135,25 +122,26 @@ export class Makefile {
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
 	): RuleID {
-		const norm = this.normalizePrereqs.bind(this);
-
 		let rule: IRule;
 		let targets: IBuildPath[];
+		let prereqs: Path[];
 		if (recipeFn) {
 			// targets, prereqs, recipe
 			targets = normalizeTargets(ruleOrTargets as Targets);
+			prereqs = normalizePrereqs(prereqsOrRecipe as Prereqs);
 			rule = {
 				targets() {
 					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return norm(prereqsOrRecipe as Prereqs);
+					return normalizePrereqs(prereqsOrRecipe as Prereqs);
 				},
 				recipe: recipeFn,
 			};
 		} else if (typeof prereqsOrRecipe === 'function') {
 			// targets, recipe
 			targets = normalizeTargets(ruleOrTargets as Targets);
+			prereqs = [];
 			rule = {
 				targets() {
 					return normalizeTargets(ruleOrTargets as Targets);
@@ -163,17 +151,21 @@ export class Makefile {
 		} else if (prereqsOrRecipe) {
 			// targets, prereqs
 			targets = normalizeTargets(ruleOrTargets as Targets);
+			prereqs = normalizePrereqs(prereqsOrRecipe);
 			rule = {
 				targets() {
 					return normalizeTargets(ruleOrTargets as Targets);
 				},
 				prereqs() {
-					return norm(prereqsOrRecipe);
+					return normalizePrereqs(prereqsOrRecipe);
 				},
 			};
 		} else if (isRule(ruleOrTargets)) {
 			// rule
 			targets = normalizeTargets(ruleOrTargets.targets());
+			prereqs = ruleOrTargets.prereqs
+				? normalizePrereqs(ruleOrTargets.prereqs())
+				: [];
 			rule = ruleOrTargets;
 		} else {
 			// targets
@@ -188,7 +180,7 @@ export class Makefile {
 		const hasRecipe = !!rule.recipe;
 		const { id } = this._db.insertRule({
 			targets,
-			prereqs: rulePrereqs(rule),
+			prereqs,
 			recipe: ruleRecipe(rule),
 		});
 
@@ -222,23 +214,6 @@ export class Makefile {
 		const path = Path.build(target);
 		mkFn(this);
 		return path;
-	}
-
-	private normalizeIndividualPrereq(prereq: PathLike): Path {
-		if (typeof prereq === 'string') {
-			if (this.hasTarget(prereq)) {
-				return Path.build(prereq);
-			} else {
-				return Path.src(prereq);
-			}
-		} else {
-			return prereq;
-		}
-	}
-
-	private normalizePrereqs(p: Prereqs): Path | Path[] {
-		if (isPathLike(p)) return this.normalizeIndividualPrereq(p);
-		return p.map((p) => this.normalizeIndividualPrereq(p));
 	}
 
 	public abs(path: Path): string {

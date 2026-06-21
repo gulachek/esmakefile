@@ -87,17 +87,6 @@ export class Makefile {
 		}
 	}
 
-	/**
-	 * @internal
-	 */
-	public rule(id: RuleID): IRule {
-		if (id >= this._rules.length) {
-			throw new Error(`Rule with ID ${id} does not exist`);
-		}
-
-		return this._rules[id];
-	}
-
 	public targets(): string[] {
 		return [...this._targets.keys()];
 	}

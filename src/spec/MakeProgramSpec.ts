@@ -928,7 +928,7 @@ describe('MakeProgram', () => {
 				expect(expectationsRan, 'Did not evaluate expectation').to.be.true;
 			});
 
-			xit('updates prereqs prior to executing included mk function', async () => {
+			it('updates prereqs prior to executing included mk function', async () => {
 				const nested = Path.build('nested-target');
 
 				const make = await parse((mk) => {
@@ -952,6 +952,30 @@ describe('MakeProgram', () => {
 					make.hasTarget(nested),
 					'expected program to contain nested target',
 				).to.be.true;
+			});
+
+			it('throws while parsing when a nested Makefile cannot be updated', async () => {
+				const nested = Path.build('nested-target');
+				let threw = false;
+
+				try {
+					await parse((mk) => {
+						const nestedMk = Path.build('nested.mk');
+						const prereq = Path.build('prereq');
+
+						mk.include(nestedMk, (mk) => {
+							mk.add(nested, () => {});
+						});
+
+						mk.add(nestedMk, [prereq]);
+						mk.add(prereq, () => false);
+					});
+				} catch (ex) {
+					expect(ex.message).to.match(/[Ff]ailed to update/);
+					threw = true;
+				}
+
+				expect(threw, 'Expected to catch an exception').to.be.true;
 			});
 		});
 

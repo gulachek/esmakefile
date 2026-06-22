@@ -27,6 +27,8 @@ export class MakeProgram {
 			buildRoot: opts.buildRoot,
 			srcRoot: opts.srcRoot,
 		});
+		const make = new MakeProgram(db);
+
 		const mainMk = Path.build('Makefile');
 		db.insertMakefile(mainMk, makeFn);
 
@@ -39,6 +41,13 @@ export class MakeProgram {
 				path,
 			};
 
+			if (make.hasTarget(path)) {
+				const updateResult = await make.update(path);
+				if (!updateResult) {
+					throw new Error(`Failed to update Makefile '${path.rel()}'`);
+				}
+			}
+
 			const mk = new Makefile(mkOpts);
 			await fn(mk);
 			db.updateMakefile({ path, isParsed: true });
@@ -46,7 +55,7 @@ export class MakeProgram {
 			mkInfo = db.selectMakefileFirstUnparsed();
 		}
 
-		return new MakeProgram(db);
+		return make;
 	}
 
 	async update(goal?: BuildPathLike): Promise<boolean> {

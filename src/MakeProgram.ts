@@ -3,6 +3,7 @@ import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
 import { BuildPathLike, Path, IBuildPath } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
+import { getLogger } from './logs.js';
 
 export interface IMakeProgramParseOpts {
 	srcRoot?: string;
@@ -22,6 +23,9 @@ export class MakeProgram {
 		makeFn: MakefileFn,
 		opts?: IMakeProgramParseOpts,
 	): Promise<MakeProgram> {
+		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
+		logger.trace('Makefile.parse');
+
 		opts = opts || {};
 		const db = new MakeDatabase({
 			buildRoot: opts.buildRoot,
@@ -41,13 +45,16 @@ export class MakeProgram {
 				path,
 			};
 
+			const rel = path.rel();
+
 			if (make.hasTarget(path)) {
 				const updateResult = await make.update(path);
 				if (!updateResult) {
-					throw new Error(`Failed to update Makefile '${path.rel()}'`);
+					throw new Error(`Failed to update Makefile '${rel}'`);
 				}
 			}
 
+			logger.debug(`Parsing Makefile '${rel}'`);
 			const mk = new Makefile(mkOpts);
 			await fn(mk);
 			db.updateMakefile({ path, isParsed: true });

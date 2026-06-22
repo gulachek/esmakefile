@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { IBuildPath, Path } from './Path.js';
 import { isRuleID, RecipeArgs, RuleID } from './Rule.js';
+import type { MakefileFn } from './Makefile.js';
 
 export interface IMakeDatabaseOpts {
 	srcRoot?: string;
@@ -9,6 +10,7 @@ export interface IMakeDatabaseOpts {
 
 export type MakefileInfo = {
 	path: IBuildPath;
+	fn: MakefileFn;
 	isParsed: boolean;
 };
 
@@ -33,6 +35,7 @@ export class MakeDatabase {
 	readonly buildRoot: string;
 
 	private _makefiles = new Map<string, MakefileInfo>();
+	private _makefilesIndexUnparsed = new Set<string>();
 	private _rules: RuleInfo[] = [];
 	private _targets = new Map<string, TargetInfo>();
 
@@ -41,7 +44,7 @@ export class MakeDatabase {
 		this.buildRoot = resolve(opts.buildRoot || 'build');
 	}
 
-	insertMakefile(path: IBuildPath): MakefileInfo {
+	insertMakefile(path: IBuildPath, fn: MakefileFn): MakefileInfo {
 		const rel = path.rel();
 		if (this._makefiles.has(rel)) {
 			throw new Error(`Makefile '${rel}' is already registered`);
@@ -49,10 +52,13 @@ export class MakeDatabase {
 
 		const info: MakefileInfo = {
 			path,
+			fn,
 			isParsed: false,
 		};
 
 		this._makefiles.set(rel, info);
+		this._makefilesIndexUnparsed.add(rel);
+
 		return info;
 	}
 
@@ -62,7 +68,28 @@ export class MakeDatabase {
 		return null;
 	}
 
-	updateMakefile(info: MakefileInfo): void {
+	selectMakefileFirstUnparsed(): MakefileInfo | null {
+		for (const rel of this._makefilesIndexUnparsed.keys()) {
+			const info = this._makefiles.get(rel);
+			if (!info)
+				throw new Error(
+					`Unparsed Makefile index is corrupt: Makefile '${rel}' exists in index but not in data`,
+				);
+
+			if (info.isParsed)
+				throw new Error(
+					`Unparsed Makefile index is corrupt: Makefile '${rel}' exists in index but is flagged as parsed`,
+				);
+
+			return { ...info };
+		}
+
+		return null;
+	}
+
+	updateMakefile(
+		info: Pick<MakefileInfo, 'path'> & Partial<MakefileInfo>,
+	): void {
 		const rel = info.path.rel();
 		const stored = this._makefiles.get(rel);
 		if (!stored) {
@@ -70,6 +97,9 @@ export class MakeDatabase {
 		}
 
 		Object.assign(stored, info);
+		if (stored.isParsed) {
+			this._makefilesIndexUnparsed.delete(rel);
+		}
 	}
 
 	insertRule(rule: Omit<RuleInfo, 'id'>): RuleInfo {

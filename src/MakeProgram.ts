@@ -28,23 +28,23 @@ export class MakeProgram {
 			srcRoot: opts.srcRoot,
 		});
 		const mainMk = Path.build('Makefile');
+		db.insertMakefile(mainMk, makeFn);
 
-		// Create and parse root Makefile
-		const mkOpts = {
-			...opts,
-			db,
-			path: mainMk,
-		};
-		const mk = new Makefile(mkOpts);
-		await makeFn(mk);
-		db.updateMakefile({ path: mainMk, isParsed: true });
+		let mkInfo = db.selectMakefileFirstUnparsed();
+		while (mkInfo) {
+			const { path, fn } = mkInfo;
+			const mkOpts = {
+				...opts,
+				db,
+				path,
+			};
 
-		// while (unparsed includes) {
-		//   for (const mk of includes) {
-		//     update(mk);
-		//     parse(mk);
-		//   }
-		// }
+			const mk = new Makefile(mkOpts);
+			await fn(mk);
+			db.updateMakefile({ path, isParsed: true });
+
+			mkInfo = db.selectMakefileFirstUnparsed();
+		}
 
 		return new MakeProgram(db);
 	}

@@ -75,9 +75,6 @@ export class Makefile {
 		};
 		this._db = opts.db;
 		this._path = opts.path;
-
-		// register with db
-		this._db.insertMakefile(this._path);
 	}
 
 	private _info(): MakefileInfo {
@@ -145,7 +142,7 @@ export class Makefile {
 
 	public include(target: BuildPathLike, mkFn: MakefileFn): IBuildPath {
 		const path = Path.build(target);
-		mkFn(this);
+		this._db.insertMakefile(path, mkFn);
 		return path;
 	}
 

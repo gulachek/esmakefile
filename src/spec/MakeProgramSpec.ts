@@ -900,6 +900,34 @@ describe('MakeProgram', () => {
 				).to.be.true;
 			});
 
+			it('throws when Makefile target already has recipe', async () => {
+				let expectationsRan = false;
+				await parse((mk) => {
+					const p = Path.build('include.mk');
+					mk.add(p, () => {}); // add recipe
+					expect(() => {
+						mk.include(p, () => {});
+					}).to.throw(/has a recipe/);
+					expectationsRan = true;
+				});
+
+				expect(expectationsRan, 'Did not evaluate expectation').to.be.true;
+			});
+
+			it('throws when recipe is added to a Makefile target', async () => {
+				let expectationsRan = false;
+				await parse((mk) => {
+					const p = Path.build('include.mk');
+					mk.include(p, () => {});
+					expect(() => {
+						mk.add(p, () => {}); // add recipe
+					}).to.throw(/[Cc]annot add a recipe to/);
+					expectationsRan = true;
+				});
+
+				expect(expectationsRan, 'Did not evaluate expectation').to.be.true;
+			});
+
 			xit('updates prereqs prior to executing included mk function', async () => {
 				const nested = Path.build('nested-target');
 

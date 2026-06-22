@@ -50,6 +50,13 @@ export class MakeDatabase {
 			throw new Error(`Makefile '${rel}' is already registered`);
 		}
 
+		const targetInfo = this._targets.get(rel);
+		if (isRuleID(targetInfo?.recipeRule)) {
+			throw new Error(
+				`Cannot add Makefile '${rel}' which also has a recipe defined`,
+			);
+		}
+
 		const info: MakefileInfo = {
 			path,
 			fn,
@@ -143,6 +150,10 @@ export class MakeDatabase {
 				throw new Error(
 					`Target '${rel}' already has a recipe specified. Cannot add another one.`,
 				);
+
+			if (this._makefiles.has(rel)) {
+				throw new Error(`Cannot add a recipe to Makefile target '${rel}'`);
+			}
 
 			targetInfo.recipeRule = rule.id;
 		}

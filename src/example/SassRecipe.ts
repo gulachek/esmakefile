@@ -61,5 +61,5 @@ export function addSass(
 	src: PathLike,
 	genOpts: BuildPathGenOpts,
 ) {
-	mk.add(new ScssRecipe(src, genOpts));
+	mk.rule(new ScssRecipe(src, genOpts));
 }

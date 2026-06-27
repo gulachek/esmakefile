@@ -62,8 +62,8 @@ export function addClangExecutable(
 
 	compileCommands.addText(']');
 
-	mk.add(exe);
-	mk.add(compileCommands);
+	mk.rule(exe);
+	mk.rule(compileCommands);
 
 	return exe;
 }

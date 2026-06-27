@@ -72,7 +72,7 @@ export function addClangObject(
 		: Path.gen(srcPath, { ext: '.o', ...genOpts });
 
 	const obj = new ClangObjectRecipe(srcPath, destPath);
-	mk.add(obj);
+	mk.rule(obj);
 
 	return obj;
 }

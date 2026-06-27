@@ -465,6 +465,13 @@ describe('MakeProgram', () => {
 			expect(writeTwo.buildCount).to.equal(0);
 		});
 
+		it('fails when no targets exist for a default goal', async () => {
+			const make = await parse(() => {});
+			const result = await make.update();
+			expect(result).to.be.false;
+			expect(logs.find(LogLevel.error, /No target/i)).not.to.be.null;
+		});
+
 		it('does not update first target when another is specified', async () => {
 			const pOne = Path.build('one.txt');
 			const pTwo = Path.build('two.txt');

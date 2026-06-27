@@ -3,7 +3,7 @@ import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
 import { BuildPathLike, Path, IBuildPath } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
-import { getLogger } from './logs.js';
+import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
 export interface IMakeProgramParseOpts {
@@ -14,10 +14,12 @@ export interface IMakeProgramParseOpts {
 export class MakeProgram {
 	private db: MakeDatabase;
 	private mtx: Mutex;
+	private logger: Logger;
 
 	private constructor(db: MakeDatabase) {
 		this.db = db;
 		this.mtx = new Mutex();
+		this.logger = getLogger({ name: 'esmakefile.MakeProgram' });
 	}
 
 	static async parse(
@@ -80,6 +82,10 @@ export class MakeProgram {
 	async update(goal?: BuildPathLike): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
 		const goalPath = (goal && Path.build(goal)) || defaultGoal(this.db);
+		if (!goalPath) {
+			this.logger.error('No targets were found. Nothing to update.');
+			return false;
+		}
 		const build = new UpdateExecution(this.db);
 		// important to not simply return build.run() promise as it would unlock mtx too early
 		const result = await build.run(goalPath);
@@ -107,10 +113,10 @@ export class MakeProgram {
 	}
 }
 
-function defaultGoal(db: MakeDatabase): IBuildPath {
+function defaultGoal(db: MakeDatabase): IBuildPath | null {
 	for (const rule of db.selectRules()) {
 		for (const t of rule.targets) return t;
 	}
 
-	throw new Error('No targets exist to select a default goal');
+	return null;
 }

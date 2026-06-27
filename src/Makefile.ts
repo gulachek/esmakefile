@@ -89,7 +89,7 @@ export class Makefile {
 	public add(targets: Targets, recipe: RecipeFunction): RuleID;
 	public add(
 		targets: Targets,
-		prereqs: Prereqs,
+		prereqs?: Prereqs,
 		recipe?: RecipeFunction,
 	): RuleID;
 	public add(
@@ -123,7 +123,8 @@ export class Makefile {
 			recipe = normalizeRecipe(ruleOrTargets, ruleOrTargets.recipe);
 		} else {
 			// targets
-			throw new Error(`Added targets without any prereqs or recipe`);
+			targets = normalizeTargets(ruleOrTargets as Targets);
+			prereqs = [];
 		}
 
 		const { isParsed } = this._info();

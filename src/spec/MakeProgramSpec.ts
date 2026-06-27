@@ -536,6 +536,15 @@ describe('MakeProgram', () => {
 
 		it('updates a phony target without a recipe', async () => {
 			const make = await parse((mk) => {
+				mk.add('all');
+			});
+
+			const result = await make.update();
+			expect(result).to.be.true;
+		});
+
+		it('updates a phony target without a recipe with prereqs', async () => {
+			const make = await parse((mk) => {
 				const srcPath = Path.build('src.txt');
 
 				mk.add('all', srcPath);

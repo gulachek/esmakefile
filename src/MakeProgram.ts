@@ -50,7 +50,8 @@ export class MakeProgram {
 			if (make.hasTarget(path)) {
 				const updateResult = await make.update(path);
 				if (!updateResult) {
-					throw new Error(`Failed to update Makefile '${rel}'`);
+					// Already logged failure in UpdateExecution
+					return null;
 				}
 			}
 

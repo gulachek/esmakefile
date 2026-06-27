@@ -46,6 +46,17 @@ cli((mk) => {
 	mk.add(hello_o, [hello_c], (args) => {
 		return args.spawn('cc', ['-c', '-o', args.abs(hello_o), args.abs(hello_c)]);
 	});
+
+	// `nested.mk` will be updated prior to invoking the given function
+	const nested = Path.build('nested.mk');
+	mk.include(nested, (mk) => {
+		// Add rules just like with the function given to `cli`
+		mk.add('nested.target', []);
+	});
+
+	// `nested.mk` is just like any other target, except that
+	// it's not allowed to have a recipe
+	mk.add(nested, [hello_c]);
 });
 ```
 
@@ -97,6 +108,22 @@ be up to date. The rule to update `hello` specifies that
 `hello.o` is a prerequisite, and it specifies a recipe to
 update `hello` itself, namely linking `hello.o` into an
 executable file.
+
+Nested `Makefile` instances can be "parsed" with the
+`Makefile.include` function. As seen in the example, a path must
+be given to identify the `Makefile` as a target. This target can
+be given to other rules. All `include` files are "parsed" prior
+to updating a goal. The term "parsed" in this context means that
+the given function to `cli` or `include` that accepts a
+`Makefile` parameter is invoked and the optionally returned
+`Promise` resolves. Prior to "parsing" a given nested
+`Makefile`, its target is updated following the standard
+conventions. Note that this deviates a bit from standard GNU
+Make functionality in that the `Makefile` is not "remade" when
+an included `Makefile` is updated. This is not expected to be an
+issue. Unless the reader is deeply familiar with GNU Make and
+understands what this detail is referring to, it likely doesn't
+matter.
 
 #### Postreqs
 

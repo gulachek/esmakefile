@@ -1,18 +1,6 @@
-import {
-	Makefile,
-	RecipeResults,
-	RuleID,
-	TargetInfo,
-	isRuleID,
-} from './Makefile.js';
-import {
-	IRule,
-	rulePrereqs,
-	ruleTargets,
-	ruleRecipe,
-	RecipeArgs,
-} from './Rule.js';
-import { BuildPathLike, IBuildPath, IPathRoots, Path } from './Path.js';
+import { TargetInfo, RuleInfo, MakeDatabase } from './MakeDatabase.js';
+import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
+import { IBuildPath, IPathRoots, Path } from './Path.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
@@ -59,8 +47,7 @@ type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
 export class UpdateExecution {
 	private _roots: IPathRoots;
-	private _mk: Makefile;
-	public readonly goal: IBuildPath;
+	private _db: MakeDatabase;
 
 	private _rules = new Map<RuleID, RuleInfo>();
 
@@ -68,43 +55,16 @@ export class UpdateExecution {
 	private _builtTargets = new Map<string, TargetCompleteInfo>();
 
 	private _info = new Map<RuleID, RecipeBuildInfo>();
-	private _recipeResults: RecipeResults[] = [];
 	private _logger: Logger;
 
-	constructor(mk: Makefile, goal?: BuildPathLike) {
-		this._mk = mk;
-		this.goal = (goal && Path.build(goal)) || mk.defaultGoal;
-		this._roots = { build: mk.buildRoot, src: mk.srcRoot };
+	constructor(db: MakeDatabase) {
+		this._db = db;
+		this._roots = { build: db.buildRoot, src: db.srcRoot };
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
-		for (const { rule, id } of mk.rules()) {
-			this._rules.set(id, this.normalizeRule(id, rule));
+		for (const rule of db.selectRules()) {
+			this._rules.set(rule.id, rule);
 		}
-	}
-
-	private normalizeRule(id: RuleID, rule: IRule): RuleInfo {
-		const prereqs = rulePrereqs(rule);
-		const targets = ruleTargets(rule);
-		const innerRecipe = ruleRecipe(rule);
-
-		let recipe: () => Promise<boolean> | null = null;
-		if (innerRecipe) {
-			recipe = async () => {
-				const src = new Set<string>();
-				const recipeArgs = new RecipeArgs(this._roots, src);
-
-				const result = await innerRecipe(recipeArgs);
-
-				this._recipeResults.push({
-					ruleId: id,
-					postreqs: [...src],
-				});
-
-				return result;
-			};
-		}
-
-		return { sources: prereqs, targets, recipe };
 	}
 
 	private _reportCycle(): boolean {
@@ -113,8 +73,8 @@ export class UpdateExecution {
 		for (const [t, targetInfo] of this._targets) {
 			const tPath = Path.build(t);
 			for (const rule of targetInfo.rules) {
-				const { sources } = this._rules.get(rule);
-				for (const p of sources) {
+				const { prereqs } = this._rules.get(rule);
+				for (const p of prereqs) {
 					if (p.isBuildPath()) {
 						cd.addEdge(tPath, p);
 					}
@@ -134,11 +94,10 @@ export class UpdateExecution {
 
 	/**
 	 * Top level build function. Runs exclusively
+	 * @param goal The goal to update
 	 * @returns A promise that resolves when the build is done
 	 */
-	async run(): Promise<boolean> {
-		using _ = await this._mk._lockAsync();
-
+	async run(goal: IBuildPath): Promise<boolean> {
 		const { src, build } = this._roots;
 		let stats: Stats | null = null;
 		try {
@@ -165,28 +124,22 @@ export class UpdateExecution {
 			return false;
 		}
 
-		await this._mk._load();
-
 		this._targets = new Map<string, TargetInfo>();
-		for (const t of this._mk.targets()) {
-			this._targets.set(t, this._mk.target(t));
+		for (const t of this._db.selectTargets()) {
+			this._targets.set(t.path.rel(), t);
 		}
 
 		if (this._reportCycle()) {
 			return false;
 		}
 
-		this._recipeResults = [];
-
-		this._logger.info(`Updating goal '${this.goal.rel()}'`);
-		const result = await this.updateAll([this.goal]);
+		this._logger.info(`Updating goal '${goal.rel()}'`);
+		const result = await this.updateAll([goal]);
 		if (result) {
-			this._logger.info(`Successfully updated goal '${this.goal.rel()}'`);
+			this._logger.info(`Successfully updated goal '${goal.rel()}'`);
 		} else {
-			this._logger.error(`Failed to update goal '${this.goal.rel()}'`);
+			this._logger.error(`Failed to update goal '${goal.rel()}'`);
 		}
-
-		await this._mk._save(this._recipeResults);
 
 		return result;
 	}
@@ -260,8 +213,8 @@ export class UpdateExecution {
 			for (const ruleId of rules) {
 				const ruleInfo = this._rules.get(ruleId);
 
-				// build sources
-				for (const src of ruleInfo.sources) {
+				// build prereqs
+				for (const src of ruleInfo.prereqs) {
 					allSrc.push(src);
 					if (src.isBuildPath()) {
 						srcToBuild.push(src);
@@ -336,7 +289,8 @@ export class UpdateExecution {
 				eventName: EVENT_RECIPE_BEGIN,
 				body: `Updating target '${requestedTarget.rel()}'`,
 			});
-			result = await recipeInfo.recipe();
+			const args = new RecipeArgs(this._roots, new Set<string>());
+			result = await recipeInfo.recipe(args);
 		} catch (err) {
 			exception = err;
 			result = false;
@@ -445,9 +399,3 @@ function makePromise<T>(): IPromisePieces<T> {
 	});
 	return { resolve, reject, promise };
 }
-
-type RuleInfo = {
-	recipe: () => Promise<boolean> | null;
-	sources: Path[];
-	targets: IBuildPath[];
-};

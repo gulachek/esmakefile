@@ -79,13 +79,11 @@ export function cli(fn: MakefileFn): void {
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
 
-			let make: MakeProgram;
-			try {
-				make = await makeProgram(opts);
-			} catch (ex) {
+			const make = await makeProgram(opts);
+
+			if (!make) {
 				logger.fatal({
 					body: 'Failed to create Makefile',
-					exception: ex,
 				});
 				process.exit(1);
 			}
@@ -106,13 +104,11 @@ export function cli(fn: MakefileFn): void {
 			loggerProvider.setLogLevel(parseLogLevel(opts));
 			loggerProvider.resume();
 
-			let make: MakeProgram;
-			try {
-				make = await makeProgram(opts);
-			} catch (ex) {
+			const make = await makeProgram(opts);
+
+			if (!make) {
 				logger.fatal({
 					body: 'Failed to create Makefile',
-					exception: ex,
 				});
 				process.exit(1);
 			}
@@ -148,15 +144,12 @@ export function cli(fn: MakefileFn): void {
 		.command('list')
 		.description('List all targets')
 		.action(async function () {
-			let make: MakeProgram;
-			try {
-				make = await makeProgram(this.opts());
-			} catch (ex) {
+			const make = await makeProgram(this.opts());
+			if (!make) {
 				// TODO - make this command work with logs
 				loggerProvider.resume();
 				logger.fatal({
 					body: 'Failed to create Makefile',
-					exception: ex,
 				});
 				process.exit(1);
 			}

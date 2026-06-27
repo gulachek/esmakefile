@@ -4,6 +4,7 @@ import { Mutex } from './Mutex.js';
 import { BuildPathLike, Path, IBuildPath } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger } from './logs.js';
+import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
 export interface IMakeProgramParseOpts {
 	srcRoot?: string;
@@ -57,7 +58,17 @@ export class MakeProgram {
 
 			logger.debug(`Parsing Makefile '${rel}'`);
 			const mk = new Makefile(mkOpts);
-			await fn(mk);
+			try {
+				await fn(mk);
+			} catch (exception) {
+				logger.error({
+					eventName: EVENT_MAKEFILE_EXCEPTION,
+					exception,
+					body: `Makefile '${rel}' threw exception`,
+				});
+				return null;
+			}
+
 			db.updateMakefile({ path, isParsed: true });
 
 			mkInfo = db.selectMakefileFirstUnparsed();

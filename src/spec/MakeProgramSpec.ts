@@ -32,6 +32,7 @@ import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
 import { LogLevel, setLoggerProvider } from '../logs.js';
 import { ATTR_EXCEPTION_MESSAGE } from '@opentelemetry/semantic-conventions';
 import {
+	EVENT_MAKEFILE_EXCEPTION,
 	EVENT_RECIPE_BEGIN,
 	EVENT_RECIPE_EXCEPTION,
 	EVENT_TARGET_STALE_NO_RECIPE,
@@ -971,6 +972,19 @@ describe('MakeProgram', () => {
 
 				expect(make).to.be.null;
 				expect(logs.find(LogLevel.error, /nested\.mk/)).not.to.be.null;
+			});
+
+			it('returns null when nested MakefileFn throws', async () => {
+				const make = await parse((mk) => {
+					const nestedMk = Path.build('nested.mk');
+
+					mk.include(nestedMk, () => {
+						throw new Error('hehe');
+					});
+				});
+
+				expect(make).to.be.null;
+				expect(logs.findEvents(EVENT_MAKEFILE_EXCEPTION)).not.to.be.empty;
 			});
 		});
 

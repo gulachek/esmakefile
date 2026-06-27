@@ -11,6 +11,7 @@
 
 export const ATTR_ARTIFACT_ID = 'esmakefile.artifact.id';
 
+export const EVENT_MAKEFILE_EXCEPTION = 'esmakefile.makefile.exception';
 export const EVENT_RECIPE_BEGIN = 'esmakefile.recipe.begin';
 export const EVENT_RECIPE_CHILD_PROCESS_OUTPUT =
 	'esmakefile.recipe.child_process.output';

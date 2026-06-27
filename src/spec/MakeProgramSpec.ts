@@ -465,6 +465,13 @@ describe('MakeProgram', () => {
 			expect(writeTwo.buildCount).to.equal(0);
 		});
 
+		it('fails when no targets exist for a default goal', async () => {
+			const make = await parse(() => {});
+			const result = await make.update();
+			expect(result).to.be.false;
+			expect(logs.find(LogLevel.error, /No target/i)).not.to.be.null;
+		});
+
 		it('does not update first target when another is specified', async () => {
 			const pOne = Path.build('one.txt');
 			const pTwo = Path.build('two.txt');
@@ -480,6 +487,17 @@ describe('MakeProgram', () => {
 			expect(result).to.be.true;
 			expect(writeOne.buildCount).to.equal(0);
 			expect(writeTwo.buildCount).to.equal(1);
+		});
+
+		it('fails when explicit goal does not exist as a target', async () => {
+			const make = await parse((mk) => {
+				mk.add('foo', () => {});
+			});
+
+			const result = await make.update('does-not-exist');
+			expect(result).to.be.false;
+			expect(logs.find(LogLevel.error, /no target .*does-not-exist/i)).not.to.be
+				.empty;
 		});
 
 		it("updates a target's prereq", async () => {

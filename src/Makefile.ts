@@ -85,14 +85,14 @@ export class Makefile {
 		return info;
 	}
 
-	public add(rule: IRule): RuleID;
-	public add(targets: Targets, recipe: RecipeFunction): RuleID;
-	public add(
+	public rule(rule: IRule): RuleID;
+	public rule(targets: Targets, recipe: RecipeFunction): RuleID;
+	public rule(
 		targets: Targets,
 		prereqs?: Prereqs,
 		recipe?: RecipeFunction,
 	): RuleID;
-	public add(
+	public rule(
 		ruleOrTargets: IRule | Targets,
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
@@ -129,7 +129,7 @@ export class Makefile {
 
 		const { isParsed } = this._info();
 		if (isParsed) {
-			throw new Error('Cannot add() to a Makefile that is done parsing');
+			throw new Error('Cannot add a rule to a Makefile that is done parsing');
 		}
 
 		const { id } = this._db.insertRule({

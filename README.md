@@ -35,15 +35,15 @@ cli((mk) => {
 	const hello_c = Path.src('hello.c');
 
 	// 'all' phony target depends on 'hello'
-	mk.add('all', [hello]);
+	mk.rule('all', [hello]);
 
 	// Link 'hello' executable from compiled object files
-	mk.add(hello, [hello_o], (args) => {
+	mk.rule(hello, [hello_o], (args) => {
 		return args.spawn('cc', ['-o', args.abs(hello), args.abs(hello_o)]);
 	});
 
 	// Compile C source into object files
-	mk.add(hello_o, [hello_c], (args) => {
+	mk.rule(hello_o, [hello_c], (args) => {
 		return args.spawn('cc', ['-c', '-o', args.abs(hello_o), args.abs(hello_c)]);
 	});
 
@@ -51,12 +51,12 @@ cli((mk) => {
 	const nested = Path.build('nested.mk');
 	mk.include(nested, (mk) => {
 		// Add rules just like with the function given to `cli`
-		mk.add('nested.target', []);
+		mk.rule('nested.target', []);
 	});
 
 	// `nested.mk` is just like any other target, except that
 	// it's not allowed to have a recipe
-	mk.add(nested, [hello_c]);
+	mk.rule(nested, [hello_c]);
 });
 ```
 
@@ -97,12 +97,12 @@ themselves can also be targets with their own rules. The set of
 steps to run in order to update a target is called a _recipe_.
 
 In the "Quick Start" example above, the `mk` object is an
-instance of a `Makefile`. Each call to the `add` function adds a
-new _rule_ to the `Makefile`. The first argument to `add`
+instance of a `Makefile`. Each call to the `rule` function adds a
+new _rule_ to the `Makefile`. The first argument to `rule`
 specifies the rule's _target_. The other arguments can be a set
 of _prerequisites_ and/or a _recipe_.
 
-For example, the first call to `add` specifies that in order to
+For example, the first call to `rule` specifies that in order to
 update the target `all`, then its prerequisite `hello` needs to
 be up to date. The rule to update `hello` specifies that
 `hello.o` is a prerequisite, and it specifies a recipe to
@@ -144,7 +144,7 @@ See the following example.
 const fileList = Path.src('file-list.txt');
 const concat = Path.build('concat.txt');
 
-mk.add(concat, [fileList], async (args) => {
+mk.rule(concat, [fileList], async (args) => {
 	const paths = await parseFileList(fileList);
 	const contents = [];
 
@@ -244,7 +244,7 @@ supported.
 
 A _goal_ in make refers to the top level target that is being
 updated as part of the build system. By default, esmakefile
-chooses the _first_ target specified by `add` as the goal. Users
+chooses the _first_ target specified by `rule` as the goal. Users
 can specify another goal simply by adding it to the shell
 invocation.
 
@@ -281,7 +281,7 @@ function. The goal that's updated can optionally be specified.
 import { MakeProgram } from 'esmakefile';
 
 const make = await MakeProgram.parse((mk) => {
-	mk.add('target', () => {
+	mk.rule('target', () => {
 		// ...
 	});
 });
@@ -328,7 +328,7 @@ cli((mk) => {
 
     logger.warn('beware');
 
-	mk.add('info', () => {
+	mk.rule('info', () => {
 		logger.info('info target recipe is being run');
 		logger.info({
             eventName: 'my.event.name',
@@ -339,7 +339,7 @@ cli((mk) => {
         });
 	});
 
-	mk.add('error', () => {
+	mk.rule('error', () => {
         try {
             throw new Error('hehe');
         } catch (ex) {

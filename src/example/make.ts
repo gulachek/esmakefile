@@ -9,57 +9,57 @@ cli((mk: Makefile) => {
 	const main = Path.build('main');
 	const css = Path.build('style.css');
 
-	mk.add('all', [css, main]);
+	mk.rule('all', [css, main]);
 
 	addSass(mk, scssFile, 'style.css');
 
 	addClangExecutable(mk, 'main', ['src/main.cpp', 'src/hello.cpp']);
 
-	mk.add('run-main', main, (args) => {
+	mk.rule('run-main', main, (args) => {
 		return args.spawn(args.abs(main), []);
 	});
 
-	mk.add('missing-prereq', 'does-not-exist', () => {
+	mk.rule('missing-prereq', 'does-not-exist', () => {
 		return true;
 	});
 
-	mk.add('warning', () => {
+	mk.rule('warning', () => {
 		logger.warn('This is a test warning.');
 		return true;
 	});
 
-	mk.add('error', () => {
+	mk.rule('error', () => {
 		logger.error('This is a test error');
 		return false;
 	});
 
-	mk.add('throw', () => {
+	mk.rule('throw', () => {
 		throw new Error('hehehe');
 	});
 
-	mk.add('white-space-log', () => {
+	mk.rule('white-space-log', () => {
 		logger.info('   \n\t\r\n  \n\n  \n');
 		return true;
 	});
 
-	mk.add('write-both-streams', (args) => {
+	mk.rule('write-both-streams', (args) => {
 		const script = args.abs(Path.src('src/logs.cjs'));
 		return args.spawn(process.execPath, [script]);
 	});
 
-	mk.add('medium-long-task', () => {
+	mk.rule('medium-long-task', () => {
 		return new Promise<boolean>((res) => {
 			setTimeout(() => res(true), 15000);
 		});
 	});
 
-	mk.add('long-task', () => {
+	mk.rule('long-task', () => {
 		return new Promise<boolean>((res) => {
 			setTimeout(() => res(true), 65000);
 		});
 	});
 
-	mk.add(['grouped-error', 'grouped-error2'], () => {
+	mk.rule(['grouped-error', 'grouped-error2'], () => {
 		logger.error('Error message for grouped targets');
 		return false;
 	});
@@ -67,8 +67,8 @@ cli((mk: Makefile) => {
 	const staleTarget = Path.build('warn-stale-target');
 	const stalePrereq = Path.build('warn-stale-target-prereq');
 
-	mk.add(staleTarget, stalePrereq);
-	mk.add(stalePrereq, async (args) => {
+	mk.rule(staleTarget, stalePrereq);
+	mk.rule(stalePrereq, async (args) => {
 		// this isn't supposed to make sense
 		await writeFile(args.abs(staleTarget), 'stale');
 		await waitMs(5);

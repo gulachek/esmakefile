@@ -22,7 +22,7 @@ export class MakeProgram {
 	static async parse(
 		makeFn: MakefileFn,
 		opts?: IMakeProgramParseOpts,
-	): Promise<MakeProgram> {
+	): Promise<MakeProgram | null> {
 		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
 		logger.trace('Makefile.parse');
 

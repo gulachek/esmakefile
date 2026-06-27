@@ -286,6 +286,10 @@ const make = await MakeProgram.parse((mk) => {
 	});
 });
 
+if (!make) {
+	// handle failure
+}
+
 const success = await make.update(); // default goal
 const success2 = await make.update(goal); // specific goal
 ```

@@ -287,7 +287,7 @@ describe('MakeProgram', () => {
 			return rm(abs(path));
 		}
 
-		async function parse(makeFn: MakefileFn): Promise<MakeProgram> {
+		async function parse(makeFn: MakefileFn): Promise<MakeProgram | null> {
 			return MakeProgram.parse(makeFn, { srcRoot, buildRoot });
 		}
 

@@ -489,6 +489,17 @@ describe('MakeProgram', () => {
 			expect(writeTwo.buildCount).to.equal(1);
 		});
 
+		it('fails when explicit goal does not exist as a target', async () => {
+			const make = await parse((mk) => {
+				mk.add('foo', () => {});
+			});
+
+			const result = await make.update('does-not-exist');
+			expect(result).to.be.false;
+			expect(logs.find(LogLevel.error, /no target .*does-not-exist/i)).not.to.be
+				.empty;
+		});
+
 		it("updates a target's prereq", async () => {
 			const srcPath = Path.build('src.txt');
 			const write = new WriteFileRule(srcPath, 'hello');

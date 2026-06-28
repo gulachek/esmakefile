@@ -30,12 +30,6 @@ function getComponents(str: string): string[] {
 	return pieces;
 }
 
-export interface IBuildPath extends Path {
-	readonly type: PathType.build;
-	dir(): IBuildPath;
-	join(...pieces: string[]): IBuildPath;
-}
-
 export class Path {
 	readonly type: PathType = PathType.src;
 	protected components: string[] = [];
@@ -76,7 +70,7 @@ export class Path {
 		}
 	}
 
-	static build(pLike: BuildPathLike): IBuildPath {
+	static build(pLike: BuildPathLike): Path {
 		if (Path.isPath(pLike)) {
 			if (pLike.isBuildPath()) {
 				return pLike;
@@ -86,13 +80,13 @@ export class Path {
 				);
 			}
 		} else if (typeof pLike === 'string') {
-			return new Path(PathType.build, getComponents(pLike)) as IBuildPath;
+			return new Path(PathType.build, getComponents(pLike)) as Path;
 		} else {
 			throw new Error(`Invalid path object: ${pLike}`);
 		}
 	}
 
-	static gen(orig: Path, opts?: BuildPathGenOpts): IBuildPath {
+	static gen(orig: Path, opts?: BuildPathGenOpts): Path {
 		if (isBuildPathLike(opts)) {
 			return Path.build(opts);
 		}
@@ -105,14 +99,14 @@ export class Path {
 		return new Path(
 			PathType.build,
 			getComponents(posix.format(fmtOpts)),
-		) as IBuildPath;
+		) as Path;
 	}
 
 	toString(): string {
 		return path.posix.join(`@${this.type}`, ...this.components);
 	}
 
-	isBuildPath(): this is IBuildPath {
+	isBuildPath(): this is Path {
 		return this.type === PathType.build;
 	}
 
@@ -148,7 +142,7 @@ export class Path {
 	}
 }
 
-export type BuildPathLike = string | IBuildPath;
+export type BuildPathLike = string | Path;
 
 export function isBuildPathLike(obj: unknown): obj is BuildPathLike {
 	return (

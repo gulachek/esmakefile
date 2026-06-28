@@ -1,6 +1,5 @@
 import { IRule, RuleID, RecipeArgs } from './Rule.js';
 import {
-	IBuildPath,
 	BuildPathLike,
 	PathLike,
 	Path,
@@ -16,11 +15,11 @@ export interface IMakefileOpts {
 	buildRoot?: string;
 	srcRoot?: string;
 	db: MakeDatabase;
-	path: IBuildPath;
+	path: string;
 }
 
 type Prereqs = PathLike | PathLike[];
-type Targets = BuildPathLike | BuildPathLike[];
+type Targets = PathLike | PathLike[];
 
 type RecipeFunction = (
 	args: RecipeArgs,
@@ -31,9 +30,10 @@ function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 	return 'targets' in ruleOrTargets;
 }
 
-function normalizeTargets(t: Targets): IBuildPath[] {
+function normalizeTargets(t: Targets): Path[] {
 	if (isBuildPathLike(t)) return [Path.build(t)];
-	return t.map((t) => Path.build(t));
+	if (isPathLike(t)) return [Path.src(t)];
+	return t.map((t) => (isBuildPathLike(t) ? Path.build(t) : Path.src(t)));
 }
 
 function normalizePrereqs(p: Prereqs): Path[] {
@@ -62,7 +62,7 @@ export class Makefile {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
-	private _path: IBuildPath;
+	private _path: string;
 	private _db: MakeDatabase;
 	private _roots: IPathRoots;
 
@@ -80,7 +80,7 @@ export class Makefile {
 	private _info(): MakefileInfo {
 		const info = this._db.selectMakefile(this._path);
 		if (!info) {
-			throw new Error(`Makefile '${this._path.rel()}' not found`);
+			throw new Error(`Makefile '${this._path}' not found`);
 		}
 		return info;
 	}
@@ -97,7 +97,7 @@ export class Makefile {
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
 	): RuleID {
-		let targets: IBuildPath[];
+		let targets: Path[];
 		let prereqs: Path[];
 		let recipe: (args: RecipeArgs) => Promise<boolean> | null = null;
 		if (recipeFn) {
@@ -133,7 +133,7 @@ export class Makefile {
 		}
 
 		const { id } = this._db.insertRule({
-			targets,
+			targets: targets.map((p) => p.rel()),
 			prereqs,
 			recipe,
 		});
@@ -141,9 +141,9 @@ export class Makefile {
 		return id;
 	}
 
-	public include(target: BuildPathLike, mkFn: MakefileFn): IBuildPath {
+	public include(target: BuildPathLike, mkFn: MakefileFn): Path {
 		const path = Path.build(target);
-		this._db.insertMakefile(path, mkFn);
+		this._db.insertMakefile(path.rel(), mkFn);
 		return path;
 	}
 

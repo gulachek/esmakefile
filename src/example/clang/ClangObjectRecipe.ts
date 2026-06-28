@@ -1,7 +1,6 @@
 import {
 	IRule,
 	PathLike,
-	IBuildPath,
 	isBuildPathLike,
 	BuildPathGenOpts,
 	Path,
@@ -14,11 +13,11 @@ import { dirname, join } from 'node:path';
 
 export class ClangObjectRecipe implements IRule {
 	public src: Path;
-	public obj: IBuildPath;
-	public depfile: IBuildPath;
-	public compileCommands: IBuildPath;
+	public obj: Path;
+	public depfile: Path;
+	public compileCommands: Path;
 
-	constructor(src: Path, out: IBuildPath) {
+	constructor(src: Path, out: Path) {
 		this.src = src;
 		this.obj = out;
 		this.depfile = out.dir().join(out.basename + '.depfile');

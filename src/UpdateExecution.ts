@@ -1,10 +1,10 @@
 import { TargetInfo, RuleInfo, MakeDatabase } from './MakeDatabase.js';
 import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
-import { IBuildPath, IPathRoots, Path } from './Path.js';
+import { IPathRoots, Path } from './Path.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
-import { resolve } from 'node:path';
+import * as nodePath from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
 import { Logger, getLogger } from './logs.js';
 import {
@@ -97,7 +97,7 @@ export class UpdateExecution {
 	 * @param goal The goal to update
 	 * @returns A promise that resolves when the build is done
 	 */
-	async run(goal: IBuildPath): Promise<boolean> {
+	async run(goal: string): Promise<boolean> {
 		const { src, build } = this._roots;
 		let stats: Stats | null = null;
 		try {
@@ -113,7 +113,7 @@ export class UpdateExecution {
 			return false;
 		}
 
-		const esmakefileDir = resolve(build, '__esmakefile__');
+		const esmakefileDir = nodePath.resolve(build, '__esmakefile__');
 
 		try {
 			await mkdir(esmakefileDir, { recursive: true });
@@ -126,25 +126,25 @@ export class UpdateExecution {
 
 		this._targets = new Map<string, TargetInfo>();
 		for (const t of this._db.selectTargets()) {
-			this._targets.set(t.path.rel(), t);
+			this._targets.set(t.path, t);
 		}
 
 		if (this._reportCycle()) {
 			return false;
 		}
 
-		this._logger.info(`Updating goal '${goal.rel()}'`);
+		this._logger.info(`Updating goal '${goal}'`);
 		const result = await this.updateAll([goal]);
 		if (result) {
-			this._logger.info(`Successfully updated goal '${goal.rel()}'`);
+			this._logger.info(`Successfully updated goal '${goal}'`);
 		} else {
-			this._logger.error(`Failed to update goal '${goal.rel()}'`);
+			this._logger.error(`Failed to update goal '${goal}'`);
 		}
 
 		return result;
 	}
 
-	private async updateAll(targets: Iterable<IBuildPath>): Promise<boolean> {
+	private async updateAll(targets: Iterable<string>): Promise<boolean> {
 		const promises: Promise<boolean>[] = [];
 
 		for (const t of targets) {
@@ -155,14 +155,13 @@ export class UpdateExecution {
 		return results.every((b) => b);
 	}
 
-	private async _findOrStartBuild(target: IBuildPath): Promise<boolean> {
-		const rel = target.rel();
-		this._logger.trace(`_findOrStartBuild('${rel}')`);
+	private async _findOrStartBuild(target: string): Promise<boolean> {
+		this._logger.trace(`_findOrStartBuild('${target}')`);
 
-		const built = this._builtTargets.get(rel);
+		const built = this._builtTargets.get(target);
 		if (built) {
 			this._logger.trace(
-				`_findOrStartBuild: '${rel}' is already updated. Skipping.`,
+				`_findOrStartBuild: '${target}' is already updated. Skipping.`,
 			);
 			return built.result;
 		}
@@ -170,9 +169,9 @@ export class UpdateExecution {
 		let result = false;
 
 		let targetGroup = [target];
-		const info = this._targets.get(rel);
+		const info = this._targets.get(target);
 		if (!info) {
-			this._logger.error(`Makefile has no target '${rel}'.`);
+			this._logger.error(`Makefile has no target '${target}'.`);
 			return false;
 		}
 
@@ -184,7 +183,7 @@ export class UpdateExecution {
 
 		result = await this._startBuild(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
-			this._builtTargets.set(t.rel(), { result });
+			this._builtTargets.set(t, { result });
 		}
 
 		return result;
@@ -199,16 +198,16 @@ export class UpdateExecution {
 	}
 
 	private async _startBuild(
-		targetGroup: IBuildPath[],
+		targetGroup: string[],
 		recipeRule: RuleID | null,
-		requestedTarget: IBuildPath,
+		requestedTarget: string,
 	): Promise<boolean> {
-		const srcToBuild: IBuildPath[] = [];
+		const srcToBuild: string[] = [];
 		const allSrc: Path[] = [];
 		const allPostreq: string[] = [];
 
 		for (const target of targetGroup) {
-			const { rules, postreqs } = this._targets.get(target.rel());
+			const { rules, postreqs } = this._targets.get(target);
 
 			for (const ruleId of rules) {
 				const ruleInfo = this._rules.get(ruleId);
@@ -217,7 +216,7 @@ export class UpdateExecution {
 				for (const src of ruleInfo.prereqs) {
 					allSrc.push(src);
 					if (src.isBuildPath()) {
-						srcToBuild.push(src);
+						srcToBuild.push(src.rel());
 					}
 				}
 			}
@@ -229,7 +228,11 @@ export class UpdateExecution {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsBuild(targetGroup, allSrc, allPostreq);
+		const targetStatus = this._needsBuild(
+			targetGroup.map((t) => nodePath.resolve(this._roots.build, t)),
+			allSrc,
+			allPostreq,
+		);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
 			return this.endTarget(false);
@@ -238,14 +241,14 @@ export class UpdateExecution {
 		if (targetStatus === NeedsBuildValue.upToDate) {
 			this._logger.debug({
 				eventName: EVENT_TARGET_UP_TO_DATE,
-				body: `Target '${requestedTarget.rel()}' is up to date`,
+				body: `Target '${requestedTarget}' is up to date`,
 			});
 			return this.endTarget(true);
 		}
 
 		if (!isRuleID(recipeRule)) {
 			if (targetStatus === NeedsBuildValue.stale) {
-				const rels = targetGroup.map((t) => t.rel()).join(', ');
+				const rels = targetGroup.join(', ');
 				this._logger.warn({
 					eventName: EVENT_TARGET_STALE_NO_RECIPE,
 					body: `Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,
@@ -278,7 +281,9 @@ export class UpdateExecution {
 
 		const recipeInfo = this._rules.get(recipeRule);
 		for (const t of targetGroup) {
-			await mkdir(t.dir().abs(this._roots.build), { recursive: true });
+			await mkdir(nodePath.resolve(this._roots.build, nodePath.dirname(t)), {
+				recursive: true,
+			});
 		}
 
 		let result = false;
@@ -287,7 +292,7 @@ export class UpdateExecution {
 		try {
 			this._logger.debug({
 				eventName: EVENT_RECIPE_BEGIN,
-				body: `Updating target '${requestedTarget.rel()}'`,
+				body: `Updating target '${requestedTarget}'`,
 			});
 			const args = new RecipeArgs(this._roots, new Set<string>());
 			result = await recipeInfo.recipe(args);
@@ -310,7 +315,7 @@ export class UpdateExecution {
 		};
 
 		if (!result) {
-			this._logger.error(`Failed to update target '${requestedTarget.rel()}'`);
+			this._logger.error(`Failed to update target '${requestedTarget}'`);
 		}
 
 		resolve(completeInfo);
@@ -319,7 +324,7 @@ export class UpdateExecution {
 	}
 
 	private _needsBuild(
-		targetGroup: IBuildPath[],
+		targetGroup: string[],
 		prereqs: Path[],
 		postreqs: string[],
 	): NeedsBuildValue {
@@ -340,7 +345,7 @@ export class UpdateExecution {
 
 		let oldestTargetMtimeMs = Infinity;
 		for (const t of targetGroup) {
-			const stat = statSync(this.abs(t), { throwIfNoEntry: false });
+			const stat = statSync(t, { throwIfNoEntry: false });
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
 			} else {

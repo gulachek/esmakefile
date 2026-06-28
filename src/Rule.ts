@@ -1,4 +1,4 @@
-import { IBuildPath, IPathRoots, Path } from './Path.js';
+import { IPathRoots, Path } from './Path.js';
 import { isAbsolute } from 'node:path';
 import { Vt100Stream } from './Vt100Stream.js';
 import { spawn } from 'node:child_process';
@@ -18,7 +18,7 @@ export interface IRule {
 	/**
 	 * Target files that are outputs of the rule's recipe
 	 */
-	targets(): IBuildPath | IBuildPath[];
+	targets(): Path | Path[];
 
 	/**
 	 * Files that the rule needs to execute the recipe

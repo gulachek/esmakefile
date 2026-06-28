@@ -1,6 +1,5 @@
 import {
 	Path,
-	IBuildPath,
 	IRule,
 	BuildPathGenOpts,
 	PathLike,
@@ -16,7 +15,7 @@ import { writeFile } from 'node:fs/promises';
 
 class ScssRecipe implements IRule {
 	_srcPath: Path;
-	_destPath: IBuildPath;
+	_destPath: Path;
 
 	constructor(src: PathLike, genOpts: BuildPathGenOpts) {
 		this._srcPath = Path.src(src);

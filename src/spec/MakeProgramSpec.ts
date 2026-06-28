@@ -3,7 +3,6 @@ import {
 	MakeProgram,
 	IRule,
 	BuildPathLike,
-	IBuildPath,
 	BuildPathGenOpts,
 	Path,
 	PathLike,
@@ -63,7 +62,7 @@ abstract class TestRule {
 }
 
 class WriteFileRule extends TestRule implements IRule {
-	readonly path: IBuildPath;
+	readonly path: Path;
 	public txt: string;
 
 	constructor(path: BuildPathLike, txt: string) {
@@ -85,7 +84,7 @@ class WriteFileRule extends TestRule implements IRule {
 
 class CopyFileRule extends TestRule implements IRule {
 	readonly src: Path;
-	readonly dest: IBuildPath;
+	readonly dest: Path;
 
 	constructor(src: PathLike, genOpts?: BuildPathGenOpts) {
 		super();
@@ -115,7 +114,7 @@ class CopyFileRule extends TestRule implements IRule {
 
 class CatFilesRecipe implements IRule {
 	readonly src: Path;
-	readonly dest: IBuildPath;
+	readonly dest: Path;
 	buildCount: number = 0;
 
 	constructor(src: Path, genOpts?: BuildPathGenOpts) {
@@ -253,14 +252,6 @@ describe('MakeProgram', () => {
 			});
 
 			expect(make.hasTarget('bar')).to.be.false;
-		});
-
-		it('throws if src path given as argument', async () => {
-			const make = await MakeProgram.parse((mk) => {
-				mk.rule('foo', () => {});
-			});
-
-			expect(() => make.hasTarget(Path.src('foo') as IBuildPath)).to.throw();
 		});
 	});
 

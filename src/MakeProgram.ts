@@ -1,7 +1,7 @@
 import { MakeDatabase } from './MakeDatabase.js';
 import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
-import { BuildPathLike, Path, IBuildPath } from './Path.js';
+import { BuildPathLike, Path } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
@@ -37,7 +37,7 @@ export class MakeProgram {
 		const make = new MakeProgram(db);
 
 		const mainMk = Path.build('Makefile');
-		db.insertMakefile(mainMk, makeFn);
+		db.insertMakefile(mainMk.rel(), makeFn);
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {
@@ -48,8 +48,6 @@ export class MakeProgram {
 				path,
 			};
 
-			const rel = path.rel();
-
 			if (make.hasTarget(path)) {
 				const updateResult = await make.update(path);
 				if (!updateResult) {
@@ -58,7 +56,7 @@ export class MakeProgram {
 				}
 			}
 
-			logger.debug(`Parsing Makefile '${rel}'`);
+			logger.debug(`Parsing Makefile '${path}'`);
 			const mk = new Makefile(mkOpts);
 			try {
 				await fn(mk);
@@ -66,7 +64,7 @@ export class MakeProgram {
 				logger.error({
 					eventName: EVENT_MAKEFILE_EXCEPTION,
 					exception,
-					body: `Makefile '${rel}' threw exception`,
+					body: `Makefile '${path}' threw exception`,
 				});
 				return null;
 			}
@@ -81,7 +79,7 @@ export class MakeProgram {
 
 	async update(goal?: BuildPathLike): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
-		const goalPath = (goal && Path.build(goal)) || defaultGoal(this.db);
+		const goalPath = (goal && Path.build(goal).rel()) || defaultGoal(this.db);
 		if (!goalPath) {
 			this.logger.error('No targets were found. Nothing to update.');
 			return false;
@@ -103,20 +101,20 @@ export class MakeProgram {
 	targets(): string[] {
 		const out: string[] = [];
 		for (const t of this.db.selectTargets()) {
-			out.push(t.path.rel());
+			out.push(t.path);
 		}
 		return out;
 	}
 
 	hasTarget(t: BuildPathLike): boolean {
-		return !!this.db.selectTarget(Path.build(t));
+		return !!this.db.selectTarget(Path.build(t).rel());
 	}
 }
 
-function defaultGoal(db: MakeDatabase): IBuildPath | null {
+function defaultGoal(db: MakeDatabase): string {
 	for (const rule of db.selectRules()) {
 		for (const t of rule.targets) return t;
 	}
 
-	return null;
+	return '';
 }

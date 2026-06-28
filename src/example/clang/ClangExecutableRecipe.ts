@@ -1,6 +1,5 @@
 import {
 	IRule,
-	IBuildPath,
 	Path,
 	RecipeArgs,
 	Makefile,
@@ -12,10 +11,10 @@ import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe.js';
 import { open, readFile } from 'node:fs/promises';
 
 export class ClangExecutableRecipe implements IRule {
-	exe: IBuildPath;
+	exe: Path;
 	objs: Path[];
 
-	constructor(exe: IBuildPath) {
+	constructor(exe: Path) {
 		this.exe = exe;
 		this.objs = [];
 	}
@@ -81,11 +80,11 @@ type StringElem = {
 type Elem = PathElem | StringElem;
 
 class CatRecipe implements IRule {
-	out: IBuildPath;
+	out: Path;
 	private _src: Path[];
 	private _elems: Elem[];
 
-	constructor(out: IBuildPath) {
+	constructor(out: Path) {
 		this.out = out;
 		this._src = [];
 		this._elems = [];

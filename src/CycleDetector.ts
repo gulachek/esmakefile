@@ -1,10 +1,10 @@
-import { IBuildPath } from './Path.js';
+import { Path } from './Path.js';
 
 type EdgeList = Set<number>[];
 
 export class CycleDetector {
 	private _nodes = new Map<string, number>();
-	private _paths: IBuildPath[] = [];
+	private _paths: Path[] = [];
 	private _edges: EdgeList = [];
 
 	/**
@@ -12,7 +12,7 @@ export class CycleDetector {
 	 * @param path The path to add a node for
 	 * @returns The node ID associated with the path
 	 */
-	private addNode(path: IBuildPath): number {
+	private addNode(path: Path): number {
 		const rel = path.rel();
 		let nodeId = this._nodes.get(rel);
 		if (typeof nodeId === 'number') {
@@ -26,7 +26,7 @@ export class CycleDetector {
 		return nodeId;
 	}
 
-	public addEdge(from: IBuildPath, to: IBuildPath): void {
+	public addEdge(from: Path, to: Path): void {
 		const fromId = this.addNode(from);
 		const toId = this.addNode(to);
 		this._edges[fromId].add(toId);
@@ -53,7 +53,7 @@ export class CycleDetector {
 	}
 }
 
-export type FindCycleResult = null | { path: IBuildPath[] };
+export type FindCycleResult = null | { path: Path[] };
 
 class CycleSearch {
 	private _reach: EdgeList = [];

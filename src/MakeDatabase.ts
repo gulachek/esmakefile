@@ -1,5 +1,4 @@
 import { resolve } from 'node:path';
-import { Path } from './Path.js';
 import { isRuleID, RecipeArgs, RuleID } from './Rule.js';
 import type { MakefileFn } from './Makefile.js';
 
@@ -18,7 +17,7 @@ export type RowID = number;
 export type RuleInfo = {
 	id: RuleID;
 	recipe: (args: RecipeArgs) => Promise<boolean> | null;
-	prereqs: Path[];
+	prereqs: string[];
 	targets: string[];
 };
 

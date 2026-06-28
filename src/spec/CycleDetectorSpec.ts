@@ -1,18 +1,17 @@
 import { CycleDetector } from '../CycleDetector.js';
-import { Path } from '../Path.js';
 import { expect } from 'chai';
 
 describe('CycleDetector', () => {
 	let cd: CycleDetector;
 
 	function edge(from: string, to: string): void {
-		cd.addEdge(Path.build(from), Path.build(to));
+		cd.addEdge(from, to);
 	}
 
 	function expectCycle(...seq: string[]): void {
 		const result = cd.findCycle();
 		expect(result).not.to.be.null;
-		const rels = result.path.map((p) => p.rel());
+		const rels = result.path;
 		rotateToAlignStart(seq, rels);
 		expect(seq).to.deep.equal(rels);
 	}

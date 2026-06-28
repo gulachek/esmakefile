@@ -1,22 +1,16 @@
-import {
-	Path,
-	IRule,
-	PathLike,
-	RecipeArgs,
-	Makefile,
-	getLogger,
-} from '../index.js';
+import { IRule, RecipeArgs, Makefile, getLogger } from '../index.js';
 
 import * as sass from 'sass';
 import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 class ScssRecipe implements IRule {
-	_srcPath: Path;
-	_destPath: Path;
+	_srcPath: string;
+	_destPath: string;
 
-	constructor(src: PathLike, destPath: string) {
-		this._srcPath = Path.src(src);
-		this._destPath = Path.build(destPath);
+	constructor(src: string, destPath: string) {
+		this._srcPath = src;
+		this._destPath = destPath;
 	}
 
 	prereqs() {
@@ -29,7 +23,8 @@ class ScssRecipe implements IRule {
 
 	async recipe(args: RecipeArgs) {
 		const log = getLogger({ name: 'esmakefile.example.ScssRecipe' });
-		const [src, dest] = args.absAll(this._srcPath, this._destPath);
+		const dest = resolve(args.rootDir, this._destPath);
+		const src = resolve(args.rootDir, this._srcPath);
 
 		log.info(`sass ${this._srcPath}`);
 		const result = sass.compile(src);
@@ -44,6 +39,6 @@ class ScssRecipe implements IRule {
 	}
 }
 
-export function addSass(mk: Makefile, src: PathLike, dest: string) {
+export function addSass(mk: Makefile, src: string, dest: string) {
 	mk.rule(new ScssRecipe(src, dest));
 }

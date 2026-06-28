@@ -1,7 +1,6 @@
 import { MakeDatabase } from './MakeDatabase.js';
 import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
-import { BuildPathLike, Path } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
@@ -34,8 +33,7 @@ export class MakeProgram {
 		});
 		const make = new MakeProgram(db);
 
-		const mainMk = Path.build('Makefile');
-		db.insertMakefile(mainMk.rel(), makeFn);
+		db.insertMakefile('Makefile', makeFn);
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {
@@ -75,9 +73,9 @@ export class MakeProgram {
 		return make;
 	}
 
-	async update(goal?: BuildPathLike): Promise<boolean> {
+	async update(goal?: string): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
-		const goalPath = (goal && Path.build(goal).rel()) || defaultGoal(this.db);
+		const goalPath = goal || defaultGoal(this.db);
 		if (!goalPath) {
 			this.logger.error('No targets were found. Nothing to update.');
 			return false;
@@ -100,8 +98,8 @@ export class MakeProgram {
 		return out;
 	}
 
-	hasTarget(t: BuildPathLike): boolean {
-		return !!this.db.selectTarget(Path.build(t).rel());
+	hasTarget(t: string): boolean {
+		return !!this.db.selectTarget(t);
 	}
 }
 

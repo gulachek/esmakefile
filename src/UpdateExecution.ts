@@ -1,6 +1,5 @@
 import { TargetInfo, RuleInfo, MakeDatabase } from './MakeDatabase.js';
 import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
-import { Path } from './Path.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
@@ -69,12 +68,11 @@ export class UpdateExecution {
 		const cd = new CycleDetector();
 
 		for (const [t, targetInfo] of this._targets) {
-			const tPath = Path.build(t);
 			for (const rule of targetInfo.rules) {
 				const { prereqs } = this._rules.get(rule);
 				for (const p of prereqs) {
-					if (p.isBuildPath()) {
-						cd.addEdge(tPath, p);
+					if (this._targets.has(p)) {
+						cd.addEdge(t, p);
 					}
 				}
 			}
@@ -82,7 +80,7 @@ export class UpdateExecution {
 
 		const cycle = cd.findCycle();
 		if (cycle) {
-			const pathStr = cycle.path.map((p) => p.rel()).join(' -> ');
+			const pathStr = cycle.path.join(' -> ');
 			this._logger.error(`Circular dependency detected: ${pathStr}`);
 			return true;
 		}
@@ -187,10 +185,6 @@ export class UpdateExecution {
 		return result;
 	}
 
-	private abs(p: Path) {
-		return p.abs({ src: this._db.rootDir, build: this._db.rootDir });
-	}
-
 	private endTarget(result: boolean): boolean {
 		return result;
 	}
@@ -200,8 +194,8 @@ export class UpdateExecution {
 		recipeRule: RuleID | null,
 		requestedTarget: string,
 	): Promise<boolean> {
-		const srcToBuild: string[] = [];
-		const allSrc: Path[] = [];
+		const prereqsToUpdate: string[] = [];
+		const allPrereqs: string[] = [];
 		const allPostreq: string[] = [];
 
 		for (const target of targetGroup) {
@@ -210,11 +204,12 @@ export class UpdateExecution {
 			for (const ruleId of rules) {
 				const ruleInfo = this._rules.get(ruleId);
 
-				// build prereqs
+				// update prereqs
 				for (const src of ruleInfo.prereqs) {
-					allSrc.push(src);
-					if (src.isBuildPath()) {
-						srcToBuild.push(src.rel());
+					allPrereqs.push(src);
+
+					if (this._targets.has(src)) {
+						prereqsToUpdate.push(src);
 					}
 				}
 			}
@@ -222,13 +217,13 @@ export class UpdateExecution {
 			if (postreqs) allPostreq.push(...postreqs);
 		}
 
-		if (!(await this.updateAll(srcToBuild))) {
+		if (!(await this.updateAll(prereqsToUpdate))) {
 			return this.endTarget(false);
 		}
 
 		const targetStatus = this._needsBuild(
 			targetGroup.map((t) => nodePath.resolve(this._db.rootDir, t)),
-			allSrc,
+			allPrereqs,
 			allPostreq,
 		);
 
@@ -323,17 +318,17 @@ export class UpdateExecution {
 
 	private _needsBuild(
 		targetGroup: string[],
-		prereqs: Path[],
+		prereqs: string[],
 		postreqs: string[],
 	): NeedsBuildValue {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of prereqs) {
-			const abs = this.abs(prereq);
+			const abs = nodePath.resolve(this._db.rootDir, prereq);
 			const preStat = statSync(abs, { throwIfNoEntry: false });
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
-			} else if (prereq.isBuildPath() && this._targets.has(prereq.rel())) {
+			} else if (this._targets.has(prereq)) {
 				newestDepMtimeMs = Infinity;
 			} else {
 				this._logger.error(`Missing prereq file '${abs}'.`);

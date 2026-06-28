@@ -1,21 +1,22 @@
-import { IRule, Path, Makefile, RecipeArgs } from '../../index.js';
+import { IRule, Makefile, RecipeArgs } from '../../index.js';
 
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, basename } from 'node:path';
 
 export class ClangObjectRecipe implements IRule {
-	public src: Path;
-	public obj: Path;
-	public depfile: Path;
-	public compileCommands: Path;
+	public src: string;
+	public obj: string;
+	public depfile: string;
+	public compileCommands: string;
 
-	constructor(src: Path, out: Path) {
+	constructor(src: string, out: string) {
 		this.src = src;
 		this.obj = out;
-		this.depfile = out.dir().join(out.basename + '.depfile');
-		this.compileCommands = out
-			.dir()
-			.join(out.basename + '.compile_commands.json');
+		this.depfile = join(dirname(out), basename(out) + '.depfile');
+		this.compileCommands = join(
+			dirname(out),
+			basename(out) + '.compile_commands.json',
+		);
 	}
 
 	targets() {
@@ -27,8 +28,10 @@ export class ClangObjectRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const [obj, depfile, cmds] = args.absAll(...this.targets());
-		const src = args.abs(this.src);
+		const [obj, depfile, cmds] = this.targets().map((t) =>
+			resolve(args.rootDir, t),
+		);
+		const src = resolve(args.rootDir, this.src);
 
 		const clangArgs = [src, '-c', '-o', obj];
 		clangArgs.push('-fcolor-diagnostics');
@@ -53,10 +56,7 @@ export class ClangObjectRecipe implements IRule {
 }
 
 export function addClangObject(mk: Makefile, src: string, dest: string) {
-	const srcPath = Path.src(src);
-	const destPath = Path.build(dest);
-
-	const obj = new ClangObjectRecipe(srcPath, destPath);
+	const obj = new ClangObjectRecipe(src, dest);
 	mk.rule(obj);
 
 	return obj;

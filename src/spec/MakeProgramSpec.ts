@@ -2,9 +2,6 @@ import {
 	Makefile,
 	MakeProgram,
 	IRule,
-	BuildPathLike,
-	Path,
-	PathLike,
 	RecipeArgs,
 	MakefileFn,
 } from '../index.js';
@@ -24,8 +21,8 @@ import { execFile } from 'node:child_process';
 
 import { expect } from 'chai';
 
-import { dirname, resolve } from 'node:path';
-import { existsSync, Stats, statSync } from 'node:fs';
+import { dirname, resolve, join } from 'node:path';
+import { existsSync, statSync } from 'node:fs';
 import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
 import { LogLevel, setLoggerProvider } from '../logs.js';
 import { ATTR_EXCEPTION_MESSAGE } from '@opentelemetry/semantic-conventions';
@@ -61,12 +58,12 @@ abstract class TestRule {
 }
 
 class WriteFileRule extends TestRule implements IRule {
-	readonly path: Path;
+	readonly path: string;
 	public txt: string;
 
-	constructor(path: BuildPathLike, txt: string) {
+	constructor(path: string, txt: string) {
 		super();
-		this.path = Path.build(path);
+		this.path = path;
 		this.txt = txt;
 	}
 
@@ -75,20 +72,20 @@ class WriteFileRule extends TestRule implements IRule {
 	}
 
 	override async onBuild(args: RecipeArgs) {
-		const path = args.abs(this.path);
+		const path = resolve(args.rootDir, this.path);
 		await writeFile(path, this.txt, 'utf8');
 		return true;
 	}
 }
 
 class CopyFileRule extends TestRule implements IRule {
-	readonly src: Path;
-	readonly dest: Path;
+	readonly src: string;
+	readonly dest: string;
 
-	constructor(src: PathLike, dest: PathLike) {
+	constructor(src: string, dest: string) {
 		super();
-		this.src = Path.src(src);
-		this.dest = Path.build(dest);
+		this.src = src;
+		this.dest = dest;
 	}
 
 	prereqs() {
@@ -100,7 +97,8 @@ class CopyFileRule extends TestRule implements IRule {
 	}
 
 	override async onBuild(args: RecipeArgs): Promise<boolean> {
-		const [src, dest] = args.absAll(this.src, this.dest);
+		const dest = resolve(args.rootDir, this.dest);
+		const src = resolve(args.rootDir, this.src);
 
 		try {
 			await copyFile(src, dest);
@@ -112,13 +110,13 @@ class CopyFileRule extends TestRule implements IRule {
 }
 
 class CatFilesRecipe implements IRule {
-	readonly src: Path;
-	readonly dest: Path;
+	readonly src: string;
+	readonly dest: string;
 	buildCount: number = 0;
 
-	constructor(src: Path, dest: PathLike) {
+	constructor(src: string, dest: string) {
 		this.src = src;
-		this.dest = Path.build(dest);
+		this.dest = dest;
 	}
 
 	targets() {
@@ -129,7 +127,8 @@ class CatFilesRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const [src, dest] = args.absAll(this.src, this.dest);
+		const dest = resolve(args.rootDir, this.dest);
+		const src = resolve(args.rootDir, this.src);
 
 		const srcDir = dirname(src);
 		++this.buildCount;
@@ -179,10 +178,10 @@ describe('MakeProgram', () => {
 	});
 
 	describe('targets', () => {
-		it('lists targets by path relative to build dir', async () => {
+		it('lists targets by path relative to root dir', async () => {
 			const make = await MakeProgram.parse((mk) => {
 				mk.rule(new WriteFileRule('write.txt', 'hello'));
-				mk.rule(new CopyFileRule('src.txt', '/sub/dest.txt'));
+				mk.rule(new CopyFileRule('src.txt', 'sub/dest.txt'));
 			});
 
 			const targets = new Set(make.targets());
@@ -209,7 +208,7 @@ describe('MakeProgram', () => {
 		it('throws if two recipes are given for a target', async () => {
 			let expectationsRan = false;
 			await MakeProgram.parse((mk) => {
-				const path = Path.build('conflict.txt');
+				const path = 'conflict.txt';
 				const write = new WriteFileRule(path, 'hello');
 				const copy = new CopyFileRule('something.txt', path);
 
@@ -224,8 +223,8 @@ describe('MakeProgram', () => {
 		it('can add multiple rules for the same target', async () => {
 			let expectationsRan = false;
 			await MakeProgram.parse((mk) => {
-				const target = Path.build('target.txt');
-				const anotherDep = Path.src('dep.txt');
+				const target = 'target.txt';
+				const anotherDep = 'dep.txt';
 				const write = new WriteFileRule(target, 'hello');
 				mk.rule(write);
 				expect(() => mk.rule(target, anotherDep)).not.to.throw();
@@ -242,7 +241,6 @@ describe('MakeProgram', () => {
 			});
 
 			expect(make.hasTarget('foo')).to.be.true;
-			expect(make.hasTarget(Path.build('foo'))).to.be.true;
 		});
 
 		it('returns false if target is not added to a rule', async () => {
@@ -257,24 +255,20 @@ describe('MakeProgram', () => {
 	describe('recipe', () => {
 		const rootDir = resolve('test-src');
 
-		function abs(path: Path): string {
-			return path.abs({ src: rootDir, build: rootDir });
+		function rel(...parts: string[]): string {
+			return join(rootDir, ...parts);
 		}
 
-		function writePath(path: Path, contents: string): Promise<void> {
-			return writeFile(abs(path), contents, 'utf8');
+		function writePath(path: string, contents: string): Promise<void> {
+			return writeFile(resolve(rootDir, path), contents, 'utf8');
 		}
 
-		function readPath(path: Path): Promise<string> {
-			return readFile(abs(path), 'utf8');
+		function readPath(path: string): Promise<string> {
+			return readFile(resolve(rootDir, path), 'utf8');
 		}
 
-		function statsPath(path: Path): Promise<Stats> {
-			return stat(abs(path));
-		}
-
-		function rmPath(path: Path): Promise<void> {
-			return rm(abs(path));
+		function rmPath(path: string): Promise<void> {
+			return rm(resolve(rootDir, path));
 		}
 
 		async function parse(makeFn: MakefileFn): Promise<MakeProgram | null> {
@@ -293,7 +287,7 @@ describe('MakeProgram', () => {
 		});
 
 		it('updates a target', async () => {
-			const path = Path.build('output.txt');
+			const path = 'output.txt';
 
 			const make = await parse((mk) => {
 				const write = new WriteFileRule(path, 'hello');
@@ -400,7 +394,7 @@ describe('MakeProgram', () => {
 		});
 
 		it('fails if recipe throws', async () => {
-			const path = Path.build('test.txt');
+			const path = 'test.txt';
 			const write = new WriteFileRule(path, 'test');
 
 			const make = await parse((mk) => {
@@ -434,8 +428,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('updates first target by default', async () => {
-			const pOne = Path.build('one.txt');
-			const pTwo = Path.build('two.txt');
+			const pOne = 'one.txt';
+			const pTwo = 'two.txt';
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
 
@@ -458,8 +452,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('does not update first target when another is specified', async () => {
-			const pOne = Path.build('one.txt');
-			const pTwo = Path.build('two.txt');
+			const pOne = 'one.txt';
+			const pTwo = 'two.txt';
 			const writeOne = new WriteFileRule(pOne, 'one');
 			const writeTwo = new WriteFileRule(pTwo, 'two');
 
@@ -486,25 +480,25 @@ describe('MakeProgram', () => {
 		});
 
 		it("updates a target's prereq", async () => {
-			const srcPath = Path.build('src.txt');
-			const write = new WriteFileRule(srcPath, 'hello');
-			const cpPath = Path.build('cp.txt');
-			const cp = new CopyFileRule(srcPath, cpPath);
+			const target = 'target';
+			const prereq = 'prereq';
+			let prereqUpdated = false;
 
 			const make = await parse((mk) => {
-				mk.rule(write);
-				mk.rule(cp);
+				mk.rule(target, [prereq]);
+				mk.rule(prereq, () => {
+					prereqUpdated = true;
+				});
 			});
 
-			await make.update(cpPath);
+			const result = await make.update(target);
 
-			const contents = await readPath(cpPath);
-			expect(contents).to.equal('hello');
-			expect(write.buildCount).to.equal(1);
+			expect(result, 'expected update success').to.be.true;
+			expect(prereqUpdated, 'expected prereq to be updated').to.be.true;
 		});
 
 		it('defaults a string type prereq to src path', async () => {
-			const prereq = Path.src('prereq');
+			const prereq = 'prereq';
 			await writePath(prereq, 'prereq');
 
 			let contents: string = '';
@@ -530,7 +524,7 @@ describe('MakeProgram', () => {
 
 		it('updates a phony target without a recipe with prereqs', async () => {
 			const make = await parse((mk) => {
-				const srcPath = Path.build('src.txt');
+				const srcPath = 'src.txt';
 
 				mk.rule('all', srcPath);
 
@@ -552,7 +546,7 @@ describe('MakeProgram', () => {
 
 		it("fails if a build prereq doesn't have a recipe", async () => {
 			const make = await parse((mk) => {
-				mk.rule('all', Path.build('prereq'));
+				mk.rule('all', 'prereq');
 			});
 			const result = await make.update();
 			expect(result).to.be.false;
@@ -560,7 +554,7 @@ describe('MakeProgram', () => {
 
 		it('succeeds if a build prereq does have a recipe that succeeds', async () => {
 			const make = await parse((mk) => {
-				const prereq = Path.build('prereq');
+				const prereq = 'prereq';
 				mk.rule('all', prereq);
 				mk.rule(prereq, () => {});
 			});
@@ -570,9 +564,9 @@ describe('MakeProgram', () => {
 		});
 
 		it('remakes if depending on a phony target', async () => {
-			const a = Path.build('a');
-			const phony = Path.build('phony');
-			const src = Path.src('src');
+			const a = 'a';
+			const phony = 'phony';
+			const src = 'src';
 
 			await writePath(src, 'src');
 
@@ -595,10 +589,10 @@ describe('MakeProgram', () => {
 		});
 
 		it('ensures a target directory exists before updating', async () => {
-			const srcPath = Path.build('src.txt');
+			const srcPath = 'src.txt';
 			const write = new WriteFileRule(srcPath, 'hello');
 
-			const cpPath = Path.build('sub/cp.txt');
+			const cpPath = join('sub', 'cp.txt');
 			const cp = new CopyFileRule(srcPath, cpPath);
 
 			const make = await parse((mk) => {
@@ -608,15 +602,15 @@ describe('MakeProgram', () => {
 
 			await make.update(cpPath);
 
-			const dirStat = await statsPath(cpPath.dir());
+			const dirStat = await stat(dirname(rel(cpPath)));
 			expect(dirStat.isDirectory()).to.be.true;
 		});
 
 		it('skips updating target if newer than prereqs', async () => {
-			const srcPath = Path.build('src.txt');
+			const srcPath = 'src.txt';
 			const write = new WriteFileRule(srcPath, 'hello');
 
-			const cpPath = Path.build('cp.txt');
+			const cpPath = 'cp.txt';
 			const cp = new CopyFileRule(srcPath, cpPath);
 
 			const make = await parse((mk) => {
@@ -631,10 +625,10 @@ describe('MakeProgram', () => {
 		});
 
 		it('remakes target if older than prereqs', async () => {
-			const srcPath = Path.src('src.txt');
+			const srcPath = 'src.txt';
 			await writePath(srcPath, 'hello');
 
-			const cpPath = Path.build('cp.txt');
+			const cpPath = 'cp.txt';
 			const cp = new CopyFileRule(srcPath, cpPath);
 			const make = await parse((mk) => {
 				mk.rule(cp);
@@ -652,12 +646,12 @@ describe('MakeProgram', () => {
 		});
 
 		it('remakes target if older than prereqs in non-recipe rules', async () => {
-			const srcPath = Path.src('src.txt');
-			const otherPath = Path.src('other.txt');
+			const srcPath = 'src.txt';
+			const otherPath = 'other.txt';
 			await writePath(srcPath, 'hello');
 			await writePath(otherPath, 'other');
 
-			const cpPath = Path.build('cp.txt');
+			const cpPath = 'cp.txt';
 			const cp = new CopyFileRule(srcPath, cpPath);
 
 			const make = await parse((mk) => {
@@ -677,10 +671,10 @@ describe('MakeProgram', () => {
 		});
 
 		it('calling update() while an update is in progress does not immediately start a new update', async () => {
-			const srcPath = Path.build('src.txt');
+			const srcPath = 'src.txt';
 			const write = new WriteFileRule(srcPath, 'hello');
 
-			const cpPath = Path.build('cp.txt');
+			const cpPath = 'cp.txt';
 			const cp = new CopyFileRule(srcPath, cpPath);
 
 			const make = await parse((mk) => {
@@ -698,8 +692,8 @@ describe('MakeProgram', () => {
 
 		it('updating two targets from same target group runs recipe once', async () => {
 			let count = 0;
-			const first = Path.build('first');
-			const second = Path.build('second');
+			const first = 'first';
+			const second = 'second';
 
 			const make = await parse((mk) => {
 				mk.rule('all', [first, second]);
@@ -714,10 +708,10 @@ describe('MakeProgram', () => {
 		});
 
 		it('updates prereqs of all targets in target group', async () => {
-			const a = Path.build('a');
-			const b = Path.build('b');
-			const c = Path.build('c');
-			const d = Path.build('d');
+			const a = 'a';
+			const b = 'b';
+			const c = 'c';
+			const d = 'd';
 
 			let cCount = 0;
 			let dCount = 0;
@@ -741,10 +735,10 @@ describe('MakeProgram', () => {
 		});
 
 		it('updates target group if any target is older than any prereq', async () => {
-			const a = Path.build('a');
-			const b = Path.build('b');
-			const c = Path.build('c');
-			const d = Path.build('d');
+			const a = 'a';
+			const b = 'b';
+			const c = 'c';
+			const d = 'd';
 
 			let bCount = 0;
 
@@ -781,9 +775,9 @@ describe('MakeProgram', () => {
 		});
 
 		it('updates target group if any target in group is missing', async () => {
-			const a = Path.build('a');
-			const b = Path.build('b');
-			const c = Path.src('c');
+			const a = 'a';
+			const b = 'b';
+			const c = 'c';
 
 			await writePath(c, 'c');
 			let count = 0;
@@ -806,9 +800,9 @@ describe('MakeProgram', () => {
 		});
 
 		it('treats non-recipe target group as independent targets', async () => {
-			const a = Path.build('a');
-			const b = Path.build('b');
-			const c = Path.src('c');
+			const a = 'a';
+			const b = 'b';
+			const c = 'c';
 
 			let aCount = 0;
 			let bCount = 0;
@@ -834,11 +828,11 @@ describe('MakeProgram', () => {
 		});
 
 		it('does not update a target if a prereq fails to update', async () => {
-			const srcPath = Path.build('src.txt');
+			const srcPath = 'src.txt';
 			const write = new WriteFileRule(srcPath, 'hello');
 			write.returnFalseOnBuild();
 
-			const cpPath = Path.build('cp.txt');
+			const cpPath = 'cp.txt';
 			const cp = new CopyFileRule(srcPath, cpPath);
 
 			const make = await parse((mk) => {
@@ -853,8 +847,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('does not update a target if a prereq was deleted', async () => {
-			const srcPath = Path.src('src.txt');
-			const outPath = Path.build('out.txt');
+			const srcPath = 'src.txt';
+			const outPath = 'out.txt';
 
 			await writePath(srcPath, 'contents');
 
@@ -876,8 +870,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('logs a debug event when a target is already up to date', async () => {
-			const srcPath = Path.src('src.txt');
-			const outPath = Path.build('out.txt');
+			const srcPath = 'src.txt';
+			const outPath = 'out.txt';
 
 			await writePath(srcPath, 'contents');
 
@@ -899,7 +893,7 @@ describe('MakeProgram', () => {
 
 		describe('include', () => {
 			it('parses nested target', async () => {
-				const nested = Path.build('nested-target');
+				const nested = 'nested-target';
 
 				const make = await parse((mk) => {
 					mk.include('nested.mk', (mk) => {
@@ -916,7 +910,7 @@ describe('MakeProgram', () => {
 			it('throws when Makefile target already has recipe', async () => {
 				let expectationsRan = false;
 				await parse((mk) => {
-					const p = Path.build('include.mk');
+					const p = 'include.mk';
 					mk.rule(p, () => {}); // add recipe
 					expect(() => {
 						mk.include(p, () => {});
@@ -930,7 +924,7 @@ describe('MakeProgram', () => {
 			it('throws when recipe is added to a Makefile target', async () => {
 				let expectationsRan = false;
 				await parse((mk) => {
-					const p = Path.build('include.mk');
+					const p = 'include.mk';
 					mk.include(p, () => {});
 					expect(() => {
 						mk.rule(p, () => {}); // add recipe
@@ -942,11 +936,11 @@ describe('MakeProgram', () => {
 			});
 
 			it('updates prereqs prior to executing included mk function', async () => {
-				const nested = Path.build('nested-target');
+				const nested = 'nested-target';
 
 				const make = await parse((mk) => {
-					const nestedMk = Path.build('nested.mk');
-					const prereq = Path.build('prereq');
+					const nestedMk = 'nested.mk';
+					const prereq = 'prereq';
 					let prereqUpdated = false;
 
 					mk.include(nestedMk, (mk) => {
@@ -968,11 +962,11 @@ describe('MakeProgram', () => {
 			});
 
 			it('returns null while parsing when a nested Makefile cannot be updated', async () => {
-				const nested = Path.build('nested-target');
+				const nested = 'nested-target';
 
 				const make = await parse((mk) => {
-					const nestedMk = Path.build('nested.mk');
-					const prereq = Path.build('prereq');
+					const nestedMk = 'nested.mk';
+					const prereq = 'prereq';
 
 					mk.include(nestedMk, (mk) => {
 						mk.rule(nested, () => {});
@@ -988,7 +982,7 @@ describe('MakeProgram', () => {
 
 			it('returns null when nested MakefileFn throws', async () => {
 				const make = await parse((mk) => {
-					const nestedMk = Path.build('nested.mk');
+					const nestedMk = 'nested.mk';
 
 					mk.include(nestedMk, () => {
 						throw new Error('hehe');
@@ -1001,10 +995,10 @@ describe('MakeProgram', () => {
 		});
 
 		xdescribe('with postreqs', () => {
-			const aPath = Path.src('a.txt');
-			const bPath = Path.src('b.txt');
-			const indexPath = Path.src('index.txt');
-			const catPath = Path.build('cat.txt');
+			const aPath = 'a.txt';
+			const bPath = 'b.txt';
+			const indexPath = 'index.txt';
+			const catPath = 'cat.txt';
 			let cat: CatFilesRecipe;
 
 			function parse(fn?: MakefileFn): Promise<MakeProgram> {
@@ -1091,9 +1085,9 @@ describe('MakeProgram', () => {
 		});
 
 		xit('remembers postreqs for targets that are not always updated', async () => {
-			const foo = Path.build('foo');
-			const req = Path.src('req');
-			const phony = Path.build('phony');
+			const foo = 'foo';
+			const req = 'req';
+			const phony = 'phony';
 
 			await writePath(req, 'init');
 
@@ -1104,7 +1098,7 @@ describe('MakeProgram', () => {
 
 				mk.rule(foo, async (args) => {
 					counts.foo += 1;
-					args.addPostreq(args.abs(req));
+					args.addPostreq(resolve(args.rootDir, req));
 					await writePath(foo, counts.foo.toString());
 					return true;
 				});
@@ -1144,9 +1138,9 @@ describe('MakeProgram', () => {
 		 * for now, this seems correct.
 		 */
 		xit('does not update postreqs that are build paths', async () => {
-			const srcPath = Path.src('src.txt');
-			const cpPath = Path.build('copy.txt');
-			const outPath = Path.build('out.txt');
+			const srcPath = 'src.txt';
+			const cpPath = 'copy.txt';
+			const outPath = 'out.txt';
 
 			await writePath(srcPath, 'src');
 			const copy = new CopyFileRule(srcPath, cpPath);
@@ -1163,7 +1157,7 @@ describe('MakeProgram', () => {
 						++buildCount;
 						await writePath(outPath, 'test');
 						// only after build
-						args.addPostreq(abs(cpPath));
+						args.addPostreq(resolve(args.rootDir, cpPath));
 						return true;
 					},
 				};
@@ -1187,9 +1181,9 @@ describe('MakeProgram', () => {
 		});
 
 		xit('checks postreqs for all targets in target group', async () => {
-			const a = Path.build('a');
-			const b = Path.build('b');
-			const c = Path.src('c');
+			const a = 'a';
+			const b = 'b';
+			const c = 'c';
 
 			await writePath(c, 'c');
 
@@ -1199,7 +1193,7 @@ describe('MakeProgram', () => {
 				});
 
 				mk.rule(b, async (args) => {
-					args.addPostreq(args.abs(c));
+					args.addPostreq(resolve(args.rootDir, c));
 					await writePath(b, 'b');
 				});
 			});
@@ -1223,8 +1217,8 @@ describe('MakeProgram', () => {
 		});
 
 		it('warns if a target is stale and has no recipe to update', async () => {
-			const stale = Path.build('stale');
-			const src = Path.src('src');
+			const stale = 'stale';
+			const src = 'src';
 
 			await writePath(stale, 'stale');
 			await waitMs(1);
@@ -1244,7 +1238,7 @@ describe('MakeProgram', () => {
 		});
 
 		it('does not warn if a phony target without a recipe is stale', async () => {
-			const src = Path.src('src');
+			const src = 'src';
 
 			await writePath(src, 'src');
 
@@ -1294,12 +1288,9 @@ describe('MakeProgram', () => {
 		});
 
 		it('is an error when a cycle exists', async () => {
-			const a = Path.build('a');
-			const b = Path.build('b');
-
 			const make = await parse((mk) => {
-				mk.rule(a, b);
-				mk.rule(b, a);
+				mk.rule('a', 'b');
+				mk.rule('b', 'a');
 			});
 
 			const result = await make.update();

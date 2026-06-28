@@ -1,10 +1,8 @@
-import { Path } from './Path.js';
-
 type EdgeList = Set<number>[];
 
 export class CycleDetector {
 	private _nodes = new Map<string, number>();
-	private _paths: Path[] = [];
+	private _paths: string[] = [];
 	private _edges: EdgeList = [];
 
 	/**
@@ -12,9 +10,8 @@ export class CycleDetector {
 	 * @param path The path to add a node for
 	 * @returns The node ID associated with the path
 	 */
-	private addNode(path: Path): number {
-		const rel = path.rel();
-		let nodeId = this._nodes.get(rel);
+	private addNode(path: string): number {
+		let nodeId = this._nodes.get(path);
 		if (typeof nodeId === 'number') {
 			return nodeId;
 		}
@@ -22,11 +19,11 @@ export class CycleDetector {
 		nodeId = this._paths.length;
 		this._paths.push(path);
 		this._edges.push(new Set<number>());
-		this._nodes.set(rel, nodeId);
+		this._nodes.set(path, nodeId);
 		return nodeId;
 	}
 
-	public addEdge(from: Path, to: Path): void {
+	public addEdge(from: string, to: string): void {
 		const fromId = this.addNode(from);
 		const toId = this.addNode(to);
 		this._edges[fromId].add(toId);
@@ -45,7 +42,7 @@ export class CycleDetector {
 		if (!nodes) {
 			const path = this._paths[nodeId];
 			throw new Error(
-				`Cycle detected for target '${path.rel()}', but the nodes in the path were not correctly identified. You should remove the cycle if it exists in your Makefile and also file an issue with esmakefile.`,
+				`Cycle detected for target '${path}', but the nodes in the path were not correctly identified. You should remove the cycle if it exists in your Makefile and also file an issue with esmakefile.`,
 			);
 		}
 
@@ -53,7 +50,7 @@ export class CycleDetector {
 	}
 }
 
-export type FindCycleResult = null | { path: Path[] };
+export type FindCycleResult = null | { path: string[] };
 
 class CycleSearch {
 	private _reach: EdgeList = [];

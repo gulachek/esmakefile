@@ -1,8 +1,8 @@
 import { writeFile } from 'fs/promises';
-import { Path, cli, Makefile, getLogger, rebasePath } from '../index.js';
+import { cli, Makefile, getLogger, rebasePath } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 cli((mk: Makefile) => {
 	const outDir = 'build';
@@ -47,7 +47,7 @@ cli((mk: Makefile) => {
 	});
 
 	mk.rule('write-both-streams', (args) => {
-		const script = args.abs(Path.src('src/logs.cjs'));
+		const script = resolve(args.rootDir, 'src/logs.cjs');
 		return args.spawn(process.execPath, [script]);
 	});
 
@@ -68,15 +68,15 @@ cli((mk: Makefile) => {
 		return false;
 	});
 
-	const staleTarget = Path.build('warn-stale-target');
-	const stalePrereq = Path.build('warn-stale-target-prereq');
+	const staleTarget = 'warn-stale-target';
+	const stalePrereq = 'warn-stale-target-prereq';
 
 	mk.rule(staleTarget, stalePrereq);
 	mk.rule(stalePrereq, async (args) => {
 		// this isn't supposed to make sense
-		await writeFile(args.abs(staleTarget), 'stale');
+		await writeFile(resolve(args.rootDir, staleTarget), 'stale');
 		await waitMs(5);
-		await writeFile(args.abs(stalePrereq), 'prereq');
+		await writeFile(resolve(args.rootDir, stalePrereq), 'prereq');
 	});
 });
 

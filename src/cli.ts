@@ -1,5 +1,4 @@
 import { MakefileFn } from './Makefile.js';
-import { Path } from './Path.js';
 import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
 import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';
 import { MakeProgram } from './MakeProgram.js';
@@ -82,8 +81,7 @@ export function cli(fn: MakefileFn): void {
 				process.exit(1);
 			}
 
-			const goalPath = goal && Path.build(goal);
-			const result = await make.update(goalPath);
+			const result = await make.update(goal);
 
 			process.exit(result ? 0 : 1);
 		});
@@ -107,8 +105,6 @@ export function cli(fn: MakefileFn): void {
 				process.exit(1);
 			}
 
-			const goalPath = goal && Path.build(goal);
-
 			const watcher = new SourceWatcher(make.rootDir, {
 				debounceMs: 300,
 				// TODO - have a way to ignore a directory while watching
@@ -118,7 +114,7 @@ export function cli(fn: MakefileFn): void {
 			watcher.on('change', () => {
 				loggerProvider.resetClock();
 				logger.info('Detected change. Restarting update.');
-				make.update(goalPath);
+				make.update(goal);
 			});
 
 			watcher.on('unknown', (type: string) => {
@@ -132,7 +128,7 @@ export function cli(fn: MakefileFn): void {
 
 			logger.info(`Watching '${make.rootDir}'`);
 			logger.info('Close input stream to stop (usually Ctrl+D)');
-			make.update(goalPath);
+			make.update(goal);
 		});
 
 	program

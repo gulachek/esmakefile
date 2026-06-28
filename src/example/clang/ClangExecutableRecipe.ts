@@ -1,21 +1,13 @@
-import {
-	IRule,
-	Path,
-	RecipeArgs,
-	Makefile,
-	PathLike,
-	getLogger,
-	rebasePath,
-} from '../../index.js';
+import { IRule, RecipeArgs, Makefile, getLogger } from '../../index.js';
 import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe.js';
 import { open, readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 export class ClangExecutableRecipe implements IRule {
-	exe: Path;
-	objs: Path[];
+	exe: string;
+	objs: string[];
 
-	constructor(exe: Path) {
+	constructor(exe: string) {
 		this.exe = exe;
 		this.objs = [];
 	}
@@ -33,11 +25,11 @@ export class ClangExecutableRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const exe = args.abs(this.exe);
-		const sources = args.absAll(...this.objs);
+		const exe = resolve(args.rootDir, this.exe);
+		const obs = this.objs.map((o) => resolve(args.rootDir, o));
 
 		const clangArgs = ['-o', exe];
-		clangArgs.push(...sources);
+		clangArgs.push(...obs);
 
 		return args.spawn('c++', clangArgs);
 	}
@@ -45,11 +37,11 @@ export class ClangExecutableRecipe implements IRule {
 
 export function addClangExecutable(
 	mk: Makefile,
-	out: string,
+	exePath: string,
 	src: string[],
 ): ClangExecutableRecipe {
-	const outDir = dirname(out);
-	const exePath = Path.build(out);
+	const outDir = dirname(exePath);
+
 	const exe = new ClangExecutableRecipe(exePath);
 
 	const compileCommands = new CatRecipe(join(outDir, 'compile_commands.json'));
@@ -86,12 +78,12 @@ type StringElem = {
 type Elem = PathElem | StringElem;
 
 class CatRecipe implements IRule {
-	out: Path;
-	private _src: Path[];
+	out: string;
+	private _src: string[];
 	private _elems: Elem[];
 
 	constructor(out: string) {
-		this.out = Path.build(out);
+		this.out = out;
 		this._src = [];
 		this._elems = [];
 	}
@@ -104,7 +96,7 @@ class CatRecipe implements IRule {
 		return this._src;
 	}
 
-	addPath(src: Path): void {
+	addPath(src: string): void {
 		const index = this._src.length;
 		this._src.push(src);
 		this._elems.push({ type: 'path', index });
@@ -118,8 +110,8 @@ class CatRecipe implements IRule {
 		const l = getLogger({ name: 'esmakefile.example.CatRecipe' });
 		l.info(`Generating ${this.out}`);
 
-		const out = args.abs(this.out);
-		const sources = args.absAll(...this._src);
+		const out = resolve(args.rootDir, this.out);
+		const sources = this._src.map((s) => resolve(args.rootDir, s));
 
 		const stream = await open(out, 'w');
 		for (const elem of this._elems) {

@@ -1,13 +1,4 @@
 import { IRule, RuleID, RecipeArgs } from './Rule.js';
-import {
-	BuildPathLike,
-	PathLike,
-	Path,
-	isBuildPathLike,
-	isPathLike,
-	IPathRoots,
-} from './Path.js';
-
 import { resolve } from 'node:path';
 import { MakeDatabase, MakefileInfo } from './MakeDatabase.js';
 
@@ -18,8 +9,8 @@ export interface IMakefileOpts {
 	path: string;
 }
 
-type Prereqs = PathLike | PathLike[];
-type Targets = PathLike | PathLike[];
+type Prereqs = string | string[];
+type Targets = string | string[];
 
 type RecipeFunction = (
 	args: RecipeArgs,
@@ -30,15 +21,9 @@ function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
 	return 'targets' in ruleOrTargets;
 }
 
-function normalizeTargets(t: Targets): Path[] {
-	if (isBuildPathLike(t)) return [Path.build(t)];
-	if (isPathLike(t)) return [Path.src(t)];
-	return t.map((t) => (isBuildPathLike(t) ? Path.build(t) : Path.src(t)));
-}
-
-function normalizePrereqs(p: Prereqs): Path[] {
-	if (isPathLike(p)) return [Path.src(p)];
-	return p.map((p) => Path.src(p));
+function normalizeToArray(x: string | string[]): string[] {
+	if (typeof x === 'string') return [x];
+	return x;
 }
 
 function normalizeRecipe(
@@ -64,15 +49,10 @@ export class Makefile {
 
 	private _path: string;
 	private _db: MakeDatabase;
-	private _roots: IPathRoots;
 
 	constructor(opts: IMakefileOpts) {
 		this.srcRoot = resolve(opts.srcRoot || '.');
 		this.buildRoot = resolve(opts.buildRoot || 'build');
-		this._roots = {
-			src: this.srcRoot,
-			build: this.buildRoot,
-		};
 		this._db = opts.db;
 		this._path = opts.path;
 	}
@@ -97,33 +77,33 @@ export class Makefile {
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
 	): RuleID {
-		let targets: Path[];
-		let prereqs: Path[];
+		let targets: string[];
+		let prereqs: string[];
 		let recipe: (args: RecipeArgs) => Promise<boolean> | null = null;
 		if (recipeFn) {
 			// targets, prereqs, recipe
-			targets = normalizeTargets(ruleOrTargets as Targets);
-			prereqs = normalizePrereqs(prereqsOrRecipe as Prereqs);
+			targets = normalizeToArray(ruleOrTargets as Targets);
+			prereqs = normalizeToArray(prereqsOrRecipe as Prereqs);
 			recipe = normalizeRecipe(undefined, recipeFn);
 		} else if (typeof prereqsOrRecipe === 'function') {
 			// targets, recipe
-			targets = normalizeTargets(ruleOrTargets as Targets);
+			targets = normalizeToArray(ruleOrTargets as Targets);
 			prereqs = [];
 			recipe = normalizeRecipe(undefined, prereqsOrRecipe);
 		} else if (prereqsOrRecipe) {
 			// targets, prereqs
-			targets = normalizeTargets(ruleOrTargets as Targets);
-			prereqs = normalizePrereqs(prereqsOrRecipe);
+			targets = normalizeToArray(ruleOrTargets as Targets);
+			prereqs = normalizeToArray(prereqsOrRecipe);
 		} else if (isRule(ruleOrTargets)) {
 			// rule
-			targets = normalizeTargets(ruleOrTargets.targets());
+			targets = normalizeToArray(ruleOrTargets.targets());
 			prereqs = ruleOrTargets.prereqs
-				? normalizePrereqs(ruleOrTargets.prereqs())
+				? normalizeToArray(ruleOrTargets.prereqs())
 				: [];
 			recipe = normalizeRecipe(ruleOrTargets, ruleOrTargets.recipe);
 		} else {
 			// targets
-			targets = normalizeTargets(ruleOrTargets as Targets);
+			targets = normalizeToArray(ruleOrTargets as Targets);
 			prereqs = [];
 		}
 
@@ -133,7 +113,7 @@ export class Makefile {
 		}
 
 		const { id } = this._db.insertRule({
-			targets: targets.map((p) => p.rel()),
+			targets,
 			prereqs,
 			recipe,
 		});
@@ -141,13 +121,7 @@ export class Makefile {
 		return id;
 	}
 
-	public include(target: BuildPathLike, mkFn: MakefileFn): Path {
-		const path = Path.build(target);
-		this._db.insertMakefile(path.rel(), mkFn);
-		return path;
-	}
-
-	public abs(path: Path): string {
-		return path.abs(this._roots);
+	public include(target: string, mkFn: MakefileFn): void {
+		this._db.insertMakefile(target, mkFn);
 	}
 }

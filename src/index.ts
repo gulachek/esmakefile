@@ -1,4 +1,5 @@
 export {
+	rebasePath,
 	Path,
 	PathLike,
 	PathType,

@@ -1,8 +1,30 @@
-import { isPathLike, Path, isBuildPathLike, PathType } from '../index.js';
+import {
+	rebasePath,
+	isPathLike,
+	Path,
+	isBuildPathLike,
+	PathType,
+} from '../index.js';
 
 import { expect } from 'chai';
 
 import { resolve, join } from 'node:path';
+
+describe('rebasePath', () => {
+	it('rebases a path', () => {
+		const result = rebasePath('a/b/c.js', 'a', 'a2');
+		expect(result).to.equal('a2/b/c.js');
+	});
+
+	it('throws if path is not relative to fromBase', () => {
+		expect(() => rebasePath('a', 'b', 'c')).to.throw(/Cannot rebase/i);
+	});
+
+	it('resolves given .. paths that stay within base', () => {
+		const result = rebasePath('a/b/../c.js', 'a', 'a2');
+		expect(result).to.equal('a2/c.js');
+	});
+});
 
 describe('isPathLike', () => {
 	it('returns true for strings', () => {

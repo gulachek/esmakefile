@@ -25,7 +25,7 @@ import { execFile } from 'node:child_process';
 
 import { expect } from 'chai';
 
-import { dirname, resolve, join } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { existsSync, Stats, statSync } from 'node:fs';
 import { InMemoryLoggerProvider } from '../InMemoryLoggerProvider.js';
 import { LogLevel, setLoggerProvider } from '../logs.js';
@@ -256,11 +256,10 @@ describe('MakeProgram', () => {
 	});
 
 	describe('recipe', () => {
-		const srcRoot = resolve('test-src');
-		const buildRoot = resolve(srcRoot, 'build');
+		const rootDir = resolve('test-src');
 
 		function abs(path: Path): string {
-			return path.abs({ src: srcRoot, build: buildRoot });
+			return path.abs({ src: rootDir, build: rootDir });
 		}
 
 		function writePath(path: Path, contents: string): Promise<void> {
@@ -280,22 +279,18 @@ describe('MakeProgram', () => {
 		}
 
 		async function parse(makeFn: MakefileFn): Promise<MakeProgram | null> {
-			return MakeProgram.parse(makeFn, { srcRoot, buildRoot });
+			return MakeProgram.parse(makeFn, { rootDir });
 		}
 
 		beforeEach(async () => {
-			if (statSync(buildRoot, { throwIfNoEntry: false })) {
-				await chmod(buildRoot, 0o777);
-			}
-
-			const stats = statSync(srcRoot, { throwIfNoEntry: false });
+			const stats = statSync(rootDir, { throwIfNoEntry: false });
 			if (stats) {
-				await chmod(srcRoot, 0o777);
-				await rm(srcRoot, { recursive: true });
-				expect(existsSync(srcRoot)).to.be.false;
+				await chmod(rootDir, 0o777);
+				await rm(rootDir, { recursive: true });
+				expect(existsSync(rootDir)).to.be.false;
 			}
 
-			await mkdir(srcRoot, { recursive: true });
+			await mkdir(rootDir, { recursive: true });
 		});
 
 		it('updates a target', async () => {
@@ -1019,7 +1014,7 @@ describe('MakeProgram', () => {
 						mk.rule(cat);
 						fn && fn(mk);
 					},
-					{ srcRoot, buildRoot },
+					{ rootDir },
 				);
 			}
 
@@ -1071,7 +1066,7 @@ describe('MakeProgram', () => {
 					(mk) => {
 						mk.rule(cat);
 					},
-					{ srcRoot, buildRoot },
+					{ rootDir },
 				);
 
 				await waitMs(1);
@@ -1232,7 +1227,6 @@ describe('MakeProgram', () => {
 			const stale = Path.build('stale');
 			const src = Path.src('src');
 
-			await mkdir(buildRoot, { recursive: true });
 			await writePath(stale, 'stale');
 			await waitMs(1);
 			await writePath(src, 'src');
@@ -1266,41 +1260,37 @@ describe('MakeProgram', () => {
 			expect(evts).to.be.empty;
 		});
 
-		it('is an error when the srcRoot is not a directory', async () => {
+		it('is an error when the rootDir is not a directory', async () => {
 			const make = await parse((mk) => {
 				mk.rule('simple', () => {});
 			});
 
-			await rm(srcRoot, { recursive: true });
+			await rm(rootDir, { recursive: true });
 
 			const result = await make.update();
 			expect(result, 'should fail').to.be.false;
 			expect(
-				logs.find(LogLevel.error, srcRoot),
-				'build did not indicate srcRoot is unreadable',
+				logs.find(LogLevel.error, rootDir),
+				'build did not indicate rootDir is unreadable',
 			).not.to.be.null;
 		});
 
-		it('is an error when the buildRoot is not created', async () => {
-			const nested = join(srcRoot, 'nested');
-			const myBuild = join(nested, 'build');
-			await mkdir(nested, { recursive: true });
-
+		it('is an error when the __esmakefile__ dir is not created', async () => {
 			const make = await MakeProgram.parse(
 				(mk) => {
 					mk.rule('simple', () => {});
 				},
-				{ srcRoot, buildRoot: myBuild },
+				{ rootDir },
 			);
 
-			await makeReadOnlyDir(nested);
+			await makeReadOnlyDir(rootDir);
 			const result = await make.update();
-			await restoreDirWriting(nested);
+			await restoreDirWriting(rootDir);
 
 			expect(result, 'should fail').to.be.false;
 			expect(
-				logs.find(LogLevel.error, myBuild),
-				'build did not indicate buildRoot is not writable',
+				logs.find(LogLevel.error, rootDir),
+				'build failed to indicate that directory is not writable',
 			).not.to.be.null;
 		});
 

@@ -1,6 +1,6 @@
 import { TargetInfo, RuleInfo, MakeDatabase } from './MakeDatabase.js';
 import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
-import { IPathRoots, Path } from './Path.js';
+import { Path } from './Path.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';
@@ -46,7 +46,6 @@ type TargetCompleteInfo = {
 type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
 export class UpdateExecution {
-	private _roots: IPathRoots;
 	private _db: MakeDatabase;
 
 	private _rules = new Map<RuleID, RuleInfo>();
@@ -59,7 +58,6 @@ export class UpdateExecution {
 
 	constructor(db: MakeDatabase) {
 		this._db = db;
-		this._roots = { build: db.buildRoot, src: db.srcRoot };
 		this._logger = getLogger({ name: 'esmakefile.Build' });
 
 		for (const rule of db.selectRules()) {
@@ -98,28 +96,28 @@ export class UpdateExecution {
 	 * @returns A promise that resolves when the build is done
 	 */
 	async run(goal: string): Promise<boolean> {
-		const { src, build } = this._roots;
+		const rootDir = this._db.rootDir;
 		let stats: Stats | null = null;
 		try {
-			stats = statSync(src, { throwIfNoEntry: false });
+			stats = statSync(rootDir, { throwIfNoEntry: false });
 		} catch (_) {
 			// will pick up that stats don't exist right below
 		}
 
 		if (!(stats && stats.isDirectory())) {
 			this._logger.error(
-				`Source directory '${src}' is not a readable directory`,
+				`Root directory '${rootDir}' is not a readable directory`,
 			);
 			return false;
 		}
 
-		const esmakefileDir = nodePath.resolve(build, '__esmakefile__');
+		const esmakefileDir = nodePath.resolve(rootDir, '__esmakefile__');
 
 		try {
 			await mkdir(esmakefileDir, { recursive: true });
 		} catch (ex) {
 			this._logger.error(
-				`Failed to make build directory ${build}: ${ex.message}`,
+				`Failed to make directory '${esmakefileDir}': ${ex.message}`,
 			);
 			return false;
 		}
@@ -190,7 +188,7 @@ export class UpdateExecution {
 	}
 
 	private abs(p: Path) {
-		return p.abs(this._roots);
+		return p.abs({ src: this._db.rootDir, build: this._db.rootDir });
 	}
 
 	private endTarget(result: boolean): boolean {
@@ -229,7 +227,7 @@ export class UpdateExecution {
 		}
 
 		const targetStatus = this._needsBuild(
-			targetGroup.map((t) => nodePath.resolve(this._roots.build, t)),
+			targetGroup.map((t) => nodePath.resolve(this._db.rootDir, t)),
 			allSrc,
 			allPostreq,
 		);
@@ -281,7 +279,7 @@ export class UpdateExecution {
 
 		const recipeInfo = this._rules.get(recipeRule);
 		for (const t of targetGroup) {
-			await mkdir(nodePath.resolve(this._roots.build, nodePath.dirname(t)), {
+			await mkdir(nodePath.resolve(this._db.rootDir, nodePath.dirname(t)), {
 				recursive: true,
 			});
 		}
@@ -294,7 +292,7 @@ export class UpdateExecution {
 				eventName: EVENT_RECIPE_BEGIN,
 				body: `Updating target '${requestedTarget}'`,
 			});
-			const args = new RecipeArgs(this._roots, new Set<string>());
+			const args = new RecipeArgs(this._db.rootDir, new Set<string>());
 			result = await recipeInfo.recipe(args);
 		} catch (err) {
 			exception = err;

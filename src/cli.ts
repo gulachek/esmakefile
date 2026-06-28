@@ -54,8 +54,7 @@ export function cli(fn: MakefileFn): void {
 	const makeProgram = async (cmdOpts: OptionValues) => {
 		const opts = { ...program.opts(), ...cmdOpts };
 		return MakeProgram.parse(fn, {
-			srcRoot: opts['srcdir'],
-			buildRoot: opts['outdir'],
+			rootDir: opts['srcdir'],
 		});
 	};
 
@@ -115,9 +114,10 @@ export function cli(fn: MakefileFn): void {
 
 			const goalPath = goal && Path.build(goal);
 
-			const watcher = new SourceWatcher(make.srcRoot, {
+			const watcher = new SourceWatcher(make.rootDir, {
 				debounceMs: 300,
-				excludeDir: make.buildRoot,
+				// TODO - have a way to ignore a directory while watching
+				excludeDir: '__TODO__',
 			});
 
 			watcher.on('change', () => {
@@ -135,7 +135,7 @@ export function cli(fn: MakefileFn): void {
 			process.stdin.on('close', closeWatcher);
 			process.stdin.on('data', drainStdin);
 
-			logger.info(`Watching '${make.srcRoot}'`);
+			logger.info(`Watching '${make.rootDir}'`);
 			logger.info('Close input stream to stop (usually Ctrl+D)');
 			make.update(goalPath);
 		});

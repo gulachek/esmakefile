@@ -4,8 +4,7 @@ import { isRuleID, RecipeArgs, RuleID } from './Rule.js';
 import type { MakefileFn } from './Makefile.js';
 
 export interface IMakeDatabaseOpts {
-	srcRoot?: string;
-	buildRoot?: string;
+	rootDir?: string;
 }
 
 export type MakefileInfo = {
@@ -31,8 +30,7 @@ export type TargetInfo = {
 };
 
 export class MakeDatabase {
-	readonly srcRoot: string;
-	readonly buildRoot: string;
+	readonly rootDir: string;
 
 	private _makefiles = new Map<string, MakefileInfo>();
 	private _makefilesIndexUnparsed = new Set<string>();
@@ -40,8 +38,7 @@ export class MakeDatabase {
 	private _targets = new Map<string, TargetInfo>();
 
 	constructor(opts: IMakeDatabaseOpts) {
-		this.srcRoot = resolve(opts.srcRoot || '.');
-		this.buildRoot = resolve(opts.buildRoot || 'build');
+		this.rootDir = resolve(opts.rootDir || '.');
 	}
 
 	insertMakefile(path: string, fn: MakefileFn): MakefileInfo {

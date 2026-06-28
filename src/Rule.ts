@@ -32,18 +32,22 @@ export interface IRule {
 }
 
 export class RecipeArgs {
-	private _roots: IPathRoots;
+	readonly rootDir: string;
 	private _postreqs: Set<string>;
 	private _log: Logger;
 
-	constructor(roots: IPathRoots, postreqs: Set<string>) {
-		this._roots = roots;
+	constructor(rootDir: string, postreqs: Set<string>) {
+		this.rootDir = rootDir;
 		this._postreqs = postreqs;
 		this._log = getLogger({ name: 'esmakefile.RecipeArgs' });
 	}
 
+	private roots(): IPathRoots {
+		return { src: this.rootDir, build: this.rootDir };
+	}
+
 	abs(path: Path): string {
-		return path.abs(this._roots);
+		return path.abs(this.roots());
 	}
 
 	absAll(paths: Iterable<Path>): string[];
@@ -56,11 +60,11 @@ export class RecipeArgs {
 		let iter: Iterable<Path>;
 
 		if (!isIterable(pathOrPaths)) {
-			out.push(pathOrPaths.abs(this._roots));
+			out.push(pathOrPaths.abs(this.roots()));
 			iter = rest;
 		}
 
-		for (const p of iter) out.push(p.abs(this._roots));
+		for (const p of iter) out.push(p.abs(this.roots()));
 
 		return out;
 	}

@@ -7,8 +7,7 @@ import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
 export interface IMakeProgramParseOpts {
-	srcRoot?: string;
-	buildRoot?: string;
+	rootDir?: string;
 }
 
 export class MakeProgram {
@@ -31,8 +30,7 @@ export class MakeProgram {
 
 		opts = opts || {};
 		const db = new MakeDatabase({
-			buildRoot: opts.buildRoot,
-			srcRoot: opts.srcRoot,
+			rootDir: opts.rootDir,
 		});
 		const make = new MakeProgram(db);
 
@@ -90,12 +88,8 @@ export class MakeProgram {
 		return result;
 	}
 
-	get srcRoot(): string {
-		return this.db.srcRoot;
-	}
-
-	get buildRoot(): string {
-		return this.db.buildRoot;
+	get rootDir(): string {
+		return this.db.rootDir;
 	}
 
 	targets(): string[] {

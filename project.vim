@@ -13,4 +13,4 @@ nnoremap <Leader>e :!npm run example<CR>
 
 " test
 nnoremap <Leader>t :!npm run test<CR>
-nnoremap <Leader>d :!./debug-spec.sh<CR>
+nnoremap <Leader>d :!./debug-spec.sh %<CR>

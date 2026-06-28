@@ -5,7 +5,7 @@ set autowriteall
 
 " search
 set grepprg=git\ grep\ -n
-nnoremap <Leader>g :grep<SPACE>
+nnoremap <Leader>f :grep<SPACE>
 
 " build
 nnoremap <Leader>b :!npm run build<CR>

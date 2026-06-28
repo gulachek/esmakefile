@@ -1,22 +1,26 @@
 import { writeFile } from 'fs/promises';
-import { Path, cli, Makefile, getLogger } from '../index.js';
+import { Path, cli, Makefile, getLogger, rebasePath } from '../index.js';
 import { addSass } from './SassRecipe.js';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.js';
+import { join } from 'node:path';
 
 cli((mk: Makefile) => {
+	const outDir = 'build';
+	const srcDir = 'src';
+
 	const logger = getLogger({ name: 'esmakefile.example.make' });
-	const scssFile = Path.src('src/style.scss');
-	const main = Path.build('main');
-	const css = Path.build('style.css');
+	const main = join(outDir, 'main');
+	const scssFile = join(srcDir, 'style.scss');
+	const css = rebasePath(scssFile, srcDir, outDir).replace(/.scss$/, '.css');
 
 	mk.rule('all', [css, main]);
 
-	addSass(mk, scssFile, 'style.css');
+	addSass(mk, scssFile, css);
 
-	addClangExecutable(mk, 'main', ['src/main.cpp', 'src/hello.cpp']);
+	addClangExecutable(mk, main, ['src/main.cpp', 'src/hello.cpp']);
 
 	mk.rule('run-main', main, (args) => {
-		return args.spawn(args.abs(main), []);
+		return args.spawn(main, []);
 	});
 
 	mk.rule('missing-prereq', 'does-not-exist', () => {

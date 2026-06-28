@@ -6,7 +6,6 @@ export {
 	isPathLike,
 	BuildPathLike,
 	isBuildPathLike,
-	BuildPathGenOpts,
 } from './Path.js';
 export { cli } from './cli.js';
 export { Makefile, MakefileFn } from './Makefile.js';

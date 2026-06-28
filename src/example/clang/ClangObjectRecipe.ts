@@ -1,12 +1,4 @@
-import {
-	IRule,
-	PathLike,
-	isBuildPathLike,
-	BuildPathGenOpts,
-	Path,
-	Makefile,
-	RecipeArgs,
-} from '../../index.js';
+import { IRule, Path, Makefile, RecipeArgs } from '../../index.js';
 
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -60,15 +52,9 @@ export class ClangObjectRecipe implements IRule {
 	}
 }
 
-export function addClangObject(
-	mk: Makefile,
-	src: PathLike,
-	genOpts?: BuildPathGenOpts,
-) {
+export function addClangObject(mk: Makefile, src: string, dest: string) {
 	const srcPath = Path.src(src);
-	const destPath = isBuildPathLike(genOpts)
-		? Path.build(genOpts)
-		: Path.gen(srcPath, { ext: '.o', ...genOpts });
+	const destPath = Path.build(dest);
 
 	const obj = new ClangObjectRecipe(srcPath, destPath);
 	mk.rule(obj);

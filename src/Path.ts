@@ -101,22 +101,6 @@ export class Path {
 		}
 	}
 
-	static gen(orig: Path, opts?: BuildPathGenOpts): Path {
-		if (isBuildPathLike(opts)) {
-			return Path.build(opts);
-		}
-
-		const posix = path.posix;
-
-		const parsed = posix.parse(orig.rel());
-		delete parsed.base; // should be able to simply specify extension
-		const fmtOpts = { ...parsed, ...opts };
-		return new Path(
-			PathType.build,
-			getComponents(posix.format(fmtOpts)),
-		) as Path;
-	}
-
 	toString(): string {
 		return path.posix.join(`@${this.type}`, ...this.components);
 	}
@@ -164,20 +148,6 @@ export function isBuildPathLike(obj: unknown): obj is BuildPathLike {
 		typeof obj === 'string' || (Path.isPath(obj) && obj.type === PathType.build)
 	);
 }
-
-export interface IBuildPathGenOpts {
-	/**
-	 * file extension to replace in given path
-	 */
-	ext?: string;
-
-	/**
-	 * Directory of path to generate
-	 */
-	dir?: string;
-}
-
-export type BuildPathGenOpts = BuildPathLike | IBuildPathGenOpts;
 
 export interface IPathRoots {
 	build: string;

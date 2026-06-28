@@ -3,7 +3,6 @@ import {
 	MakeProgram,
 	IRule,
 	BuildPathLike,
-	BuildPathGenOpts,
 	Path,
 	PathLike,
 	RecipeArgs,
@@ -86,10 +85,10 @@ class CopyFileRule extends TestRule implements IRule {
 	readonly src: Path;
 	readonly dest: Path;
 
-	constructor(src: PathLike, genOpts?: BuildPathGenOpts) {
+	constructor(src: PathLike, dest: PathLike) {
 		super();
 		this.src = Path.src(src);
-		this.dest = Path.gen(this.src, genOpts);
+		this.dest = Path.build(dest);
 	}
 
 	prereqs() {
@@ -117,9 +116,9 @@ class CatFilesRecipe implements IRule {
 	readonly dest: Path;
 	buildCount: number = 0;
 
-	constructor(src: Path, genOpts?: BuildPathGenOpts) {
+	constructor(src: Path, dest: PathLike) {
 		this.src = src;
-		this.dest = Path.gen(src, genOpts);
+		this.dest = Path.build(dest);
 	}
 
 	targets() {

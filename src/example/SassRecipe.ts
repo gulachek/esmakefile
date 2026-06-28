@@ -1,14 +1,11 @@
 import {
 	Path,
 	IRule,
-	BuildPathGenOpts,
 	PathLike,
 	RecipeArgs,
 	Makefile,
 	getLogger,
 } from '../index.js';
-
-import { isBuildPathLike } from '../Path.js';
 
 import * as sass from 'sass';
 import { writeFile } from 'node:fs/promises';
@@ -17,17 +14,9 @@ class ScssRecipe implements IRule {
 	_srcPath: Path;
 	_destPath: Path;
 
-	constructor(src: PathLike, genOpts: BuildPathGenOpts) {
+	constructor(src: PathLike, destPath: string) {
 		this._srcPath = Path.src(src);
-
-		if (isBuildPathLike(genOpts)) {
-			this._destPath = Path.build(genOpts);
-		} else {
-			this._destPath = Path.gen(this._srcPath, {
-				ext: '.css',
-				...genOpts,
-			});
-		}
+		this._destPath = Path.build(destPath);
 	}
 
 	prereqs() {
@@ -55,10 +44,6 @@ class ScssRecipe implements IRule {
 	}
 }
 
-export function addSass(
-	mk: Makefile,
-	src: PathLike,
-	genOpts: BuildPathGenOpts,
-) {
-	mk.rule(new ScssRecipe(src, genOpts));
+export function addSass(mk: Makefile, src: PathLike, dest: string) {
+	mk.rule(new ScssRecipe(src, dest));
 }

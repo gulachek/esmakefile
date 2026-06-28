@@ -4,11 +4,12 @@ import {
 	RecipeArgs,
 	Makefile,
 	PathLike,
-	BuildPathLike,
 	getLogger,
+	rebasePath,
 } from '../../index.js';
 import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe.js';
 import { open, readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 export class ClangExecutableRecipe implements IRule {
 	exe: Path;
@@ -44,17 +45,22 @@ export class ClangExecutableRecipe implements IRule {
 
 export function addClangExecutable(
 	mk: Makefile,
-	out: BuildPathLike,
-	src: PathLike[],
+	out: string,
+	src: string[],
 ): ClangExecutableRecipe {
+	const outDir = dirname(out);
 	const exePath = Path.build(out);
 	const exe = new ClangExecutableRecipe(exePath);
 
-	const compileCommands = new CatRecipe(Path.build('compile_commands.json'));
+	const compileCommands = new CatRecipe(join(outDir, 'compile_commands.json'));
 	compileCommands.addText('[');
 
 	for (const s of src) {
-		const obj = addClangObject(mk, s);
+		const obj = addClangObject(
+			mk,
+			s,
+			join(outDir, s).replace(/.c(pp)?$/, '.o'),
+		);
 		exe.addObj(obj);
 		compileCommands.addPath(obj.compileCommands);
 	}
@@ -84,8 +90,8 @@ class CatRecipe implements IRule {
 	private _src: Path[];
 	private _elems: Elem[];
 
-	constructor(out: Path) {
-		this.out = out;
+	constructor(out: string) {
+		this.out = Path.build(out);
 		this._src = [];
 		this._elems = [];
 	}

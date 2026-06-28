@@ -39,13 +39,8 @@ export function cli(fn: MakefileFn): void {
 	program.option('--development', devDesc, false);
 
 	program.option(
-		'--srcdir <dir>',
-		"Root directory of source files (default is '.')",
-	);
-
-	program.option(
-		'--outdir <dir>',
-		"Root directory of build files (default is './build')",
+		'-C, --directory <dir>',
+		"Root directory of the build system (default is '.')",
 	);
 
 	program.option('--trace', 'Sets the log level to "trace"', false);
@@ -54,7 +49,7 @@ export function cli(fn: MakefileFn): void {
 	const makeProgram = async (cmdOpts: OptionValues) => {
 		const opts = { ...program.opts(), ...cmdOpts };
 		return MakeProgram.parse(fn, {
-			rootDir: opts['srcdir'],
+			rootDir: opts['directory'],
 		});
 	};
 

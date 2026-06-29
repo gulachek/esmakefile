@@ -1,4 +1,4 @@
-import { RuleInfo, MakeDatabase } from './MakeDatabase.js';
+import { MakeDatabase } from './MakeDatabase.js';
 import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
 
 import { mkdir } from 'node:fs/promises';
@@ -47,8 +47,6 @@ type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 export class UpdateExecution {
 	private _db: MakeDatabase;
 
-	private _rules = new Map<RuleID, RuleInfo>();
-
 	private _builtTargets = new Map<string, TargetCompleteInfo>();
 
 	private _info = new Map<RuleID, RecipeBuildInfo>();
@@ -57,10 +55,6 @@ export class UpdateExecution {
 	constructor(db: MakeDatabase) {
 		this._db = db;
 		this._logger = getLogger({ name: 'esmakefile.Build' });
-
-		for (const rule of db.selectRules()) {
-			this._rules.set(rule.id, rule);
-		}
 	}
 
 	private _reportCycle(): boolean {
@@ -68,7 +62,7 @@ export class UpdateExecution {
 
 		for (const targetInfo of this._db.selectTargets()) {
 			for (const rule of targetInfo.rules) {
-				const { prereqs } = this._rules.get(rule);
+				const { prereqs } = this._db.selectRule(rule);
 				for (const p of prereqs) {
 					if (this._db.selectTarget(p)) {
 						cd.addEdge(targetInfo.path, p);
@@ -167,7 +161,7 @@ export class UpdateExecution {
 
 		const { recipeRule } = info;
 		if (isRuleID(recipeRule)) {
-			const ruleInfo = this._rules.get(recipeRule);
+			const ruleInfo = this._db.selectRule(recipeRule);
 			targetGroup = ruleInfo.targets;
 		}
 
@@ -196,7 +190,7 @@ export class UpdateExecution {
 			const { rules, postreqs } = this._db.selectTarget(target);
 
 			for (const ruleId of rules) {
-				const ruleInfo = this._rules.get(ruleId);
+				const ruleInfo = this._db.selectRule(ruleId);
 
 				// update prereqs
 				for (const src of ruleInfo.prereqs) {
@@ -266,7 +260,7 @@ export class UpdateExecution {
 
 		this._info.set(recipeRule, buildInfo);
 
-		const recipeInfo = this._rules.get(recipeRule);
+		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
 			await mkdir(nodePath.resolve(this._db.rootDir, nodePath.dirname(t)), {
 				recursive: true,
@@ -349,24 +343,6 @@ export class UpdateExecution {
 		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
 
 		return NeedsBuildValue.upToDate;
-	}
-
-	public *recipesInProgress(): Generator<[RuleID, RuleInfo]> {
-		for (const [id, info] of this._info) {
-			if (!info.complete) {
-				yield [id, this._rules.get(id)];
-			}
-		}
-	}
-
-	public *completedRecipes(): Generator<
-		[RuleID, RuleInfo, RecipeCompleteInfo]
-	> {
-		for (const [id, info] of this._info) {
-			if (info.complete) {
-				yield [id, this._rules.get(id), info];
-			}
-		}
 	}
 }
 

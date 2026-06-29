@@ -116,6 +116,12 @@ export class MakeDatabase {
 		return info;
 	}
 
+	selectRule(id: RuleID): RuleInfo | null {
+		if (id < 0 || id >= this._rules.length) return null;
+
+		return this._rules[id];
+	}
+
 	selectRules(): RuleInfo[] {
 		return Array.from(this._rules);
 	}

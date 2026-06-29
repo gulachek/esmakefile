@@ -1,7 +1,7 @@
 export { rebasePath } from './Path.js';
 export { cli } from './cli.js';
 export { Makefile, MakefileFn } from './Makefile.js';
-export { IRule, RecipeArgs, RuleID } from './Rule.js';
+export { IRule, RecipeArgs } from './Rule.js';
 export {
 	getLogger,
 	GetLoggerOpts,

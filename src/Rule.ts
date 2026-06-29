@@ -96,9 +96,3 @@ export class RecipeArgs {
 		});
 	}
 }
-
-export type RuleID = number;
-
-export function isRuleID(id: unknown): id is RuleID {
-	return typeof id === 'number';
-}

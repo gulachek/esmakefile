@@ -1,5 +1,5 @@
-import { MakeDatabase } from './MakeDatabase.js';
-import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
+import { MakeDatabase, RuleID, isRuleID } from './MakeDatabase.js';
+import { RecipeArgs } from './Rule.js';
 
 import { mkdir } from 'node:fs/promises';
 import { statSync, Stats } from 'node:fs';

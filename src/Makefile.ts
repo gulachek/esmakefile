@@ -1,6 +1,6 @@
-import { IRule, RuleID, RecipeArgs } from './Rule.js';
+import { IRule, RecipeArgs } from './Rule.js';
 import { resolve } from 'node:path';
-import { MakeDatabase, MakefileInfo } from './MakeDatabase.js';
+import { MakeDatabase, MakefileInfo, RuleID } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;

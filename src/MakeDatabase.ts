@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { isRuleID, RecipeArgs, RuleID } from './Rule.js';
+import { RecipeArgs } from './Rule.js';
 import type { MakefileFn } from './Makefile.js';
 
 export interface IMakeDatabaseOpts {
@@ -13,6 +13,12 @@ export type MakefileInfo = {
 };
 
 export type RowID = number;
+
+export type RuleID = number;
+
+export function isRuleID(id: unknown): id is RuleID {
+	return typeof id === 'number';
+}
 
 export type RuleInfo = {
 	id: RuleID;

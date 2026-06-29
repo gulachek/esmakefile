@@ -1,4 +1,4 @@
-import { TargetInfo, RuleInfo, MakeDatabase } from './MakeDatabase.js';
+import { RuleInfo, MakeDatabase } from './MakeDatabase.js';
 import { RecipeArgs, RuleID, isRuleID } from './Rule.js';
 
 import { mkdir } from 'node:fs/promises';
@@ -49,7 +49,6 @@ export class UpdateExecution {
 
 	private _rules = new Map<RuleID, RuleInfo>();
 
-	private _targets = new Map<string, TargetInfo>();
 	private _builtTargets = new Map<string, TargetCompleteInfo>();
 
 	private _info = new Map<RuleID, RecipeBuildInfo>();
@@ -67,12 +66,12 @@ export class UpdateExecution {
 	private _reportCycle(): boolean {
 		const cd = new CycleDetector();
 
-		for (const [t, targetInfo] of this._targets) {
+		for (const targetInfo of this._db.selectTargets()) {
 			for (const rule of targetInfo.rules) {
 				const { prereqs } = this._rules.get(rule);
 				for (const p of prereqs) {
-					if (this._targets.has(p)) {
-						cd.addEdge(t, p);
+					if (this._db.selectTarget(p)) {
+						cd.addEdge(targetInfo.path, p);
 					}
 				}
 			}
@@ -120,11 +119,6 @@ export class UpdateExecution {
 			return false;
 		}
 
-		this._targets = new Map<string, TargetInfo>();
-		for (const t of this._db.selectTargets()) {
-			this._targets.set(t.path, t);
-		}
-
 		if (this._reportCycle()) {
 			return false;
 		}
@@ -165,7 +159,7 @@ export class UpdateExecution {
 		let result = false;
 
 		let targetGroup = [target];
-		const info = this._targets.get(target);
+		const info = this._db.selectTarget(target);
 		if (!info) {
 			this._logger.error(`Makefile has no target '${target}'.`);
 			return false;
@@ -199,7 +193,7 @@ export class UpdateExecution {
 		const allPostreq: string[] = [];
 
 		for (const target of targetGroup) {
-			const { rules, postreqs } = this._targets.get(target);
+			const { rules, postreqs } = this._db.selectTarget(target);
 
 			for (const ruleId of rules) {
 				const ruleInfo = this._rules.get(ruleId);
@@ -208,7 +202,7 @@ export class UpdateExecution {
 				for (const src of ruleInfo.prereqs) {
 					allPrereqs.push(src);
 
-					if (this._targets.has(src)) {
+					if (this._db.selectTarget(src)) {
 						prereqsToUpdate.push(src);
 					}
 				}
@@ -328,7 +322,7 @@ export class UpdateExecution {
 			const preStat = statSync(abs, { throwIfNoEntry: false });
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
-			} else if (this._targets.has(prereq)) {
+			} else if (this._db.selectTarget(prereq)) {
 				newestDepMtimeMs = Infinity;
 			} else {
 				this._logger.error(`Missing prereq file '${abs}'.`);

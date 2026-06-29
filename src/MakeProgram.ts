@@ -105,7 +105,7 @@ export class MakeProgram {
 
 function defaultGoal(db: MakeDatabase): string {
 	for (const rule of db.selectRules()) {
-		for (const t of rule.targets) return t;
+		for (const t of rule.targets) return db.selectTargetById(t).path;
 	}
 
 	return '';

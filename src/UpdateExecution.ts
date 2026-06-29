@@ -162,7 +162,9 @@ export class UpdateExecution {
 		const { recipeRule } = info;
 		if (isRuleId(recipeRule)) {
 			const ruleInfo = this._db.selectRule(recipeRule);
-			targetGroup = ruleInfo.targets;
+			targetGroup = ruleInfo.targets.map(
+				(t) => this._db.selectTargetById(t).path,
+			);
 		}
 
 		result = await this._startBuild(targetGroup, recipeRule, target);

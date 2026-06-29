@@ -60,10 +60,14 @@ export type RuleInfo = {
 	id: RuleId;
 	recipe: (args: RecipeArgs) => Promise<boolean> | null;
 	prereqs: string[];
-	targets: string[];
+	targets: TargetId[];
 };
 
+const TargetIdKey = '__targetId';
+export type TargetId = StrictId<typeof TargetIdKey>;
+
 export type TargetInfo = {
+	id: TargetId;
 	path: string;
 	rules: Set<RuleId>;
 	recipeRule: RuleId | null;
@@ -76,7 +80,9 @@ export class MakeDatabase {
 	private _makefiles = new Map<string, MakefileInfo>();
 	private _makefilesIndexUnparsed = new Set<string>();
 	private _rules: RuleInfo[] = [];
-	private _targets = new Map<string, TargetInfo>();
+
+	private _targets: TargetInfo[] = [];
+	private _targetsIndexPath = new Map<string, TargetInfo>();
 
 	constructor(opts: IMakeDatabaseOpts) {
 		this.rootDir = resolve(opts.rootDir || '.');
@@ -87,7 +93,7 @@ export class MakeDatabase {
 			throw new Error(`Makefile '${path}' is already registered`);
 		}
 
-		const targetInfo = this._targets.get(path);
+		const targetInfo = this.selectTarget(path);
 		if (isId(RuleIdKey, targetInfo?.recipeRule)) {
 			throw new Error(
 				`Cannot add Makefile '${path}' which also has a recipe defined`,
@@ -146,13 +152,33 @@ export class MakeDatabase {
 		}
 	}
 
-	insertRule(rule: Omit<RuleInfo, 'id'>): RuleInfo {
+	insertRule(rule: {
+		targets: string[];
+		prereqs: string[];
+		recipe: RuleInfo['recipe'];
+	}): RuleInfo {
+		const targetPaths = rule.targets;
+		const prereqs = rule.prereqs;
+		const recipe = rule.recipe;
+
+		const targets: TargetId[] = [];
+		for (const t of targetPaths) {
+			const targetInfo = this.selectTarget(t);
+			if (targetInfo) targets.push(targetInfo.id);
+			else targets.push(this.insertTarget(t).id);
+		}
+
 		const id = this._rules.length;
-		const info: RuleInfo = { ...rule, id: mkId(RuleIdKey, id) };
+		const info: RuleInfo = {
+			id: mkId(RuleIdKey, id),
+			targets,
+			prereqs,
+			recipe,
+		};
 		this._rules.push(info);
 
-		for (const t of info.targets) {
-			this.upsertTargetRule(t, info);
+		for (const t of targets) {
+			this.updateTargetWithRule(t, info);
 		}
 
 		return info;
@@ -170,23 +196,37 @@ export class MakeDatabase {
 	}
 
 	selectTargets(): TargetInfo[] {
-		return Array.from(this._targets.values());
+		return Array.from(this._targets);
 	}
 
 	selectTarget(path: string): TargetInfo | null {
-		return this._targets.get(path) || null;
+		return this._targetsIndexPath.get(path) || null;
 	}
 
-	private upsertTargetRule(path: string, rule: RuleInfo): void {
-		let targetInfo = this._targets.get(path);
-		if (!targetInfo) {
-			targetInfo = {
-				path,
-				rules: new Set(),
-				recipeRule: null,
-			};
-			this._targets.set(path, targetInfo);
-		}
+	selectTargetById(id: TargetId): TargetInfo | null {
+		const v = idVal(TargetIdKey, id);
+		if (v < 0 || v >= this._targets.length) return null;
+
+		return this._targets[v];
+	}
+
+	private insertTarget(path: string): TargetInfo {
+		const id = this._targets.length;
+		const info: TargetInfo = {
+			id: mkId(TargetIdKey, id),
+			path,
+			rules: new Set<RuleId>(),
+			recipeRule: null,
+		};
+
+		this._targets.push(info);
+		this._targetsIndexPath.set(path, info);
+		return info;
+	}
+
+	private updateTargetWithRule(id: TargetId, rule: RuleInfo): void {
+		const targetInfo = this.selectTargetById(id);
+		const path = targetInfo.path;
 
 		if (rule.recipe) {
 			if (isId(RuleIdKey, targetInfo.recipeRule))

@@ -14,14 +14,50 @@ export type MakefileInfo = {
 
 export type RowID = number;
 
-export type RuleID = number;
+const UseObjIds = true;
 
-export function isRuleID(id: unknown): id is RuleID {
-	return typeof id === 'number';
+type StrictIdObj<K extends string> = {
+	[P in K]: number;
+};
+
+export type StrictId<K extends string> = typeof UseObjIds extends true
+	? StrictIdObj<K>
+	: number;
+
+function idVal<K extends string>(key: K, id: StrictIdObj<K> | number): number {
+	if (typeof id === 'number') return id;
+	else return id[key];
+}
+
+function mkId<K extends string>(key: K, val: number): StrictId<K> {
+	if (UseObjIds) {
+		return { [key]: val } as unknown as StrictId<K>;
+	} else {
+		return val as unknown as StrictId<K>;
+	}
+}
+
+function isId<K extends string>(key: K, id: unknown): id is StrictId<K> {
+	if (UseObjIds) {
+		return (
+			id &&
+			typeof id === 'object' &&
+			key in id &&
+			typeof (id as Record<string, unknown>)[key] === 'number'
+		);
+	} else {
+		return typeof id === 'number';
+	}
+}
+
+const RuleIdKey = '__ruleId';
+export type RuleId = StrictId<typeof RuleIdKey>;
+export function isRuleId(id: unknown): id is RuleId {
+	return isId(RuleIdKey, id);
 }
 
 export type RuleInfo = {
-	id: RuleID;
+	id: RuleId;
 	recipe: (args: RecipeArgs) => Promise<boolean> | null;
 	prereqs: string[];
 	targets: string[];
@@ -29,8 +65,8 @@ export type RuleInfo = {
 
 export type TargetInfo = {
 	path: string;
-	rules: Set<RuleID>;
-	recipeRule: RuleID | null;
+	rules: Set<RuleId>;
+	recipeRule: RuleId | null;
 	postreqs?: string[];
 };
 
@@ -52,7 +88,7 @@ export class MakeDatabase {
 		}
 
 		const targetInfo = this._targets.get(path);
-		if (isRuleID(targetInfo?.recipeRule)) {
+		if (isId(RuleIdKey, targetInfo?.recipeRule)) {
 			throw new Error(
 				`Cannot add Makefile '${path}' which also has a recipe defined`,
 			);
@@ -112,7 +148,7 @@ export class MakeDatabase {
 
 	insertRule(rule: Omit<RuleInfo, 'id'>): RuleInfo {
 		const id = this._rules.length;
-		const info: RuleInfo = { ...rule, id };
+		const info: RuleInfo = { ...rule, id: mkId(RuleIdKey, id) };
 		this._rules.push(info);
 
 		for (const t of info.targets) {
@@ -122,10 +158,11 @@ export class MakeDatabase {
 		return info;
 	}
 
-	selectRule(id: RuleID): RuleInfo | null {
-		if (id < 0 || id >= this._rules.length) return null;
+	selectRule(id: RuleId): RuleInfo | null {
+		const v = idVal(RuleIdKey, id);
+		if (v < 0 || v >= this._rules.length) return null;
 
-		return this._rules[id];
+		return this._rules[v];
 	}
 
 	selectRules(): RuleInfo[] {
@@ -152,7 +189,7 @@ export class MakeDatabase {
 		}
 
 		if (rule.recipe) {
-			if (isRuleID(targetInfo.recipeRule))
+			if (isId(RuleIdKey, targetInfo.recipeRule))
 				throw new Error(
 					`Target '${path}' already has a recipe specified. Cannot add another one.`,
 				);

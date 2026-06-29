@@ -1,6 +1,6 @@
 import { IRule, RecipeArgs } from './Rule.js';
 import { resolve } from 'node:path';
-import { MakeDatabase, MakefileInfo, RuleID } from './MakeDatabase.js';
+import { MakeDatabase, MakefileInfo } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;
@@ -65,18 +65,18 @@ export class Makefile {
 		return info;
 	}
 
-	public rule(rule: IRule): RuleID;
-	public rule(targets: Targets, recipe: RecipeFunction): RuleID;
+	public rule(rule: IRule): void;
+	public rule(targets: Targets, recipe: RecipeFunction): void;
 	public rule(
 		targets: Targets,
 		prereqs?: Prereqs,
 		recipe?: RecipeFunction,
-	): RuleID;
+	): void;
 	public rule(
 		ruleOrTargets: IRule | Targets,
 		prereqsOrRecipe?: Prereqs | RecipeFunction,
 		recipeFn?: RecipeFunction,
-	): RuleID {
+	): void {
 		let targets: string[];
 		let prereqs: string[];
 		let recipe: (args: RecipeArgs) => Promise<boolean> | null = null;
@@ -112,13 +112,11 @@ export class Makefile {
 			throw new Error('Cannot add a rule to a Makefile that is done parsing');
 		}
 
-		const { id } = this._db.insertRule({
+		this._db.insertRule({
 			targets,
 			prereqs,
 			recipe,
 		});
-
-		return id;
 	}
 
 	public include(target: string, mkFn: MakefileFn): void {

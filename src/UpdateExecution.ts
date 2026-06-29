@@ -1,4 +1,4 @@
-import { MakeDatabase, RuleID, isRuleID } from './MakeDatabase.js';
+import { MakeDatabase, RuleId, isRuleId } from './MakeDatabase.js';
 import { RecipeArgs } from './Rule.js';
 
 import { mkdir } from 'node:fs/promises';
@@ -49,7 +49,7 @@ export class UpdateExecution {
 
 	private _builtTargets = new Map<string, TargetCompleteInfo>();
 
-	private _info = new Map<RuleID, RecipeBuildInfo>();
+	private _info = new Map<RuleId, RecipeBuildInfo>();
 	private _logger: Logger;
 
 	constructor(db: MakeDatabase) {
@@ -160,7 +160,7 @@ export class UpdateExecution {
 		}
 
 		const { recipeRule } = info;
-		if (isRuleID(recipeRule)) {
+		if (isRuleId(recipeRule)) {
 			const ruleInfo = this._db.selectRule(recipeRule);
 			targetGroup = ruleInfo.targets;
 		}
@@ -179,7 +179,7 @@ export class UpdateExecution {
 
 	private async _startBuild(
 		targetGroup: string[],
-		recipeRule: RuleID | null,
+		recipeRule: RuleId | null,
 		requestedTarget: string,
 	): Promise<boolean> {
 		const prereqsToUpdate: string[] = [];
@@ -227,7 +227,7 @@ export class UpdateExecution {
 			return this.endTarget(true);
 		}
 
-		if (!isRuleID(recipeRule)) {
+		if (!isRuleId(recipeRule)) {
 			if (targetStatus === NeedsBuildValue.stale) {
 				const rels = targetGroup.join(', ');
 				this._logger.warn({

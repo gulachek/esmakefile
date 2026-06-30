@@ -12,8 +12,6 @@ export type MakefileInfo = {
 	isParsed: boolean;
 };
 
-export type RowID = number;
-
 const UseObjIds = true;
 
 type StrictIdObj<K extends string> = {

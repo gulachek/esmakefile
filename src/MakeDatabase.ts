@@ -60,7 +60,7 @@ export type RuleInfo = {
 	id: RuleId;
 	recipe: (args: RecipeArgs) => Promise<boolean> | null;
 	prereqs: string[];
-	targets: TargetId[];
+	targets: TargetInfo[];
 };
 
 const TargetIdKey = '__targetId';
@@ -161,11 +161,12 @@ export class MakeDatabase {
 		const prereqs = rule.prereqs;
 		const recipe = rule.recipe;
 
-		const targets: TargetId[] = [];
+		const targets: TargetInfo[] = [];
 		for (const t of targetPaths) {
+			// TODO - need to normalize this input path. Ideal to have PathId
 			const targetInfo = this.selectTarget(t);
-			if (targetInfo) targets.push(targetInfo.id);
-			else targets.push(this.insertTarget(t).id);
+			if (targetInfo) targets.push(targetInfo);
+			else targets.push(this.insertTarget(t));
 		}
 
 		const id = this._rules.length;
@@ -224,12 +225,11 @@ export class MakeDatabase {
 		return info;
 	}
 
-	private updateTargetWithRule(id: TargetId, rule: RuleInfo): void {
-		const targetInfo = this.selectTargetById(id);
-		const path = targetInfo.path;
+	private updateTargetWithRule(target: TargetInfo, rule: RuleInfo): void {
+		const path = target.path;
 
 		if (rule.recipe) {
-			if (isId(RuleIdKey, targetInfo.recipeRule))
+			if (isId(RuleIdKey, target.recipeRule))
 				throw new Error(
 					`Target '${path}' already has a recipe specified. Cannot add another one.`,
 				);
@@ -238,9 +238,9 @@ export class MakeDatabase {
 				throw new Error(`Cannot add a recipe to Makefile target '${path}'`);
 			}
 
-			targetInfo.recipeRule = rule.id;
+			target.recipeRule = rule.id;
 		}
 
-		targetInfo.rules.add(rule.id);
+		target.rules.add(rule.id);
 	}
 }

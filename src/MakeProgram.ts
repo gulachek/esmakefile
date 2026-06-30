@@ -1,4 +1,4 @@
-import { MakeDatabase } from './MakeDatabase.js';
+import { MakeDatabase, TargetInfo } from './MakeDatabase.js';
 import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
 import { UpdateExecution } from './UpdateExecution.js';
@@ -75,14 +75,26 @@ export class MakeProgram {
 
 	async update(goal?: string): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
-		const goalPath = goal || defaultGoal(this.db);
-		if (!goalPath) {
-			this.logger.error('No targets were found. Nothing to update.');
-			return false;
+		let goalInfo: TargetInfo;
+		if (goal) {
+			const givenInfo = this.db.selectTarget(goal);
+			if (!givenInfo) {
+				this.logger.error(`Makefile has no target defined for goal '${goal}'.`);
+				return false;
+			}
+			goalInfo = givenInfo;
+		} else {
+			const defaultInfo = defaultGoal(this.db);
+			if (!defaultInfo) {
+				this.logger.error('No targets were found. Nothing to update.');
+				return false;
+			}
+			goalInfo = defaultInfo;
 		}
+
 		const build = new UpdateExecution(this.db);
 		// important to not simply return build.run() promise as it would unlock mtx too early
-		const result = await build.run(goalPath);
+		const result = await build.run(goalInfo);
 		return result;
 	}
 
@@ -103,10 +115,10 @@ export class MakeProgram {
 	}
 }
 
-function defaultGoal(db: MakeDatabase): string {
+function defaultGoal(db: MakeDatabase): TargetInfo | null {
 	for (const rule of db.selectRules()) {
-		for (const t of rule.targets) return db.selectTargetById(t).path;
+		for (const t of rule.targets) return db.selectTargetById(t);
 	}
 
-	return '';
+	return null;
 }

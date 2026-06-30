@@ -1,4 +1,4 @@
-import { MakeDatabase, RuleId, isRuleId } from './MakeDatabase.js';
+import { MakeDatabase, RuleId, TargetInfo, isRuleId } from './MakeDatabase.js';
 import { RecipeArgs } from './Rule.js';
 
 import { mkdir } from 'node:fs/promises';
@@ -81,12 +81,7 @@ export class UpdateExecution {
 		return false;
 	}
 
-	/**
-	 * Top level build function. Runs exclusively
-	 * @param goal The goal to update
-	 * @returns A promise that resolves when the build is done
-	 */
-	async run(goal: string): Promise<boolean> {
+	async run(goal: TargetInfo): Promise<boolean> {
 		const rootDir = this._db.rootDir;
 		let stats: Stats | null = null;
 		try {
@@ -117,18 +112,18 @@ export class UpdateExecution {
 			return false;
 		}
 
-		this._logger.info(`Updating goal '${goal}'`);
+		this._logger.info(`Updating goal '${goal.path}'`);
 		const result = await this.updateAll([goal]);
 		if (result) {
-			this._logger.info(`Successfully updated goal '${goal}'`);
+			this._logger.info(`Successfully updated goal '${goal.path}'`);
 		} else {
-			this._logger.error(`Failed to update goal '${goal}'`);
+			this._logger.error(`Failed to update goal '${goal.path}'`);
 		}
 
 		return result;
 	}
 
-	private async updateAll(targets: Iterable<string>): Promise<boolean> {
+	private async updateAll(targets: Iterable<TargetInfo>): Promise<boolean> {
 		const promises: Promise<boolean>[] = [];
 
 		for (const t of targets) {
@@ -139,13 +134,14 @@ export class UpdateExecution {
 		return results.every((b) => b);
 	}
 
-	private async _findOrStartBuild(target: string): Promise<boolean> {
-		this._logger.trace(`_findOrStartBuild('${target}')`);
+	private async _findOrStartBuild(target: TargetInfo): Promise<boolean> {
+		this._logger.trace(`_findOrStartBuild('${target.path}')`);
 
-		const built = this._builtTargets.get(target);
+		// TODO - is this necessary? Seems like recipe is the expensive thing
+		const built = this._builtTargets.get(target.path);
 		if (built) {
 			this._logger.trace(
-				`_findOrStartBuild: '${target}' is already updated. Skipping.`,
+				`_findOrStartBuild: '${target.path}' is already updated. Skipping.`,
 			);
 			return built.result;
 		}
@@ -153,23 +149,16 @@ export class UpdateExecution {
 		let result = false;
 
 		let targetGroup = [target];
-		const info = this._db.selectTarget(target);
-		if (!info) {
-			this._logger.error(`Makefile has no target '${target}'.`);
-			return false;
-		}
 
-		const { recipeRule } = info;
+		const { recipeRule } = target;
 		if (isRuleId(recipeRule)) {
 			const ruleInfo = this._db.selectRule(recipeRule);
-			targetGroup = ruleInfo.targets.map(
-				(t) => this._db.selectTargetById(t).path,
-			);
+			targetGroup = ruleInfo.targets.map((t) => this._db.selectTargetById(t));
 		}
 
 		result = await this._startBuild(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
-			this._builtTargets.set(t, { result });
+			this._builtTargets.set(t.path, { result });
 		}
 
 		return result;
@@ -180,16 +169,16 @@ export class UpdateExecution {
 	}
 
 	private async _startBuild(
-		targetGroup: string[],
+		targetGroup: TargetInfo[],
 		recipeRule: RuleId | null,
-		requestedTarget: string,
+		requestedTarget: TargetInfo,
 	): Promise<boolean> {
-		const prereqsToUpdate: string[] = [];
+		const prereqsToUpdate: TargetInfo[] = [];
 		const allPrereqs: string[] = [];
 		const allPostreq: string[] = [];
 
 		for (const target of targetGroup) {
-			const { rules, postreqs } = this._db.selectTarget(target);
+			const { rules, postreqs } = target;
 
 			for (const ruleId of rules) {
 				const ruleInfo = this._db.selectRule(ruleId);
@@ -198,8 +187,9 @@ export class UpdateExecution {
 				for (const src of ruleInfo.prereqs) {
 					allPrereqs.push(src);
 
-					if (this._db.selectTarget(src)) {
-						prereqsToUpdate.push(src);
+					const srcTarget = this._db.selectTarget(src);
+					if (srcTarget) {
+						prereqsToUpdate.push(srcTarget);
 					}
 				}
 			}
@@ -211,11 +201,7 @@ export class UpdateExecution {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsBuild(
-			targetGroup.map((t) => nodePath.resolve(this._db.rootDir, t)),
-			allPrereqs,
-			allPostreq,
-		);
+		const targetStatus = this._needsBuild(targetGroup, allPrereqs, allPostreq);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
 			return this.endTarget(false);
@@ -224,7 +210,7 @@ export class UpdateExecution {
 		if (targetStatus === NeedsBuildValue.upToDate) {
 			this._logger.debug({
 				eventName: EVENT_TARGET_UP_TO_DATE,
-				body: `Target '${requestedTarget}' is up to date`,
+				body: `Target '${tPath(requestedTarget)}' is up to date`,
 			});
 			return this.endTarget(true);
 		}
@@ -264,9 +250,12 @@ export class UpdateExecution {
 
 		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
-			await mkdir(nodePath.resolve(this._db.rootDir, nodePath.dirname(t)), {
-				recursive: true,
-			});
+			await mkdir(
+				nodePath.resolve(this._db.rootDir, nodePath.dirname(t.path)),
+				{
+					recursive: true,
+				},
+			);
 		}
 
 		let result = false;
@@ -275,7 +264,7 @@ export class UpdateExecution {
 		try {
 			this._logger.debug({
 				eventName: EVENT_RECIPE_BEGIN,
-				body: `Updating target '${requestedTarget}'`,
+				body: `Updating target '${tPath(requestedTarget)}'`,
 			});
 			const args = new RecipeArgs(this._db.rootDir, new Set<string>());
 			result = await recipeInfo.recipe(args);
@@ -298,7 +287,7 @@ export class UpdateExecution {
 		};
 
 		if (!result) {
-			this._logger.error(`Failed to update target '${requestedTarget}'`);
+			this._logger.error(`Failed to update target '${tPath(requestedTarget)}'`);
 		}
 
 		resolve(completeInfo);
@@ -307,7 +296,7 @@ export class UpdateExecution {
 	}
 
 	private _needsBuild(
-		targetGroup: string[],
+		targetGroup: TargetInfo[],
 		prereqs: string[],
 		postreqs: string[],
 	): NeedsBuildValue {
@@ -328,7 +317,8 @@ export class UpdateExecution {
 
 		let oldestTargetMtimeMs = Infinity;
 		for (const t of targetGroup) {
-			const stat = statSync(t, { throwIfNoEntry: false });
+			const abs = nodePath.resolve(this._db.rootDir, t.path);
+			const stat = statSync(abs, { throwIfNoEntry: false });
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
 			} else {
@@ -368,4 +358,8 @@ function makePromise<T>(): IPromisePieces<T> {
 		reject = rej;
 	});
 	return { resolve, reject, promise };
+}
+
+function tPath(t: TargetInfo): string {
+	return t.path.path;
 }

@@ -504,7 +504,7 @@ describe('MakeProgram', () => {
 			let contents: string = '';
 
 			const make = await parse((mk) => {
-				mk.rule('all', 'prereq', async () => {
+				mk.rule('all', prereq, async () => {
 					contents = await readPath(prereq);
 				});
 			});

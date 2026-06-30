@@ -37,20 +37,25 @@ export class MakeProgram {
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {
-			const { path, fn } = mkInfo;
-			const mkOpts = {
-				...opts,
-				db,
-				path,
-			};
+			const fn = mkInfo.fn;
+			const pathInfo = mkInfo.path;
+			const { path } = pathInfo;
 
-			if (make.hasTarget(path)) {
-				const updateResult = await make.update(path);
+			const target = db.selectTargetByPath(pathInfo);
+			if (target) {
+				const u = new UpdateExecution(db);
+				const updateResult = await u.run(target);
 				if (!updateResult) {
 					// Already logged failure in UpdateExecution
 					return null;
 				}
 			}
+
+			const mkOpts = {
+				...opts,
+				db,
+				path: pathInfo,
+			};
 
 			logger.debug(`Parsing Makefile '${path}'`);
 			const mk = new Makefile(mkOpts);
@@ -65,7 +70,7 @@ export class MakeProgram {
 				return null;
 			}
 
-			db.updateMakefile({ path, isParsed: true });
+			db.updateMakefile({ path: pathInfo, isParsed: true });
 
 			mkInfo = db.selectMakefileFirstUnparsed();
 		}
@@ -77,7 +82,7 @@ export class MakeProgram {
 		await using _ = await this.mtx.lockAsync();
 		let goalInfo: TargetInfo;
 		if (goal) {
-			const givenInfo = this.db.selectTarget(goal);
+			const givenInfo = this.db.selectTargetByRawPath(goal);
 			if (!givenInfo) {
 				this.logger.error(`Makefile has no target defined for goal '${goal}'.`);
 				return false;
@@ -105,13 +110,14 @@ export class MakeProgram {
 	targets(): string[] {
 		const out: string[] = [];
 		for (const t of this.db.selectTargets()) {
-			out.push(t.path);
+			const pathInfo = t.path;
+			out.push(pathInfo.path);
 		}
 		return out;
 	}
 
 	hasTarget(t: string): boolean {
-		return !!this.db.selectTarget(t);
+		return !!this.db.selectTargetByRawPath(t);
 	}
 }
 

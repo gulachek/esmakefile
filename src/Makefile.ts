@@ -1,12 +1,12 @@
 import { IRule, RecipeArgs } from './Rule.js';
 import { resolve } from 'node:path';
-import { MakeDatabase, MakefileInfo } from './MakeDatabase.js';
+import { MakeDatabase, MakefileInfo, PathInfo } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
 	buildRoot?: string;
 	srcRoot?: string;
 	db: MakeDatabase;
-	path: string;
+	path: PathInfo;
 }
 
 type Prereqs = string | string[];
@@ -47,7 +47,7 @@ export class Makefile {
 	readonly buildRoot: string;
 	readonly srcRoot: string;
 
-	private _path: string;
+	private _path: PathInfo;
 	private _db: MakeDatabase;
 
 	constructor(opts: IMakefileOpts) {

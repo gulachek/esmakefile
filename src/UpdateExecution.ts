@@ -1,4 +1,10 @@
-import { MakeDatabase, RuleId, TargetInfo, isRuleId } from './MakeDatabase.js';
+import {
+	MakeDatabase,
+	PathInfo,
+	RuleId,
+	TargetInfo,
+	isRuleId,
+} from './MakeDatabase.js';
 import { RecipeArgs } from './Rule.js';
 
 import { mkdir } from 'node:fs/promises';
@@ -47,7 +53,7 @@ type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 export class UpdateExecution {
 	private _db: MakeDatabase;
 
-	private _builtTargets = new Map<string, TargetCompleteInfo>();
+	private _builtTargets = new Map<TargetInfo, TargetCompleteInfo>();
 
 	private _info = new Map<RuleId, RecipeBuildInfo>();
 	private _logger: Logger;
@@ -64,8 +70,8 @@ export class UpdateExecution {
 			for (const rule of targetInfo.rules) {
 				const { prereqs } = this._db.selectRule(rule);
 				for (const p of prereqs) {
-					if (this._db.selectTarget(p)) {
-						cd.addEdge(targetInfo.path, p);
+					if (this._db.selectTargetByPath(p)) {
+						cd.addEdge(targetInfo.path.path, p.path);
 					}
 				}
 			}
@@ -82,6 +88,8 @@ export class UpdateExecution {
 	}
 
 	async run(goal: TargetInfo): Promise<boolean> {
+		const goalPath = goal.path.path;
+
 		const rootDir = this._db.rootDir;
 		let stats: Stats | null = null;
 		try {
@@ -112,12 +120,12 @@ export class UpdateExecution {
 			return false;
 		}
 
-		this._logger.info(`Updating goal '${goal.path}'`);
+		this._logger.info(`Updating goal '${goalPath}'`);
 		const result = await this.updateAll([goal]);
 		if (result) {
-			this._logger.info(`Successfully updated goal '${goal.path}'`);
+			this._logger.info(`Successfully updated goal '${goalPath}'`);
 		} else {
-			this._logger.error(`Failed to update goal '${goal.path}'`);
+			this._logger.error(`Failed to update goal '${goalPath}'`);
 		}
 
 		return result;
@@ -138,7 +146,7 @@ export class UpdateExecution {
 		this._logger.trace(`_findOrStartBuild('${target.path}')`);
 
 		// TODO - is this necessary? Seems like recipe is the expensive thing
-		const built = this._builtTargets.get(target.path);
+		const built = this._builtTargets.get(target);
 		if (built) {
 			this._logger.trace(
 				`_findOrStartBuild: '${target.path}' is already updated. Skipping.`,
@@ -158,7 +166,7 @@ export class UpdateExecution {
 
 		result = await this._startBuild(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
-			this._builtTargets.set(t.path, { result });
+			this._builtTargets.set(t, { result });
 		}
 
 		return result;
@@ -174,7 +182,7 @@ export class UpdateExecution {
 		requestedTarget: TargetInfo,
 	): Promise<boolean> {
 		const prereqsToUpdate: TargetInfo[] = [];
-		const allPrereqs: string[] = [];
+		const allPrereqs: PathInfo[] = [];
 		const allPostreq: string[] = [];
 
 		for (const target of targetGroup) {
@@ -187,7 +195,7 @@ export class UpdateExecution {
 				for (const src of ruleInfo.prereqs) {
 					allPrereqs.push(src);
 
-					const srcTarget = this._db.selectTarget(src);
+					const srcTarget = this._db.selectTargetByPath(src);
 					if (srcTarget) {
 						prereqsToUpdate.push(srcTarget);
 					}
@@ -251,7 +259,7 @@ export class UpdateExecution {
 		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
 			await mkdir(
-				nodePath.resolve(this._db.rootDir, nodePath.dirname(t.path)),
+				nodePath.resolve(this._db.rootDir, nodePath.dirname(t.path.path)),
 				{
 					recursive: true,
 				},
@@ -297,17 +305,17 @@ export class UpdateExecution {
 
 	private _needsBuild(
 		targetGroup: TargetInfo[],
-		prereqs: string[],
+		prereqs: PathInfo[],
 		postreqs: string[],
 	): NeedsBuildValue {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of prereqs) {
-			const abs = nodePath.resolve(this._db.rootDir, prereq);
+			const abs = this._db.resolvePath(prereq);
 			const preStat = statSync(abs, { throwIfNoEntry: false });
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
-			} else if (this._db.selectTarget(prereq)) {
+			} else if (this._db.selectTargetByPath(prereq)) {
 				newestDepMtimeMs = Infinity;
 			} else {
 				this._logger.error(`Missing prereq file '${abs}'.`);
@@ -317,7 +325,7 @@ export class UpdateExecution {
 
 		let oldestTargetMtimeMs = Infinity;
 		for (const t of targetGroup) {
-			const abs = nodePath.resolve(this._db.rootDir, t.path);
+			const abs = this._db.resolvePath(t.path);
 			const stat = statSync(abs, { throwIfNoEntry: false });
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);

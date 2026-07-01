@@ -102,11 +102,18 @@ describe('ArtifactStore', () => {
 
 			const chunks: Uint8Array[] = [];
 			const reader = result!.content.getReader();
-			while (true) {
+			let i = 0;
+			let complete = false;
+			while (i < 1000) {
 				const { done, value } = await reader.read();
-				if (done) break;
+				if (done) {
+					complete = true;
+					break;
+				}
 				chunks.push(value);
+				++i;
 			}
+			expect(complete).to.be.true;
 			const flat = new Uint8Array(chunks.reduce((s, c) => s + c.length, 0));
 			let off = 0;
 			for (const c of chunks) {

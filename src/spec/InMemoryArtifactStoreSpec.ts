@@ -11,19 +11,32 @@ function makeStream(data: Uint8Array): ReadableStream<Uint8Array> {
 	});
 }
 
-async function readStream(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+const maxSize = 64 * 1024 * 1024; // 64 MB
+
+async function readStream(
+	stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> {
 	const chunks: Uint8Array[] = [];
 	const reader = stream.getReader();
+	let totalLength = 0;
+	let isTruncated = true;
 	try {
-		while (true) {
+		while (totalLength <= maxSize) {
 			const { done, value } = await reader.read();
-			if (done) break;
+			if (done) {
+				isTruncated = false;
+				break;
+			}
+			totalLength += value.length;
 			chunks.push(value);
 		}
 	} finally {
 		reader.releaseLock();
 	}
-	const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+	if (isTruncated) {
+		throw new Error(`Maximum in memory artifact size (64 MB) was exceeded.`);
+	}
+
 	const result = new Uint8Array(totalLength);
 	let offset = 0;
 	for (const chunk of chunks) {

@@ -52,6 +52,6 @@ this functionality.
 In a previous iteration, `nyc` was used as a code coverage tool.
 This broke in a previous iteration when `esmakefile` was
 converted to an ES module due to what seems to be
-incompatibilities with `nyc`, `ts-node`, and ES modules. There
+incompatibilities with `nyc` and ES modules. There
 are relics in the repository and they're currently dead
 configuration.

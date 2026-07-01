@@ -8,7 +8,7 @@
 	"scripts": {
 		"build": "tsc",
 		"lint": "eslint .",
-		"test": "nyc mocha",
+		"test": "mocha",
 		"example": "node dist/example/make.js --srcdir src/example"
 	},
 	"keywords": [],
@@ -32,7 +32,6 @@
 		"eslint-plugin-mocha": "^10.1.0",
 		"eslint-plugin-node": "^11.1.0",
 		"mocha": "^10.2.0",
-		"nyc": "^15.1.0",
 		"prettier": "^3.0.0",
 		"sass": "^1.64.2",
 		"typescript": "^5.4.3"

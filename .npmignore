@@ -8,9 +8,7 @@ test-cases
 test-src
 coverage
 .cache
-.nyc_output
 .eslint*
-.nycrc.json
 .prettierrc.json
 .mocharc.json
 project.vim

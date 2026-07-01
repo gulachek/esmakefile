@@ -28,7 +28,7 @@
 		"@types/node": "^20.19.43",
 		"chai": "^5.3.3",
 		"mocha": "^10.8.2",
-		"prettier": "^3.0.0",
+		"prettier": "^3.9.4",
 		"sass": "^1.64.2",
 		"typescript": "^5.9.3"
 	}

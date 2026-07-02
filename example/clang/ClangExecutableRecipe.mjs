@@ -1,14 +1,20 @@
-import { IRule, RecipeArgs, Makefile, getLogger } from '../../index.js';
-import { addClangObject, ClangObjectRecipe } from './ClangObjectRecipe.js';
+/** @import {IRule, Makefile, RecipeArgs} from 'esmakefile' */
+/** @import {ClangObjectRecipe} from './ClangObjectRecipe.mjs' */
+
+import { getLogger } from 'esmakefile';
+import { addClangObject } from './ClangObjectRecipe.mjs';
 import { open, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
-export class ClangExecutableRecipe implements IRule {
-	exe: string;
-	objs: string[];
-
-	constructor(exe: string) {
+/** @implements {IRule} */
+export class ClangExecutableRecipe {
+	/**
+	 * @param {string} exe
+	 */
+	constructor(exe) {
+		/** @type {string} */
 		this.exe = exe;
+		/** @type {string[]} */
 		this.objs = [];
 	}
 
@@ -20,11 +26,19 @@ export class ClangExecutableRecipe implements IRule {
 		return this.objs;
 	}
 
-	addObj(obj: ClangObjectRecipe): void {
+	/**
+	 * @param {ClangObjectRecipe} obj
+	 * @returns {void}
+	 */
+	addObj(obj) {
 		this.objs.push(obj.obj);
 	}
 
-	async recipe(args: RecipeArgs): Promise<boolean> {
+	/**
+	 * @param {RecipeArgs} args
+	 * @returns {Promise<boolean>}
+	 */
+	async recipe(args) {
 		const exe = resolve(args.rootDir, this.exe);
 		const obs = this.objs.map((o) => resolve(args.rootDir, o));
 
@@ -35,11 +49,13 @@ export class ClangExecutableRecipe implements IRule {
 	}
 }
 
-export function addClangExecutable(
-	mk: Makefile,
-	exePath: string,
-	src: string[],
-): ClangExecutableRecipe {
+/**
+ * @param {Makefile} mk
+ * @param {string} exePath
+ * @param {string[]} src
+ * @returns {ClangExecutableRecipe}
+ */
+export function addClangExecutable(mk, exePath, src) {
 	const outDir = dirname(exePath);
 
 	const exe = new ClangExecutableRecipe(exePath);
@@ -65,26 +81,33 @@ export function addClangExecutable(
 	return exe;
 }
 
-type PathElem = {
-	type: 'path';
-	index: number;
-};
+/**
+ * @typedef {object} PathElem
+ * @prop {'path'} type
+ * @prop {number} index
+ */
 
-type StringElem = {
-	type: 'string';
-	value: string;
-};
+/**
+ * @typedef {object} StringElem
+ * @prop {'string'} type
+ * @prop {string} value
+ */
 
-type Elem = PathElem | StringElem;
+/**
+ * @typedef {PathElem | StringElem} Elem
+ */
 
-class CatRecipe implements IRule {
-	out: string;
-	private _src: string[];
-	private _elems: Elem[];
-
-	constructor(out: string) {
+/** @implements {IRule} */
+class CatRecipe {
+	/**
+	 * @param {string} out
+	 */
+	constructor(out) {
+		/** @type {string} */
 		this.out = out;
+		/** @private @type {string[]} */
 		this._src = [];
+		/** @private @type {Elem[]} */
 		this._elems = [];
 	}
 
@@ -96,17 +119,29 @@ class CatRecipe implements IRule {
 		return this._src;
 	}
 
-	addPath(src: string): void {
+	/**
+	 * @param {string} src
+	 * @returns {void}
+	 */
+	addPath(src) {
 		const index = this._src.length;
 		this._src.push(src);
 		this._elems.push({ type: 'path', index });
 	}
 
-	addText(text: string): void {
+	/**
+	 * @param {string} text
+	 * @returns {void}
+	 */
+	addText(text) {
 		this._elems.push({ type: 'string', value: text });
 	}
 
-	async recipe(args: RecipeArgs): Promise<boolean> {
+	/**
+	 * @param {RecipeArgs} args
+	 * @returns {Promise<boolean>}
+	 */
+	async recipe(args) {
 		const l = getLogger({ name: 'esmakefile.example.CatRecipe' });
 		l.info(`Generating ${this.out}`);
 

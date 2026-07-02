@@ -1,4 +1,5 @@
-set path=,,src/**,example
+set path=,,src/**
+set path+=example,example/clang/**,example/src/**
 
 " Lean on git to save backups
 set autowriteall

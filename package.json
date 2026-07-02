@@ -9,7 +9,7 @@
 		"build": "tsc",
 		"lint": "eslint .",
 		"test": "mocha",
-		"example": "node dist/example/make.js --srcdir src/example"
+		"example": "node example/make.mjs -C example"
 	},
 	"keywords": [],
 	"author": "Nicholas Gulachek",

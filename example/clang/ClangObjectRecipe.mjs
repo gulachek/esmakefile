@@ -1,18 +1,22 @@
-import { IRule, Makefile, RecipeArgs } from '../../index.js';
+/** @import { IRule, Makefile, RecipeArgs } from 'esmakefile' */
 
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve, basename } from 'node:path';
 
-export class ClangObjectRecipe implements IRule {
-	public src: string;
-	public obj: string;
-	public depfile: string;
-	public compileCommands: string;
-
-	constructor(src: string, out: string) {
+/** @implements {IRule} */
+export class ClangObjectRecipe {
+	/**
+	 * @param {string} src
+	 * @param {string} out
+	 */
+	constructor(src, out) {
+		/** @type {string} */
 		this.src = src;
+		/** @type {string} */
 		this.obj = out;
+		/** @type {string} */
 		this.depfile = join(dirname(out), basename(out) + '.depfile');
+		/** @type {string} */
 		this.compileCommands = join(
 			dirname(out),
 			basename(out) + '.compile_commands.json',
@@ -27,7 +31,11 @@ export class ClangObjectRecipe implements IRule {
 		return this.src;
 	}
 
-	async recipe(args: RecipeArgs): Promise<boolean> {
+	/**
+	 * @param {RecipeArgs} args
+	 * @returns {Promise<boolean>}
+	 */
+	async recipe(args) {
 		const [obj, depfile, cmds] = this.targets().map((t) =>
 			resolve(args.rootDir, t),
 		);
@@ -55,7 +63,13 @@ export class ClangObjectRecipe implements IRule {
 	}
 }
 
-export function addClangObject(mk: Makefile, src: string, dest: string) {
+/**
+ * @param {Makefile} mk
+ * @param {string} src
+ * @param {string} dest
+ * @returns {ClangObjectRecipe}
+ */
+export function addClangObject(mk, src, dest) {
 	const obj = new ClangObjectRecipe(src, dest);
 	mk.rule(obj);
 

@@ -1,15 +1,20 @@
-import { IRule, RecipeArgs, Makefile, getLogger } from '../index.js';
+/** @import {IRule, RecipeArgs, Makefile} from 'esmakefile' */
+import { getLogger } from 'esmakefile';
 
 import * as sass from 'sass';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-class ScssRecipe implements IRule {
-	_srcPath: string;
-	_destPath: string;
-
-	constructor(src: string, destPath: string) {
+/** @implements {IRule} */
+class ScssRecipe {
+	/**
+	 * @param {string} src
+	 * @param {string} destPath
+	 */
+	constructor(src, destPath) {
+		/** @private @type {string} */
 		this._srcPath = src;
+		/** @private @type {string} */
 		this._destPath = destPath;
 	}
 
@@ -21,7 +26,8 @@ class ScssRecipe implements IRule {
 		return this._destPath;
 	}
 
-	async recipe(args: RecipeArgs) {
+	/** @param {RecipeArgs} args */
+	async recipe(args) {
 		const log = getLogger({ name: 'esmakefile.example.ScssRecipe' });
 		const dest = resolve(args.rootDir, this._destPath);
 		const src = resolve(args.rootDir, this._srcPath);
@@ -39,6 +45,12 @@ class ScssRecipe implements IRule {
 	}
 }
 
-export function addSass(mk: Makefile, src: string, dest: string) {
+/**
+ * @param {Makefile} mk
+ * @param {string} src
+ * @param {string} dest
+ * @returns {void}
+ */
+export function addSass(mk, src, dest) {
 	mk.rule(new ScssRecipe(src, dest));
 }

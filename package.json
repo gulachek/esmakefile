@@ -6,7 +6,7 @@
 	"types": "types/index.d.ts",
 	"type": "module",
 	"scripts": {
-		"build": "tsc",
+		"build": "tsc --build",
 		"lint": "eslint .",
 		"test": "mocha",
 		"example": "node example/make.mjs -C example"

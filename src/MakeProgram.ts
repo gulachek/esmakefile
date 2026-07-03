@@ -1,14 +1,12 @@
-import { MakeDatabase } from './MakeDatabase.js';
+import { MakeDatabase, TargetInfo } from './MakeDatabase.js';
 import { Makefile, MakefileFn } from './Makefile.js';
 import { Mutex } from './Mutex.js';
-import { BuildPathLike, Path, IBuildPath } from './Path.js';
 import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
 export interface IMakeProgramParseOpts {
-	srcRoot?: string;
-	buildRoot?: string;
+	rootDir?: string;
 }
 
 export class MakeProgram {
@@ -31,34 +29,35 @@ export class MakeProgram {
 
 		opts = opts || {};
 		const db = new MakeDatabase({
-			buildRoot: opts.buildRoot,
-			srcRoot: opts.srcRoot,
+			rootDir: opts.rootDir,
 		});
 		const make = new MakeProgram(db);
 
-		const mainMk = Path.build('Makefile');
-		db.insertMakefile(mainMk, makeFn);
+		db.insertMakefile('Makefile', makeFn);
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {
-			const { path, fn } = mkInfo;
-			const mkOpts = {
-				...opts,
-				db,
-				path,
-			};
+			const fn = mkInfo.fn;
+			const pathInfo = mkInfo.path;
+			const { path } = pathInfo;
 
-			const rel = path.rel();
-
-			if (make.hasTarget(path)) {
-				const updateResult = await make.update(path);
+			const target = db.selectTargetByPath(pathInfo);
+			if (target) {
+				const u = new UpdateExecution(db);
+				const updateResult = await u.run(target);
 				if (!updateResult) {
 					// Already logged failure in UpdateExecution
 					return null;
 				}
 			}
 
-			logger.debug(`Parsing Makefile '${rel}'`);
+			const mkOpts = {
+				...opts,
+				db,
+				path: pathInfo,
+			};
+
+			logger.debug(`Parsing Makefile '${path}'`);
 			const mk = new Makefile(mkOpts);
 			try {
 				await fn(mk);
@@ -66,12 +65,12 @@ export class MakeProgram {
 				logger.error({
 					eventName: EVENT_MAKEFILE_EXCEPTION,
 					exception,
-					body: `Makefile '${rel}' threw exception`,
+					body: `Makefile '${path}' threw exception`,
 				});
 				return null;
 			}
 
-			db.updateMakefile({ path, isParsed: true });
+			db.updateMakefile({ path: pathInfo, isParsed: true });
 
 			mkInfo = db.selectMakefileFirstUnparsed();
 		}
@@ -79,41 +78,50 @@ export class MakeProgram {
 		return make;
 	}
 
-	async update(goal?: BuildPathLike): Promise<boolean> {
+	async update(goal?: string): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
-		const goalPath = (goal && Path.build(goal)) || defaultGoal(this.db);
-		if (!goalPath) {
-			this.logger.error('No targets were found. Nothing to update.');
-			return false;
+		let goalInfo: TargetInfo;
+		if (goal) {
+			const givenInfo = this.db.selectTargetByRawPath(goal);
+			if (!givenInfo) {
+				this.logger.error(`Makefile has no target defined for goal '${goal}'.`);
+				return false;
+			}
+			goalInfo = givenInfo;
+		} else {
+			const defaultInfo = defaultGoal(this.db);
+			if (!defaultInfo) {
+				this.logger.error('No targets were found. Nothing to update.');
+				return false;
+			}
+			goalInfo = defaultInfo;
 		}
+
 		const build = new UpdateExecution(this.db);
 		// important to not simply return build.run() promise as it would unlock mtx too early
-		const result = await build.run(goalPath);
+		const result = await build.run(goalInfo);
 		return result;
 	}
 
-	get srcRoot(): string {
-		return this.db.srcRoot;
-	}
-
-	get buildRoot(): string {
-		return this.db.buildRoot;
+	get rootDir(): string {
+		return this.db.rootDir;
 	}
 
 	targets(): string[] {
 		const out: string[] = [];
 		for (const t of this.db.selectTargets()) {
-			out.push(t.path.rel());
+			const pathInfo = t.path;
+			out.push(pathInfo.path);
 		}
 		return out;
 	}
 
-	hasTarget(t: BuildPathLike): boolean {
-		return !!this.db.selectTarget(Path.build(t));
+	hasTarget(t: string): boolean {
+		return !!this.db.selectTargetByRawPath(t);
 	}
 }
 
-function defaultGoal(db: MakeDatabase): IBuildPath | null {
+function defaultGoal(db: MakeDatabase): TargetInfo | null {
 	for (const rule of db.selectRules()) {
 		for (const t of rule.targets) return t;
 	}

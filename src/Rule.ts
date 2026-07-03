@@ -1,4 +1,3 @@
-import { IBuildPath, IPathRoots, Path } from './Path.js';
 import { isAbsolute } from 'node:path';
 import { Vt100Stream } from './Vt100Stream.js';
 import { spawn } from 'node:child_process';
@@ -18,12 +17,12 @@ export interface IRule {
 	/**
 	 * Target files that are outputs of the rule's recipe
 	 */
-	targets(): IBuildPath | IBuildPath[];
+	targets(): string | string[];
 
 	/**
 	 * Files that the rule needs to execute the recipe
 	 */
-	prereqs?(): Path | Path[];
+	prereqs?(): string | string[];
 
 	/**
 	 * Generate targets from prereqs
@@ -32,37 +31,14 @@ export interface IRule {
 }
 
 export class RecipeArgs {
-	private _roots: IPathRoots;
+	readonly rootDir: string;
 	private _postreqs: Set<string>;
 	private _log: Logger;
 
-	constructor(roots: IPathRoots, postreqs: Set<string>) {
-		this._roots = roots;
+	constructor(rootDir: string, postreqs: Set<string>) {
+		this.rootDir = rootDir;
 		this._postreqs = postreqs;
 		this._log = getLogger({ name: 'esmakefile.RecipeArgs' });
-	}
-
-	abs(path: Path): string {
-		return path.abs(this._roots);
-	}
-
-	absAll(paths: Iterable<Path>): string[];
-	absAll(...paths: Path[]): string[];
-	absAll(
-		pathOrPaths: Path | Iterable<Path>,
-		...rest: Path[]
-	): string | string[] {
-		const out: string[] = [];
-		let iter: Iterable<Path>;
-
-		if (!isIterable(pathOrPaths)) {
-			out.push(pathOrPaths.abs(this._roots));
-			iter = rest;
-		}
-
-		for (const p of iter) out.push(p.abs(this._roots));
-
-		return out;
 	}
 
 	addPostreq(abs: string): void {
@@ -119,16 +95,4 @@ export class RecipeArgs {
 			});
 		});
 	}
-}
-
-function isIterable<T>(obj: object): obj is Iterable<T> {
-	return (
-		obj && Symbol.iterator in obj && typeof obj[Symbol.iterator] === 'function'
-	);
-}
-
-export type RuleID = number;
-
-export function isRuleID(id: unknown): id is RuleID {
-	return typeof id === 'number';
 }

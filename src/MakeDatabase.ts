@@ -1,76 +1,130 @@
-import { resolve } from 'node:path';
-import { IBuildPath, Path } from './Path.js';
-import { isRuleID, RecipeArgs, RuleID } from './Rule.js';
+import { relative, resolve } from 'node:path';
+import { RecipeArgs } from './Rule.js';
 import type { MakefileFn } from './Makefile.js';
 
 export interface IMakeDatabaseOpts {
-	srcRoot?: string;
-	buildRoot?: string;
+	rootDir?: string;
 }
 
 export type MakefileInfo = {
-	path: IBuildPath;
+	path: PathInfo;
 	fn: MakefileFn;
 	isParsed: boolean;
 };
 
-export type RowID = number;
+const UseObjIds = true;
 
-export type RuleInfo = {
-	id: RuleID;
-	recipe: (args: RecipeArgs) => Promise<boolean> | null;
-	prereqs: Path[];
-	targets: IBuildPath[];
+type StrictIdObj<K extends string> = {
+	[P in K]: number;
 };
 
+export type StrictId<K extends string> = typeof UseObjIds extends true
+	? StrictIdObj<K>
+	: number;
+
+function idVal<K extends string>(key: K, id: StrictIdObj<K> | number): number {
+	if (typeof id === 'number') return id;
+	else return id[key];
+}
+
+function mkId<K extends string>(key: K, val: number): StrictId<K> {
+	if (UseObjIds) {
+		return { [key]: val } as unknown as StrictId<K>;
+	} else {
+		return val as unknown as StrictId<K>;
+	}
+}
+
+function isId<K extends string>(key: K, id: unknown): id is StrictId<K> {
+	if (UseObjIds) {
+		return (
+			id &&
+			typeof id === 'object' &&
+			key in id &&
+			typeof (id as Record<string, unknown>)[key] === 'number'
+		);
+	} else {
+		return typeof id === 'number';
+	}
+}
+
+const RuleIdKey = '__ruleId';
+export type RuleId = StrictId<typeof RuleIdKey>;
+export function isRuleId(id: unknown): id is RuleId {
+	return isId(RuleIdKey, id);
+}
+
+export type RuleInfo = {
+	id: RuleId;
+	recipe: (args: RecipeArgs) => Promise<boolean> | null;
+	prereqs: PathInfo[];
+	targets: TargetInfo[];
+};
+
+const TargetIdKey = '__targetId';
+export type TargetId = StrictId<typeof TargetIdKey>;
+
 export type TargetInfo = {
-	path: IBuildPath;
-	rules: Set<RuleID>;
-	recipeRule: RuleID | null;
+	id: TargetId;
+	path: PathInfo;
+	rules: Set<RuleId>;
+	recipeRule: RuleId | null;
 	postreqs?: string[];
 };
 
-export class MakeDatabase {
-	readonly srcRoot: string;
-	readonly buildRoot: string;
+const PathIdKey = '__pathId';
+export type PathId = StrictId<typeof PathIdKey>;
 
-	private _makefiles = new Map<string, MakefileInfo>();
-	private _makefilesIndexUnparsed = new Set<string>();
+export type PathInfo = {
+	id: PathId;
+	path: string;
+};
+
+export class MakeDatabase {
+	readonly rootDir: string;
+
+	private _makefiles = new Map<PathId, MakefileInfo>();
+	private _makefilesIndexUnparsed = new Set<PathId>();
 	private _rules: RuleInfo[] = [];
-	private _targets = new Map<string, TargetInfo>();
+
+	private _targets: TargetInfo[] = [];
+	private _targetsIndexPath = new Map<PathId, TargetInfo>();
+
+	private _paths: PathInfo[] = [];
+	private _pathsIndexNormalized = new Map<string, PathInfo>();
 
 	constructor(opts: IMakeDatabaseOpts) {
-		this.srcRoot = resolve(opts.srcRoot || '.');
-		this.buildRoot = resolve(opts.buildRoot || 'build');
+		this.rootDir = resolve(opts.rootDir || '.');
 	}
 
-	insertMakefile(path: IBuildPath, fn: MakefileFn): MakefileInfo {
-		const rel = path.rel();
-		if (this._makefiles.has(rel)) {
-			throw new Error(`Makefile '${rel}' is already registered`);
+	insertMakefile(path: string, fn: MakefileFn): MakefileInfo {
+		const pInfo = this.selectOrInsertPath(path);
+
+		if (this._makefiles.has(pInfo.id)) {
+			throw new Error(`Makefile '${path}' is already registered`);
 		}
 
-		const targetInfo = this._targets.get(rel);
-		if (isRuleID(targetInfo?.recipeRule)) {
+		const targetInfo = this.selectTargetByPath(pInfo);
+		if (isId(RuleIdKey, targetInfo?.recipeRule)) {
 			throw new Error(
-				`Cannot add Makefile '${rel}' which also has a recipe defined`,
+				`Cannot add Makefile '${path}' which also has a recipe defined`,
 			);
 		}
 
 		const info: MakefileInfo = {
-			path,
+			path: pInfo,
 			fn,
 			isParsed: false,
 		};
 
-		this._makefiles.set(rel, info);
-		this._makefilesIndexUnparsed.add(rel);
+		this._makefiles.set(pInfo.id, info);
+		this._makefilesIndexUnparsed.add(pInfo.id);
 
 		return info;
 	}
 
-	selectMakefile(path: IBuildPath): MakefileInfo | null {
-		const info = this._makefiles.get(path.rel());
+	selectMakefile(path: PathInfo): MakefileInfo | null {
+		const info = this._makefiles.get(path.id);
 		if (info) return { ...info };
 		return null;
 	}
@@ -97,28 +151,55 @@ export class MakeDatabase {
 	updateMakefile(
 		info: Pick<MakefileInfo, 'path'> & Partial<MakefileInfo>,
 	): void {
-		const rel = info.path.rel();
-		const stored = this._makefiles.get(rel);
+		const { path } = info;
+		const stored = this._makefiles.get(path.id);
 		if (!stored) {
-			throw new Error(`Makefile '${rel}' not found`);
+			throw new Error(`Makefile '${path.path}' not found`);
 		}
 
 		Object.assign(stored, info);
 		if (stored.isParsed) {
-			this._makefilesIndexUnparsed.delete(rel);
+			this._makefilesIndexUnparsed.delete(path.id);
 		}
 	}
 
-	insertRule(rule: Omit<RuleInfo, 'id'>): RuleInfo {
+	insertRule(rule: {
+		targets: string[];
+		prereqs: string[];
+		recipe: RuleInfo['recipe'];
+	}): RuleInfo {
+		const targetPaths = this.selectOrInsertPaths(rule.targets);
+		const prereqs = this.selectOrInsertPaths(rule.prereqs);
+		const recipe = rule.recipe;
+
+		const targets: TargetInfo[] = [];
+		for (const t of targetPaths) {
+			const targetInfo = this.selectTargetByPath(t);
+			if (targetInfo) targets.push(targetInfo);
+			else targets.push(this.insertTarget(t));
+		}
+
 		const id = this._rules.length;
-		const info: RuleInfo = { ...rule, id };
+		const info: RuleInfo = {
+			id: mkId(RuleIdKey, id),
+			targets,
+			prereqs,
+			recipe,
+		};
 		this._rules.push(info);
 
-		for (const t of info.targets) {
-			this.upsertTargetRule(t, info);
+		for (const t of targets) {
+			this.updateTargetWithRule(t, info);
 		}
 
 		return info;
+	}
+
+	selectRule(id: RuleId): RuleInfo | null {
+		const v = idVal(RuleIdKey, id);
+		if (v < 0 || v >= this._rules.length) return null;
+
+		return this._rules[v];
 	}
 
 	selectRules(): RuleInfo[] {
@@ -126,38 +207,99 @@ export class MakeDatabase {
 	}
 
 	selectTargets(): TargetInfo[] {
-		return Array.from(this._targets.values());
+		return Array.from(this._targets);
 	}
 
-	selectTarget(path: IBuildPath): TargetInfo | null {
-		return this._targets.get(path.rel()) || null;
+	selectTargetByPath(path: PathInfo): TargetInfo | null {
+		return this._targetsIndexPath.get(path.id) || null;
 	}
 
-	private upsertTargetRule(path: IBuildPath, rule: RuleInfo): void {
-		const rel = path.rel();
-		let targetInfo = this._targets.get(rel);
-		if (!targetInfo) {
-			targetInfo = {
-				path,
-				rules: new Set(),
-				recipeRule: null,
-			};
-			this._targets.set(rel, targetInfo);
-		}
+	selectTargetByRawPath(rawPath: string): TargetInfo | null {
+		const path = this.selectPathByRawPath(rawPath);
+		if (!path) return null;
+		return this._targetsIndexPath.get(path.id) || null;
+	}
+
+	selectTargetById(id: TargetId): TargetInfo | null {
+		const v = idVal(TargetIdKey, id);
+		if (v < 0 || v >= this._targets.length) return null;
+
+		return this._targets[v];
+	}
+
+	private insertTarget(path: PathInfo): TargetInfo {
+		const id = this._targets.length;
+		const info: TargetInfo = {
+			id: mkId(TargetIdKey, id),
+			path,
+			rules: new Set<RuleId>(),
+			recipeRule: null,
+		};
+
+		this._targets.push(info);
+		this._targetsIndexPath.set(path.id, info);
+		return info;
+	}
+
+	private updateTargetWithRule(target: TargetInfo, rule: RuleInfo): void {
+		const { path } = target.path;
 
 		if (rule.recipe) {
-			if (isRuleID(targetInfo.recipeRule))
+			if (isId(RuleIdKey, target.recipeRule))
 				throw new Error(
-					`Target '${rel}' already has a recipe specified. Cannot add another one.`,
+					`Target '${path}' already has a recipe specified. Cannot add another one.`,
 				);
 
-			if (this._makefiles.has(rel)) {
-				throw new Error(`Cannot add a recipe to Makefile target '${rel}'`);
+			if (this._makefiles.has(target.path.id)) {
+				throw new Error(`Cannot add a recipe to Makefile target '${path}'`);
 			}
 
-			targetInfo.recipeRule = rule.id;
+			target.recipeRule = rule.id;
 		}
 
-		targetInfo.rules.add(rule.id);
+		target.rules.add(rule.id);
+	}
+
+	resolvePath(pathInfo: PathInfo): string {
+		return resolve(this.rootDir, pathInfo.path);
+	}
+
+	selectPathByRawPath(rawPath: string): PathInfo | null {
+		const norm = this.normalizePath(rawPath);
+		return this.selectNormalizedPath(norm);
+	}
+
+	private selectOrInsertPaths(rawPaths: string[]): PathInfo[] {
+		const out: PathInfo[] = [];
+		for (const raw of rawPaths) {
+			out.push(this.selectOrInsertPath(raw));
+		}
+		return out;
+	}
+
+	private selectOrInsertPath(rawPath: string): PathInfo {
+		const norm = this.normalizePath(rawPath);
+		const info = this.selectNormalizedPath(norm);
+		if (info) return info;
+		return this.insertNormalizedPath(norm);
+	}
+
+	private insertNormalizedPath(normPath: string): PathInfo {
+		const id = this._paths.length;
+		const info: PathInfo = {
+			id: mkId(PathIdKey, id),
+			path: normPath,
+		};
+		this._paths.push(info);
+		this._pathsIndexNormalized.set(normPath, info);
+		return info;
+	}
+
+	private selectNormalizedPath(normPath: string): PathInfo | null {
+		return this._pathsIndexNormalized.get(normPath) || null;
+	}
+
+	private normalizePath(path: string): string {
+		return relative('.', path);
 	}
 }

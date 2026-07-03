@@ -1,0 +1,14 @@
+{
+	"extends": "../tsconfig-base.json",
+	"include": ["./**/*.mjs"],
+	"compilerOptions": {
+		"checkJs": true,
+		"emitDeclarationOnly": true,
+		"declarationDir": "types"
+	},
+	"references": [
+		{
+			"path": "../src"
+		}
+	]
+}

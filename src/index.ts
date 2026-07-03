@@ -1,16 +1,7 @@
-export {
-	Path,
-	PathLike,
-	PathType,
-	isPathLike,
-	IBuildPath,
-	BuildPathLike,
-	isBuildPathLike,
-	BuildPathGenOpts,
-} from './Path.js';
+export { rebasePath } from './Path.js';
 export { cli } from './cli.js';
 export { Makefile, MakefileFn } from './Makefile.js';
-export { IRule, RecipeArgs, RuleID } from './Rule.js';
+export { IRule, RecipeArgs } from './Rule.js';
 export {
 	getLogger,
 	GetLoggerOpts,

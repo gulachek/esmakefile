@@ -9,3 +9,4 @@ install
 .vscode
 .vs
 .cache
+tsconfig.tsbuildinfo

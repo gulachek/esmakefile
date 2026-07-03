@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"target": "es2021",
+		"lib": ["es2021"],
+		"module": "node16",
+		"moduleResolution": "node16",
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"declaration": true,
+		"sourceMap": true,
+		"noImplicitAny": true,
+		"noImplicitOverride": true,
+		"forceConsistentCasingInFileNames": true,
+		"paths": {
+			"esmakefile": ["./src"]
+		}
+	}
+}

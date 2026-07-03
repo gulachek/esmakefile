@@ -1,5 +1,4 @@
 import { MakefileFn } from './Makefile.js';
-import { Path } from './Path.js';
 import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
 import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';
 import { MakeProgram } from './MakeProgram.js';
@@ -39,13 +38,8 @@ export function cli(fn: MakefileFn): void {
 	program.option('--development', devDesc, false);
 
 	program.option(
-		'--srcdir <dir>',
-		"Root directory of source files (default is '.')",
-	);
-
-	program.option(
-		'--outdir <dir>',
-		"Root directory of build files (default is './build')",
+		'-C, --directory <dir>',
+		"Root directory of the build system (default is '.')",
 	);
 
 	program.option('--trace', 'Sets the log level to "trace"', false);
@@ -54,8 +48,7 @@ export function cli(fn: MakefileFn): void {
 	const makeProgram = async (cmdOpts: OptionValues) => {
 		const opts = { ...program.opts(), ...cmdOpts };
 		return MakeProgram.parse(fn, {
-			srcRoot: opts['srcdir'],
-			buildRoot: opts['outdir'],
+			rootDir: opts['directory'],
 		});
 	};
 
@@ -88,8 +81,7 @@ export function cli(fn: MakefileFn): void {
 				process.exit(1);
 			}
 
-			const goalPath = goal && Path.build(goal);
-			const result = await make.update(goalPath);
+			const result = await make.update(goal);
 
 			process.exit(result ? 0 : 1);
 		});
@@ -113,17 +105,16 @@ export function cli(fn: MakefileFn): void {
 				process.exit(1);
 			}
 
-			const goalPath = goal && Path.build(goal);
-
-			const watcher = new SourceWatcher(make.srcRoot, {
+			const watcher = new SourceWatcher(make.rootDir, {
 				debounceMs: 300,
-				excludeDir: make.buildRoot,
+				// TODO - have a way to ignore a directory while watching
+				excludeDir: '__TODO__',
 			});
 
 			watcher.on('change', () => {
 				loggerProvider.resetClock();
 				logger.info('Detected change. Restarting update.');
-				make.update(goalPath);
+				make.update(goal);
 			});
 
 			watcher.on('unknown', (type: string) => {
@@ -135,9 +126,9 @@ export function cli(fn: MakefileFn): void {
 			process.stdin.on('close', closeWatcher);
 			process.stdin.on('data', drainStdin);
 
-			logger.info(`Watching '${make.srcRoot}'`);
+			logger.info(`Watching '${make.rootDir}'`);
 			logger.info('Close input stream to stop (usually Ctrl+D)');
-			make.update(goalPath);
+			make.update(goal);
 		});
 
 	program

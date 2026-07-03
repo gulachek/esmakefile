@@ -1,10 +1,15 @@
+/** @import { Makefile } from 'esmakefile' */
 import { writeFile } from 'fs/promises';
-import { cli, getLogger, rebasePath } from 'esmakefile';
+import { getLogger, rebasePath } from 'esmakefile';
 import { addSass } from './SassRecipe.mjs';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.mjs';
 import { join, resolve } from 'node:path';
 
-cli((mk) => {
+/**
+ * @param {Makefile} mk
+ * @returns {void}
+ */
+export default function main(mk) {
 	const outDir = 'build';
 	const srcDir = 'src';
 
@@ -78,7 +83,7 @@ cli((mk) => {
 		await waitMs(5);
 		await writeFile(resolve(args.rootDir, stalePrereq), 'prereq');
 	});
-});
+}
 
 /**
  * Wait for a given number of milliseconds

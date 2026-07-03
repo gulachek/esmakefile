@@ -9,5 +9,3 @@ install
 .vscode
 .vs
 .cache
-coverage
-.nyc_output

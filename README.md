@@ -12,7 +12,7 @@ targets, prerequisites, and recipes is used.
 It is _not_ the goal of esmakefile to accomodate every high
 level use case for every language, framework, etc. With a robust
 foundation of lower level tools available with esmakefile,
-higher level tooling can be built to accomodate more targeted us
+higher level tooling can be built to accomodate more targeted
 use cases.
 
 ## Quick Start
@@ -72,9 +72,9 @@ node make.mjs
 
 This section broadly discusses the most essential concepts of
 esmakefile. The concepts are divided into sub sections to help
-the reader organize a conceptual model, but they generally do
-not stand alone without the concepts pulled from the other
-section.
+the reader organize a conceptual model, but the concepts 
+generally do not stand alone without concepts pulled from the 
+other sections.
 
 For detailed API documentation, refer to the source
 code's TSDoc comments and implementation. The main entrypoint

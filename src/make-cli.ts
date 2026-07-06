@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { MakefileFn } from './Makefile.js';
 import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
 import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';

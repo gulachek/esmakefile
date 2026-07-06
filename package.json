@@ -5,6 +5,9 @@
 	"main": "dist/index.js",
 	"types": "types/index.d.ts",
 	"type": "module",
+	"bin": {
+		"make": "dist/make-cli.js"
+	},
 	"scripts": {
 		"build": "tsc --build",
 		"lint": "eslint .",

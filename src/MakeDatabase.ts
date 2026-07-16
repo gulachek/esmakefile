@@ -2,10 +2,6 @@ import { relative, resolve } from 'node:path';
 import { RecipeArgs } from './Rule.js';
 import type { MakefileFn } from './Makefile.js';
 
-export interface IMakeDatabaseOpts {
-	rootDir?: string;
-}
-
 export type MakefileInfo = {
 	path: PathInfo;
 	fn: MakefileFn;
@@ -81,8 +77,6 @@ export type PathInfo = {
 };
 
 export class MakeDatabase {
-	readonly rootDir: string;
-
 	private _makefiles = new Map<PathId, MakefileInfo>();
 	private _makefilesIndexUnparsed = new Set<PathId>();
 	private _rules: RuleInfo[] = [];
@@ -92,10 +86,6 @@ export class MakeDatabase {
 
 	private _paths: PathInfo[] = [];
 	private _pathsIndexNormalized = new Map<string, PathInfo>();
-
-	constructor(opts: IMakeDatabaseOpts) {
-		this.rootDir = resolve(opts.rootDir || '.');
-	}
 
 	insertMakefile(path: string, fn: MakefileFn): MakefileInfo {
 		const pInfo = this.selectOrInsertPath(path);
@@ -261,7 +251,7 @@ export class MakeDatabase {
 	}
 
 	resolvePath(pathInfo: PathInfo): string {
-		return resolve(this.rootDir, pathInfo.path);
+		return resolve(pathInfo.path);
 	}
 
 	selectPathByRawPath(rawPath: string): PathInfo | null {

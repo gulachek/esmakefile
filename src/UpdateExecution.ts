@@ -8,7 +8,7 @@ import {
 import { RecipeArgs } from './Rule.js';
 
 import { mkdir } from 'node:fs/promises';
-import { statSync, Stats } from 'node:fs';
+import { statSync } from 'node:fs';
 import * as nodePath from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
 import { Logger, getLogger } from './logs.js';
@@ -90,22 +90,7 @@ export class UpdateExecution {
 	async run(goal: TargetInfo): Promise<boolean> {
 		const goalPath = goal.path.path;
 
-		const rootDir = this._db.rootDir;
-		let stats: Stats | null = null;
-		try {
-			stats = statSync(rootDir, { throwIfNoEntry: false });
-		} catch (_) {
-			// will pick up that stats don't exist right below
-		}
-
-		if (!(stats && stats.isDirectory())) {
-			this._logger.error(
-				`Root directory '${rootDir}' is not a readable directory`,
-			);
-			return false;
-		}
-
-		const esmakefileDir = nodePath.resolve(rootDir, '__esmakefile__');
+		const esmakefileDir = '__esmakefile__';
 
 		try {
 			await mkdir(esmakefileDir, { recursive: true });
@@ -258,12 +243,9 @@ export class UpdateExecution {
 
 		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
-			await mkdir(
-				nodePath.resolve(this._db.rootDir, nodePath.dirname(t.path.path)),
-				{
-					recursive: true,
-				},
-			);
+			await mkdir(nodePath.dirname(t.path.path), {
+				recursive: true,
+			});
 		}
 
 		let result = false;

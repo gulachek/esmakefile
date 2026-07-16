@@ -127,7 +127,7 @@ program
 	.action(async function (goal?: string) {
 		const { make } = await processGlobalOpts({});
 
-		const watcher = new SourceWatcher(make.rootDir, {
+		const watcher = new SourceWatcher('.', {
 			debounceMs: 300,
 			// TODO - have a way to ignore a directory while watching
 			excludeDir: '__TODO__',
@@ -148,7 +148,7 @@ program
 		process.stdin.on('close', closeWatcher);
 		process.stdin.on('data', drainStdin);
 
-		logger.info(`Watching '${make.rootDir}'`);
+		logger.info(`Watching '${resolve('.')}'`);
 		logger.info('Close input stream to stop (usually Ctrl+D)');
 		make.update(goal);
 	});

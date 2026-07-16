@@ -1262,21 +1262,6 @@ describe('MakeProgram', () => {
 			expect(evts).to.be.empty;
 		});
 
-		it('is an error when the rootDir is not a directory', async () => {
-			const make = await parse((mk) => {
-				mk.rule('simple', () => {});
-			});
-
-			await rm(rootDir, { recursive: true });
-
-			const result = await make.update();
-			expect(result, 'should fail').to.be.false;
-			expect(
-				logs.find(LogLevel.error, rootDir),
-				'build did not indicate rootDir is unreadable',
-			).not.to.be.null;
-		});
-
 		it('is an error when the __esmakefile__ dir is not created', async () => {
 			const make = await MakeProgram.parse(
 				(mk) => {

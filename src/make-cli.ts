@@ -83,22 +83,31 @@ const parseLogLevel = (): LogLevel => {
 	return i;
 };
 
+const processGlobalOpts = async (opts: { suppressLogs?: boolean }) => {
+	loggerProvider.setLogLevel(parseLogLevel());
+	if (!opts.suppressLogs) loggerProvider.resume();
+
+	const make = await makeProgram();
+
+	if (!make) {
+		loggerProvider.resume(); // log even if suppressed
+		logger.fatal({
+			body: 'Failed to create Makefile',
+		});
+		process.exit(1);
+	}
+
+	return {
+		make,
+	};
+};
+
 program
 	.command('build', { isDefault: true })
 	.description('Build a specified target')
 	.argument('[goal]', 'The goal target to be built')
 	.action(async function (goal?: string) {
-		loggerProvider.setLogLevel(parseLogLevel());
-		loggerProvider.resume();
-
-		const make = await makeProgram();
-
-		if (!make) {
-			logger.fatal({
-				body: 'Failed to create Makefile',
-			});
-			process.exit(1);
-		}
+		const { make } = await processGlobalOpts({});
 
 		const result = await make.update(goal);
 
@@ -111,17 +120,7 @@ program
 	.argument('[goal]', 'The goal target to be built')
 	.option('--development', devDesc, true)
 	.action(async function (goal?: string) {
-		loggerProvider.setLogLevel(parseLogLevel());
-		loggerProvider.resume();
-
-		const make = await makeProgram();
-
-		if (!make) {
-			logger.fatal({
-				body: 'Failed to create Makefile',
-			});
-			process.exit(1);
-		}
+		const { make } = await processGlobalOpts({});
 
 		const watcher = new SourceWatcher(make.rootDir, {
 			debounceMs: 300,
@@ -153,15 +152,7 @@ program
 	.command('list')
 	.description('List all targets')
 	.action(async function () {
-		const make = await makeProgram();
-		if (!make) {
-			// TODO - make this command work with logs
-			loggerProvider.resume();
-			logger.fatal({
-				body: 'Failed to create Makefile',
-			});
-			process.exit(1);
-		}
+		const { make } = await processGlobalOpts({ suppressLogs: true });
 
 		for (const t of make.targets()) {
 			console.log(t);

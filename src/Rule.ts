@@ -31,12 +31,10 @@ export interface IRule {
 }
 
 export class RecipeArgs {
-	readonly rootDir: string;
 	private _postreqs: Set<string>;
 	private _log: Logger;
 
-	constructor(rootDir: string, postreqs: Set<string>) {
-		this.rootDir = rootDir;
+	constructor(postreqs: Set<string>) {
 		this._postreqs = postreqs;
 		this._log = getLogger({ name: 'esmakefile.RecipeArgs' });
 	}

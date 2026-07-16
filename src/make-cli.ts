@@ -4,7 +4,7 @@ import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
 import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';
 import { MakeProgram } from './MakeProgram.js';
 
-import { Command, OptionValues } from 'commander';
+import { Command } from 'commander';
 import { LogLevel, setLoggerProvider, Logger } from './logs.js';
 import { SourceWatcher } from './SourceWatcher.js';
 import {
@@ -48,8 +48,8 @@ program.option(
 program.option('--trace', 'Sets the log level to "trace"', false);
 program.option('-v, --debug', 'Sets the log level to "debug"', false);
 
-const makeProgram = async (cmdOpts: OptionValues) => {
-	const opts = { ...program.opts(), ...cmdOpts };
+const makeProgram = async () => {
+	const opts = program.opts();
 
 	let mod: IMakefileModule | null;
 	try {
@@ -72,8 +72,8 @@ const makeProgram = async (cmdOpts: OptionValues) => {
 	});
 };
 
-const parseLogLevel = (cmdOpts: OptionValues): LogLevel => {
-	const opts = { ...program.opts(), ...cmdOpts };
+const parseLogLevel = (): LogLevel => {
+	const opts = program.opts();
 
 	const i = LogLevel.info;
 	if (!opts) return i;
@@ -88,11 +88,10 @@ program
 	.description('Build a specified target')
 	.argument('[goal]', 'The goal target to be built')
 	.action(async function (goal?: string) {
-		const opts = this.opts();
-		loggerProvider.setLogLevel(parseLogLevel(opts));
+		loggerProvider.setLogLevel(parseLogLevel());
 		loggerProvider.resume();
 
-		const make = await makeProgram(opts);
+		const make = await makeProgram();
 
 		if (!make) {
 			logger.fatal({
@@ -112,11 +111,10 @@ program
 	.argument('[goal]', 'The goal target to be built')
 	.option('--development', devDesc, true)
 	.action(async function (goal?: string) {
-		const opts = this.opts();
-		loggerProvider.setLogLevel(parseLogLevel(opts));
+		loggerProvider.setLogLevel(parseLogLevel());
 		loggerProvider.resume();
 
-		const make = await makeProgram(opts);
+		const make = await makeProgram();
 
 		if (!make) {
 			logger.fatal({
@@ -155,7 +153,7 @@ program
 	.command('list')
 	.description('List all targets')
 	.action(async function () {
-		const make = await makeProgram(this.opts());
+		const make = await makeProgram();
 		if (!make) {
 			// TODO - make this command work with logs
 			loggerProvider.resume();

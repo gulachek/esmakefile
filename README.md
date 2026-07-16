@@ -26,29 +26,29 @@ npm install -D esmakefile
 2. Write your build script
 
 ```javascript
-// make.mjs - (Script can technically be named anything)
-import { cli, Path } from 'esmakefile';
+// Makefile.mjs
+import { join } from 'node:path';
 
-cli((mk) => {
-	const hello = Path.build('hello');
-	const hello_o = Path.build('hello.o');
-	const hello_c = Path.src('hello.c');
+export default function main(mk) {
+	const hello = 'hello';
+	const hello_o = 'hello.o';
+	const hello_c = 'hello.c';
 
 	// 'all' phony target depends on 'hello'
 	mk.rule('all', [hello]);
 
 	// Link 'hello' executable from compiled object files
 	mk.rule(hello, [hello_o], (args) => {
-		return args.spawn('cc', ['-o', args.abs(hello), args.abs(hello_o)]);
+		return args.spawn('cc', ['-o', join(args.rootDir, hello), join(args.rootDir, hello_o)]);
 	});
 
 	// Compile C source into object files
 	mk.rule(hello_o, [hello_c], (args) => {
-		return args.spawn('cc', ['-c', '-o', args.abs(hello_o), args.abs(hello_c)]);
+		return args.spawn('cc', ['-c', '-o', join(args.rootDir, hello_o), join(args.rootDir, hello_c)]);
 	});
 
 	// `nested.mk` will be updated prior to invoking the given function
-	const nested = Path.build('nested.mk');
+	const nested = 'nested.mk';
 	mk.include(nested, (mk) => {
 		// Add rules just like with the function given to `cli`
 		mk.rule('nested.target', []);
@@ -60,10 +60,10 @@ cli((mk) => {
 });
 ```
 
-3. Run your build script
+3. Run `npx make`
 
 ```sh
-node make.mjs
+npx make
 ```
 
 4. Tailor the build system to your project!
@@ -72,8 +72,8 @@ node make.mjs
 
 This section broadly discusses the most essential concepts of
 esmakefile. The concepts are divided into sub sections to help
-the reader organize a conceptual model, but the concepts 
-generally do not stand alone without concepts pulled from the 
+the reader organize a conceptual model, but the concepts
+generally do not stand alone without concepts pulled from the
 other sections.
 
 For detailed API documentation, refer to the source
@@ -114,16 +114,15 @@ Nested `Makefile` instances can be "parsed" with the
 be given to identify the `Makefile` as a target. This target can
 be given to other rules. All `include` files are "parsed" prior
 to updating a goal. The term "parsed" in this context means that
-the given function to `cli` or `include` that accepts a
-`Makefile` parameter is invoked and the optionally returned
-`Promise` resolves. Prior to "parsing" a given nested
-`Makefile`, its target is updated following the standard
-conventions. Note that this deviates a bit from standard GNU
-Make functionality in that the `Makefile` is not "remade" when
-an included `Makefile` is updated. This is not expected to be an
-issue. Unless the reader is deeply familiar with GNU Make and
-understands what this detail is referring to, it likely doesn't
-matter.
+the function exported from `Makefile.js` or given to `include`
+is invoked and the optionally returned `Promise` resolves. Prior
+to "parsing" a given nested `Makefile`, its target is updated
+following the standard conventions. Note that this deviates a
+bit from standard GNU Make functionality in that the `Makefile`
+is not "remade" when an included `Makefile` is updated. This is
+not expected to be an issue. Unless the reader is deeply
+familiar with GNU Make and understands what this detail is
+referring to, it almost certainly doesn't matter.
 
 #### Postreqs
 
@@ -141,8 +140,8 @@ build system.
 See the following example.
 
 ```javascript
-const fileList = Path.src('file-list.txt');
-const concat = Path.build('concat.txt');
+const fileList = 'file-list.txt';
+const concat = 'concat.txt';
 
 mk.rule(concat, [fileList], async (args) => {
 	const paths = await parseFileList(fileList);
@@ -153,7 +152,7 @@ mk.rule(concat, [fileList], async (args) => {
 		args.addPostreq(p); // p should be an absolute path
 	}
 
-	await writeContents(args.abs(concat), contents);
+	await writeContents(join(args.rootDir, concat), contents);
 });
 ```
 
@@ -180,65 +179,30 @@ to date automatically.
 > the lower level target prior to updating the higher level one,
 > often resulting in frustrating build failures.
 
-### `Path` Objects
-
-esmakefile is strict about which paths are allowed to be used
-for targets and prereqs. They are always specified as `Path`
-object instances which forces them to always be specified
-relative to one of two special directories: the "source root"
-and the "build root".
-
-The "source root" is a read only directory, typically
-representing the root directory of a code repository under
-source control.
-
-The "build root" is a read/write directory that is intended for
-generated outputs of esmakefile. It should generally be ignored
-by version control systems. The build root is usually a
-subdirectory of the source root.
-
-A path that exists within the build root is called a "build
-path". A path that exists in the source root and is not a build
-path is called a "source path".
-
-Source paths may not be given as targets to rules. This is to
-enforce that all generated outputs be placed in the build root,
-making it easy for users to clean generated artifacts in a
-single `rm` command and easy to ignore generated artifacts in
-version control systems.
-
-Either a source path or a build path may be given as a prereq.
-
-Postreqs may refer to paths installed on a system that is
-external to even the source root. Hence, postreqs are specified
-only as raw absolute paths and are not specified by `Path`
-objects.
-
-`Path` objects may be instantiated either as relative paths to
-the build or source root, or generated from other path objects.
-
-```javascript
-import { Path } from 'esmakefile';
-
-// always use '/' as directory separator
-const b = Path.build('my/build/path');
-const s = Path.src('my/src/path');
-
-const c = Path.src('hello.c');
-const o = Path.gen(c, { ext: '.o' }); // same as Path.build('hello.o')
-```
-
 ### CLI Driver
 
 Most of the time, esmakefile is interacted with by a user
-executing a JavaScript file from an interactive shell. As such,
-a CLI driver function is supported, simply called `cli`, which
-offers users the typical options that are expected to update
-targets.
+authoring a JavaScript module specifying the build system and
+running `npx make` from the shell. Refer to the "Quick Start"
+example above for typical usage, and run with `npx make help` to
+see which options are supported.
 
-Refer to the "Quick Start" example above for typical usage, and
-run with `node make.mjs help` to see which options are
-supported.
+#### Module Naming Conventions
+
+The module that's authored can be named any of the following:
+
+- esmakefile.js
+- makefile.js
+- Makefile.js
+
+The extension can also be `.mjs` or `.cjs` instead of `.js` for
+explicit ES Module or CommonJS module systems.
+
+It's recommended to use the name `Makefile.js` (or an explicit
+`.mjs` or `.cjs`) variant, as this mimics the recommendation of
+classic Makefile naming conventions, which itself recommends
+this name since it sorts closely to the top of a directory
+listing.
 
 #### Specifying Goals
 
@@ -249,23 +213,22 @@ can specify another goal simply by adding it to the shell
 invocation.
 
 ```sh
-node make.mjs <goal>
+npx make <goal>
 ```
 
 The format of `<goal>` is a path relative to the build root. In
 other words, if the target desired to be updated is specified as
-`Path.build('my/target.txt')`, then a user could update it with
-`node make.mjs my/target.txt`.
+`'my/target.txt'`, then a user could update it with `npx make
+my/target.txt`.
 
 #### Watch Mode
 
 Watch mode is also supported by the CLI driver. In this mode, it
-will watch the source root for changes, ignoring build root
-changes to avoid thrashing. When a source file changes, it
-updates the goal specified at the command line.
+will watch the root directory for changes and update the goal
+specified at the command line.
 
 ```sh
-node make.mjs watch [goal]
+npx make watch [goal]
 ```
 
 ### `MakeProgram` Programmatic Driver
@@ -315,7 +278,7 @@ See the following example for basic usage.
 ```js
 import { cli, getLogger, LogLevel } from 'esmakefile';
 
-cli((mk) => {
+export default function main(mk) {
 	const logger = getLogger({ name: 'my.logger.name' });
 
     if (logger.enabled({ level: LogLevel.trace })) {

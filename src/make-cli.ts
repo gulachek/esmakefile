@@ -42,18 +42,16 @@ program.option('--development', devDesc, false);
 
 program.option(
 	'-C, --directory <dir>',
-	"Root directory of the build system (default is '.')",
+	'Change to directory prior to configuring build system or updating targets',
 );
 
 program.option('--trace', 'Sets the log level to "trace"', false);
 program.option('-v, --debug', 'Sets the log level to "debug"', false);
 
 const makeProgram = async () => {
-	const opts = program.opts();
-
 	let mod: IMakefileModule | null;
 	try {
-		mod = await loadMakefileModule(opts['directory'] || '.', logger);
+		mod = await loadMakefileModule('.', logger);
 	} catch (exception) {
 		logger.fatal({
 			body: 'Scan for Makefile threw an exception',
@@ -68,7 +66,7 @@ const makeProgram = async () => {
 	}
 
 	return MakeProgram.parse(mod.main, {
-		rootDir: opts['directory'],
+		rootDir: '.',
 	});
 };
 
@@ -84,8 +82,15 @@ const parseLogLevel = (): LogLevel => {
 };
 
 const processGlobalOpts = async (opts: { suppressLogs?: boolean }) => {
+	const programOpts = program.opts();
 	loggerProvider.setLogLevel(parseLogLevel());
 	if (!opts.suppressLogs) loggerProvider.resume();
+
+	const d = programOpts['directory'] as string | undefined;
+	if (d) {
+		logger.debug(`Changing directory to '${d}'`);
+		process.chdir(d);
+	}
 
 	const make = await makeProgram();
 

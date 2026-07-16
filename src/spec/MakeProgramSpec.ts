@@ -178,7 +178,7 @@ describe('MakeProgram', () => {
 	});
 
 	describe('targets', () => {
-		it('lists targets by path relative to root dir', async () => {
+		it('lists targets', async () => {
 			const make = await MakeProgram.parse((mk) => {
 				mk.rule(new WriteFileRule('write.txt', 'hello'));
 				mk.rule(new CopyFileRule('src.txt', 'sub/dest.txt'));

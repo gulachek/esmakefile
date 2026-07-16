@@ -52,7 +52,7 @@ export default function main(mk) {
 	});
 
 	mk.rule('write-both-streams', (args) => {
-		const script = resolve(args.rootDir, 'src/logs.cjs');
+		const script = 'src/logs.cjs';
 		return args.spawn(process.execPath, [script]);
 	});
 
@@ -79,9 +79,9 @@ export default function main(mk) {
 	mk.rule(staleTarget, stalePrereq);
 	mk.rule(stalePrereq, async (args) => {
 		// this isn't supposed to make sense
-		await writeFile(resolve(args.rootDir, staleTarget), 'stale');
+		await writeFile(staleTarget, 'stale');
 		await waitMs(5);
-		await writeFile(resolve(args.rootDir, stalePrereq), 'prereq');
+		await writeFile(stalePrereq, 'prereq');
 	});
 }
 

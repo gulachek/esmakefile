@@ -4,7 +4,7 @@
 import { getLogger } from 'esmakefile';
 import { addClangObject } from './ClangObjectRecipe.mjs';
 import { open, readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 
 /** @implements {IRule} */
 export class ClangExecutableRecipe {
@@ -39,8 +39,8 @@ export class ClangExecutableRecipe {
 	 * @returns {Promise<boolean>}
 	 */
 	async recipe(args) {
-		const exe = resolve(args.rootDir, this.exe);
-		const obs = this.objs.map((o) => resolve(args.rootDir, o));
+		const exe = this.exe;
+		const obs = this.objs;
 
 		const clangArgs = ['-o', exe];
 		clangArgs.push(...obs);
@@ -138,15 +138,14 @@ class CatRecipe {
 	}
 
 	/**
-	 * @param {RecipeArgs} args
 	 * @returns {Promise<boolean>}
 	 */
-	async recipe(args) {
+	async recipe() {
 		const l = getLogger({ name: 'esmakefile.example.CatRecipe' });
 		l.info(`Generating ${this.out}`);
 
-		const out = resolve(args.rootDir, this.out);
-		const sources = this._src.map((s) => resolve(args.rootDir, s));
+		const out = this.out;
+		const sources = this._src;
 
 		const stream = await open(out, 'w');
 		for (const elem of this._elems) {

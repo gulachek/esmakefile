@@ -71,9 +71,8 @@ class WriteFileRule extends TestRule implements IRule {
 		return this.path;
 	}
 
-	override async onBuild(args: RecipeArgs) {
-		const path = resolve(args.rootDir, this.path);
-		await writeFile(path, this.txt, 'utf8');
+	override async onBuild() {
+		await writeFile(this.path, this.txt, 'utf8');
 		return true;
 	}
 }
@@ -96,12 +95,9 @@ class CopyFileRule extends TestRule implements IRule {
 		return this.dest;
 	}
 
-	override async onBuild(args: RecipeArgs): Promise<boolean> {
-		const dest = resolve(args.rootDir, this.dest);
-		const src = resolve(args.rootDir, this.src);
-
+	override async onBuild(): Promise<boolean> {
 		try {
-			await copyFile(src, dest);
+			await copyFile(this.src, this.dest);
 			return true;
 		} catch {
 			return false;
@@ -127,14 +123,11 @@ class CatFilesRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const dest = resolve(args.rootDir, this.dest);
-		const src = resolve(args.rootDir, this.src);
-
-		const srcDir = dirname(src);
+		const srcDir = dirname(this.src);
 		++this.buildCount;
 		let catSrc: string;
 		try {
-			catSrc = await readFile(src, 'utf8');
+			catSrc = await readFile(this.src, 'utf8');
 		} catch {
 			return false;
 		}
@@ -143,7 +136,7 @@ class CatFilesRecipe implements IRule {
 
 		let handle: FileHandle;
 		try {
-			handle = await open(dest, 'w');
+			handle = await open(this.dest, 'w');
 		} catch {
 			return false;
 		}
@@ -1107,7 +1100,7 @@ describe('MakeProgram', () => {
 
 				mk.rule(foo, async (args) => {
 					counts.foo += 1;
-					args.addPostreq(resolve(args.rootDir, req));
+					args.addPostreq(req);
 					await writePath(foo, counts.foo.toString());
 					return true;
 				});
@@ -1166,7 +1159,7 @@ describe('MakeProgram', () => {
 						++buildCount;
 						await writePath(outPath, 'test');
 						// only after build
-						args.addPostreq(resolve(args.rootDir, cpPath));
+						args.addPostreq(cpPath);
 						return true;
 					},
 				};
@@ -1202,7 +1195,7 @@ describe('MakeProgram', () => {
 				});
 
 				mk.rule(b, async (args) => {
-					args.addPostreq(resolve(args.rootDir, c));
+					args.addPostreq(c);
 					await writePath(b, 'b');
 				});
 			});

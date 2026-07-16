@@ -39,12 +39,12 @@ export default function main(mk) {
 
 	// Link 'hello' executable from compiled object files
 	mk.rule(hello, [hello_o], (args) => {
-		return args.spawn('cc', ['-o', join(args.rootDir, hello), join(args.rootDir, hello_o)]);
+		return args.spawn('cc', ['-o', hello, hello_o]);
 	});
 
 	// Compile C source into object files
 	mk.rule(hello_o, [hello_c], (args) => {
-		return args.spawn('cc', ['-c', '-o', join(args.rootDir, hello_o), join(args.rootDir, hello_c)]);
+		return args.spawn('cc', ['-c', '-o', hello_o, hello_c]);
 	});
 
 	// `nested.mk` will be updated prior to invoking the given function
@@ -152,7 +152,7 @@ mk.rule(concat, [fileList], async (args) => {
 		args.addPostreq(p); // p should be an absolute path
 	}
 
-	await writeContents(join(args.rootDir, concat), contents);
+	await writeContents(concat, contents);
 });
 ```
 

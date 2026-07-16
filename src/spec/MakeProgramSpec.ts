@@ -253,7 +253,8 @@ describe('MakeProgram', () => {
 	});
 
 	describe('recipe', () => {
-		const rootDir = resolve('test-src');
+		const rootDir = '.';
+		let cwd: string;
 
 		function rel(...parts: string[]): string {
 			return join(rootDir, ...parts);
@@ -276,14 +277,22 @@ describe('MakeProgram', () => {
 		}
 
 		beforeEach(async () => {
-			const stats = statSync(rootDir, { throwIfNoEntry: false });
+			const testSrc = resolve('test-src');
+			const stats = statSync(testSrc, { throwIfNoEntry: false });
 			if (stats) {
-				await chmod(rootDir, 0o777);
-				await rm(rootDir, { recursive: true });
-				expect(existsSync(rootDir)).to.be.false;
+				await chmod(testSrc, 0o777);
+				await rm(testSrc, { recursive: true });
+				expect(existsSync(testSrc)).to.be.false;
 			}
 
-			await mkdir(rootDir, { recursive: true });
+			await mkdir(testSrc, { recursive: true });
+
+			cwd = process.cwd();
+			process.chdir(testSrc);
+		});
+
+		afterEach(() => {
+			process.chdir(cwd);
 		});
 
 		it('updates a target', async () => {

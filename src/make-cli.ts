@@ -37,9 +37,6 @@ sdk.start();
 const program = new Command();
 const logger = loggerProvider.getLogger({ name: 'esmakefile.cli' });
 
-const devDesc = 'Specifies this is a development build';
-program.option('--development', devDesc, false);
-
 program.option(
 	'-C, --directory <dir>',
 	'Change to directory prior to configuring build system or updating targets',
@@ -123,7 +120,6 @@ program
 	.command('watch')
 	.description('Rebuild top level targets when a source file changes')
 	.argument('[goal]', 'The goal target to be built')
-	.option('--development', devDesc, true)
 	.action(async function (goal?: string) {
 		const { make } = await processGlobalOpts({});
 

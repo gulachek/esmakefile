@@ -41,7 +41,9 @@ function normalizeRecipe(
 	return null;
 }
 
-export type MakefileFn = (make: Makefile) => void | Promise<void>;
+export type MakefileFn = (
+	make: Makefile,
+) => (void | boolean) | Promise<void | boolean>;
 
 export class Makefile {
 	readonly buildRoot: string;

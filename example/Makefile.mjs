@@ -3,7 +3,7 @@ import { writeFile } from 'fs/promises';
 import { getLogger, rebasePath } from 'esmakefile';
 import { addSass } from './SassRecipe.mjs';
 import { addClangExecutable } from './clang/ClangExecutableRecipe.mjs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 /**
  * @param {Makefile} mk
@@ -77,7 +77,7 @@ export default function main(mk) {
 	const stalePrereq = 'warn-stale-target-prereq';
 
 	mk.rule(staleTarget, stalePrereq);
-	mk.rule(stalePrereq, async (args) => {
+	mk.rule(stalePrereq, async () => {
 		// this isn't supposed to make sense
 		await writeFile(staleTarget, 'stale');
 		await waitMs(5);

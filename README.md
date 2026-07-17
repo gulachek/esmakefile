@@ -46,17 +46,6 @@ export default function main(mk) {
 	mk.rule(hello_o, [hello_c], (args) => {
 		return args.spawn('cc', ['-c', '-o', hello_o, hello_c]);
 	});
-
-	// `nested.mk` will be updated prior to invoking the given function
-	const nested = 'nested.mk';
-	mk.include(nested, (mk) => {
-		// Add rules just like with the function given to `cli`
-		mk.rule('nested.target', []);
-	});
-
-	// `nested.mk` is just like any other target, except that
-	// it's not allowed to have a recipe
-	mk.rule(nested, [hello_c]);
 });
 ```
 
@@ -108,21 +97,6 @@ be up to date. The rule to update `hello` specifies that
 `hello.o` is a prerequisite, and it specifies a recipe to
 update `hello` itself, namely linking `hello.o` into an
 executable file.
-
-Nested `Makefile` instances can be "parsed" with the
-`Makefile.include` function. As seen in the example, a path must
-be given to identify the `Makefile` as a target. This target can
-be given to other rules. All `include` files are "parsed" prior
-to updating a goal. The term "parsed" in this context means that
-the function exported from `Makefile.js` or given to `include`
-is invoked and the optionally returned `Promise` resolves. Prior
-to "parsing" a given nested `Makefile`, its target is updated
-following the standard conventions. Note that this deviates a
-bit from standard GNU Make functionality in that the `Makefile`
-is not "remade" when an included `Makefile` is updated. This is
-not expected to be an issue. Unless the reader is deeply
-familiar with GNU Make and understands what this detail is
-referring to, it almost certainly doesn't matter.
 
 #### Postreqs
 
@@ -256,6 +230,75 @@ if (!make) {
 const success = await make.update(); // default goal
 const success2 = await make.update(goal); // specific goal
 ```
+
+### Including a Nested `Makefile`
+
+Nested `Makefile` instances can be "parsed" with the
+`Makefile.include` function.
+
+```js
+// Makefile.mjs
+export default function make(mk) {
+	const nested = 'nested.mk';
+
+	mk.include(nested, (mk) => {
+		mk.rule(/*...*/);
+	});
+
+	mk.rule(nested, [/*...prereqs...*/]);
+}
+```
+
+As seen in the above example, a path must be given to identify
+the `Makefile` as a target. This target can be given to other
+rules. All `include` files are "parsed" prior to updating a goal
+provided to the CLI driver or `MakeProgram.update`. The term
+"parsed" in this context means that the function provided to
+`include` is invoked and the optionally returned `Promise`
+resolves. Prior to "parsing" a given nested `Makefile`, its
+target is updated following the standard conventions. Note that
+this deviates a bit from standard GNU Make functionality in that
+the `Makefile` is not "remade" when an included `Makefile` is
+updated. This is not expected to be an issue. Unless the reader
+is deeply familiar with GNU Make and understands what this
+detail is referring to, it almost certainly doesn't matter.
+
+Each included `Makefile` is updated and processed in order of
+inclusion. This can cause some subtle issues to creep up. For
+example, the following is broken:
+
+```js
+export default function make(mk) {
+	mk.rule('a.mk', ['prereq']);
+
+	mk.include('a.mk', () => {
+      /* use 'prereq' somehow */
+	});
+
+	mk.include('b.mk', (mk) => {
+		mk.rule('prereq', () => {
+          /* create prereq */
+		});
+	});
+});
+```
+
+This is because, while esmakefile is parsing the entire build
+system, it attempts to include `a.mk` prior to `b.mk`. Prior to
+including `a.mk`, it attempts to update `a.mk`. Because the
+recipe to update `prereq` is defined in `b.mk`, and `b.mk`
+hasn't yet been included, esmakefile will complain that there's
+no rule to update the `prereq` target. In this example, it could
+be fixed by either hoisting the rule that defines the recipe to
+create `prereq` into the top level `Makefile`, or more simply
+`b.mk` could be included before `a.mk` is included.
+
+This order of processing is subject to change, meaning this
+documented limitation may eventually be eliminated. Users who
+find this limitation especially limiting should submit issues
+clearly documenting use cases and why this isn't easy to work
+around.
+
 
 ### Observability
 

@@ -170,6 +170,27 @@ describe('MakeProgram', () => {
 		setLoggerProvider(logs);
 	});
 
+	describe('parse', () => {
+		it('returns instance when fn returns void', async () => {
+			const make = await MakeProgram.parse(() => {});
+			expect(make).not.to.be.empty;
+		});
+
+		it('returns instance when fn returns void Promise', async () => {
+			const make = await MakeProgram.parse(async () => {
+				await waitMs(0);
+			});
+			expect(make).not.to.be.empty;
+		});
+
+		it('returns null when fn throws', async () => {
+			const make = await MakeProgram.parse(() => {
+				throw new Error('blah');
+			});
+			expect(make).to.be.null;
+		});
+	});
+
 	describe('targets', () => {
 		it('lists targets', async () => {
 			const make = await MakeProgram.parse((mk) => {

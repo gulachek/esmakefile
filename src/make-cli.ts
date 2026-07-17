@@ -4,7 +4,7 @@ import { ArtifactStore, setArtifactStoreImpl } from './artifacts.js';
 import { InMemoryArtifactStore } from './InMemoryArtifactStore.js';
 import { MakeProgram } from './MakeProgram.js';
 
-import { Command, OptionValues } from 'commander';
+import { Command } from 'commander';
 import { LogLevel, setLoggerProvider, Logger } from './logs.js';
 import { SourceWatcher } from './SourceWatcher.js';
 import {
@@ -42,18 +42,16 @@ program.option('--development', devDesc, false);
 
 program.option(
 	'-C, --directory <dir>',
-	"Root directory of the build system (default is '.')",
+	'Change to directory prior to configuring build system or updating targets',
 );
 
 program.option('--trace', 'Sets the log level to "trace"', false);
 program.option('-v, --debug', 'Sets the log level to "debug"', false);
 
-const makeProgram = async (cmdOpts: OptionValues) => {
-	const opts = { ...program.opts(), ...cmdOpts };
-
+const makeProgram = async () => {
 	let mod: IMakefileModule | null;
 	try {
-		mod = await loadMakefileModule(opts['directory'] || '.', logger);
+		mod = await loadMakefileModule('.', logger);
 	} catch (exception) {
 		logger.fatal({
 			body: 'Scan for Makefile threw an exception',
@@ -68,12 +66,12 @@ const makeProgram = async (cmdOpts: OptionValues) => {
 	}
 
 	return MakeProgram.parse(mod.main, {
-		rootDir: opts['directory'],
+		rootDir: '.',
 	});
 };
 
-const parseLogLevel = (cmdOpts: OptionValues): LogLevel => {
-	const opts = { ...program.opts(), ...cmdOpts };
+const parseLogLevel = (): LogLevel => {
+	const opts = program.opts();
 
 	const i = LogLevel.info;
 	if (!opts) return i;
@@ -83,23 +81,38 @@ const parseLogLevel = (cmdOpts: OptionValues): LogLevel => {
 	return i;
 };
 
+const processGlobalOpts = async (opts: { suppressLogs?: boolean }) => {
+	const programOpts = program.opts();
+	loggerProvider.setLogLevel(parseLogLevel());
+	if (!opts.suppressLogs) loggerProvider.resume();
+
+	const d = programOpts['directory'] as string | undefined;
+	if (d) {
+		logger.debug(`Changing directory to '${d}'`);
+		process.chdir(d);
+	}
+
+	const make = await makeProgram();
+
+	if (!make) {
+		loggerProvider.resume(); // log even if suppressed
+		logger.fatal({
+			body: 'Failed to create Makefile',
+		});
+		process.exit(1);
+	}
+
+	return {
+		make,
+	};
+};
+
 program
 	.command('build', { isDefault: true })
 	.description('Build a specified target')
 	.argument('[goal]', 'The goal target to be built')
 	.action(async function (goal?: string) {
-		const opts = this.opts();
-		loggerProvider.setLogLevel(parseLogLevel(opts));
-		loggerProvider.resume();
-
-		const make = await makeProgram(opts);
-
-		if (!make) {
-			logger.fatal({
-				body: 'Failed to create Makefile',
-			});
-			process.exit(1);
-		}
+		const { make } = await processGlobalOpts({});
 
 		const result = await make.update(goal);
 
@@ -112,20 +125,9 @@ program
 	.argument('[goal]', 'The goal target to be built')
 	.option('--development', devDesc, true)
 	.action(async function (goal?: string) {
-		const opts = this.opts();
-		loggerProvider.setLogLevel(parseLogLevel(opts));
-		loggerProvider.resume();
+		const { make } = await processGlobalOpts({});
 
-		const make = await makeProgram(opts);
-
-		if (!make) {
-			logger.fatal({
-				body: 'Failed to create Makefile',
-			});
-			process.exit(1);
-		}
-
-		const watcher = new SourceWatcher(make.rootDir, {
+		const watcher = new SourceWatcher('.', {
 			debounceMs: 300,
 			// TODO - have a way to ignore a directory while watching
 			excludeDir: '__TODO__',
@@ -146,7 +148,7 @@ program
 		process.stdin.on('close', closeWatcher);
 		process.stdin.on('data', drainStdin);
 
-		logger.info(`Watching '${make.rootDir}'`);
+		logger.info(`Watching '${resolve('.')}'`);
 		logger.info('Close input stream to stop (usually Ctrl+D)');
 		make.update(goal);
 	});
@@ -155,15 +157,7 @@ program
 	.command('list')
 	.description('List all targets')
 	.action(async function () {
-		const make = await makeProgram(this.opts());
-		if (!make) {
-			// TODO - make this command work with logs
-			loggerProvider.resume();
-			logger.fatal({
-				body: 'Failed to create Makefile',
-			});
-			process.exit(1);
-		}
+		const { make } = await processGlobalOpts({ suppressLogs: true });
 
 		for (const t of make.targets()) {
 			console.log(t);

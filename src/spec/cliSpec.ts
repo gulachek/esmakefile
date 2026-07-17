@@ -57,7 +57,7 @@ import { writeFile } from 'node:fs/promises';
 
 export default function make(mk) {
 	mk.rule('probe', async (args) => {
-		await writeFile(join(args.rootDir, 'probe'), 'success');
+		await writeFile('probe', 'success');
 	});
 }
 											`,
@@ -96,7 +96,7 @@ const { writeFile } = require('node:fs/promises');
 
 module.exports = function make(mk) {
 	mk.rule('probe', async (args) => {
-		await writeFile(join(args.rootDir, 'probe'), 'success');
+		await writeFile('probe', 'success');
 	});
 }
 											`,
@@ -123,7 +123,7 @@ import { writeFile } from 'node:fs/promises';
 
 export function main(mk) {
 	mk.rule('probe', async (args) => {
-		await writeFile(join(args.rootDir, 'probe'), 'success');
+		await writeFile('probe', 'success');
 	});
 }
 											`,

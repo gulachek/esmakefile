@@ -1,7 +1,7 @@
 /** @import { IRule, Makefile, RecipeArgs } from 'esmakefile' */
 
 import { readFile } from 'node:fs/promises';
-import { dirname, join, resolve, basename } from 'node:path';
+import { dirname, join, basename } from 'node:path';
 
 /** @implements {IRule} */
 export class ClangObjectRecipe {
@@ -36,10 +36,8 @@ export class ClangObjectRecipe {
 	 * @returns {Promise<boolean>}
 	 */
 	async recipe(args) {
-		const [obj, depfile, cmds] = this.targets().map((t) =>
-			resolve(args.rootDir, t),
-		);
-		const src = resolve(args.rootDir, this.src);
+		const [obj, depfile, cmds] = this.targets();
+		const src = this.src;
 
 		const clangArgs = [src, '-c', '-o', obj];
 		clangArgs.push('-fcolor-diagnostics');

@@ -71,9 +71,8 @@ class WriteFileRule extends TestRule implements IRule {
 		return this.path;
 	}
 
-	override async onBuild(args: RecipeArgs) {
-		const path = resolve(args.rootDir, this.path);
-		await writeFile(path, this.txt, 'utf8');
+	override async onBuild() {
+		await writeFile(this.path, this.txt, 'utf8');
 		return true;
 	}
 }
@@ -96,12 +95,9 @@ class CopyFileRule extends TestRule implements IRule {
 		return this.dest;
 	}
 
-	override async onBuild(args: RecipeArgs): Promise<boolean> {
-		const dest = resolve(args.rootDir, this.dest);
-		const src = resolve(args.rootDir, this.src);
-
+	override async onBuild(): Promise<boolean> {
 		try {
-			await copyFile(src, dest);
+			await copyFile(this.src, this.dest);
 			return true;
 		} catch {
 			return false;
@@ -127,14 +123,11 @@ class CatFilesRecipe implements IRule {
 	}
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		const dest = resolve(args.rootDir, this.dest);
-		const src = resolve(args.rootDir, this.src);
-
-		const srcDir = dirname(src);
+		const srcDir = dirname(this.src);
 		++this.buildCount;
 		let catSrc: string;
 		try {
-			catSrc = await readFile(src, 'utf8');
+			catSrc = await readFile(this.src, 'utf8');
 		} catch {
 			return false;
 		}
@@ -143,7 +136,7 @@ class CatFilesRecipe implements IRule {
 
 		let handle: FileHandle;
 		try {
-			handle = await open(dest, 'w');
+			handle = await open(this.dest, 'w');
 		} catch {
 			return false;
 		}
@@ -178,7 +171,7 @@ describe('MakeProgram', () => {
 	});
 
 	describe('targets', () => {
-		it('lists targets by path relative to root dir', async () => {
+		it('lists targets', async () => {
 			const make = await MakeProgram.parse((mk) => {
 				mk.rule(new WriteFileRule('write.txt', 'hello'));
 				mk.rule(new CopyFileRule('src.txt', 'sub/dest.txt'));
@@ -253,7 +246,8 @@ describe('MakeProgram', () => {
 	});
 
 	describe('recipe', () => {
-		const rootDir = resolve('test-src');
+		const rootDir = '.';
+		let cwd: string;
 
 		function rel(...parts: string[]): string {
 			return join(rootDir, ...parts);
@@ -276,14 +270,22 @@ describe('MakeProgram', () => {
 		}
 
 		beforeEach(async () => {
-			const stats = statSync(rootDir, { throwIfNoEntry: false });
+			const testSrc = resolve('test-src');
+			const stats = statSync(testSrc, { throwIfNoEntry: false });
 			if (stats) {
-				await chmod(rootDir, 0o777);
-				await rm(rootDir, { recursive: true });
-				expect(existsSync(rootDir)).to.be.false;
+				await chmod(testSrc, 0o777);
+				await rm(testSrc, { recursive: true });
+				expect(existsSync(testSrc)).to.be.false;
 			}
 
-			await mkdir(rootDir, { recursive: true });
+			await mkdir(testSrc, { recursive: true });
+
+			cwd = process.cwd();
+			process.chdir(testSrc);
+		});
+
+		afterEach(() => {
+			process.chdir(cwd);
 		});
 
 		it('updates a target', async () => {
@@ -1098,7 +1100,7 @@ describe('MakeProgram', () => {
 
 				mk.rule(foo, async (args) => {
 					counts.foo += 1;
-					args.addPostreq(resolve(args.rootDir, req));
+					args.addPostreq(req);
 					await writePath(foo, counts.foo.toString());
 					return true;
 				});
@@ -1157,7 +1159,7 @@ describe('MakeProgram', () => {
 						++buildCount;
 						await writePath(outPath, 'test');
 						// only after build
-						args.addPostreq(resolve(args.rootDir, cpPath));
+						args.addPostreq(cpPath);
 						return true;
 					},
 				};
@@ -1193,7 +1195,7 @@ describe('MakeProgram', () => {
 				});
 
 				mk.rule(b, async (args) => {
-					args.addPostreq(resolve(args.rootDir, c));
+					args.addPostreq(c);
 					await writePath(b, 'b');
 				});
 			});
@@ -1251,21 +1253,6 @@ describe('MakeProgram', () => {
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
 			expect(evts).to.be.empty;
-		});
-
-		it('is an error when the rootDir is not a directory', async () => {
-			const make = await parse((mk) => {
-				mk.rule('simple', () => {});
-			});
-
-			await rm(rootDir, { recursive: true });
-
-			const result = await make.update();
-			expect(result, 'should fail').to.be.false;
-			expect(
-				logs.find(LogLevel.error, rootDir),
-				'build did not indicate rootDir is unreadable',
-			).not.to.be.null;
 		});
 
 		it('is an error when the __esmakefile__ dir is not created', async () => {

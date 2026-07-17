@@ -28,9 +28,7 @@ export class MakeProgram {
 		logger.trace('Makefile.parse');
 
 		opts = opts || {};
-		const db = new MakeDatabase({
-			rootDir: opts.rootDir,
-		});
+		const db = new MakeDatabase();
 		const make = new MakeProgram(db);
 
 		db.insertMakefile('Makefile', makeFn);
@@ -101,10 +99,6 @@ export class MakeProgram {
 		// important to not simply return build.run() promise as it would unlock mtx too early
 		const result = await build.run(goalInfo);
 		return result;
-	}
-
-	get rootDir(): string {
-		return this.db.rootDir;
 	}
 
 	targets(): string[] {

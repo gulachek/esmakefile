@@ -15,7 +15,7 @@ import {
 const nodeExe = process.execPath;
 
 function mkArgs(): RecipeArgs {
-	return new RecipeArgs(null, new Set<string>());
+	return new RecipeArgs(new Set<string>());
 }
 
 describe('RecipeArgs', () => {

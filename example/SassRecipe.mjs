@@ -3,7 +3,6 @@ import { getLogger } from 'esmakefile';
 
 import * as sass from 'sass';
 import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 
 /** @implements {IRule} */
 class ScssRecipe {
@@ -29,8 +28,8 @@ class ScssRecipe {
 	/** @param {RecipeArgs} args */
 	async recipe(args) {
 		const log = getLogger({ name: 'esmakefile.example.ScssRecipe' });
-		const dest = resolve(args.rootDir, this._destPath);
-		const src = resolve(args.rootDir, this._srcPath);
+		const dest = this._destPath;
+		const src = this._srcPath;
 
 		log.info(`sass ${this._srcPath}`);
 		const result = sass.compile(src);

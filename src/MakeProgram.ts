@@ -58,12 +58,18 @@ export class MakeProgram {
 			logger.debug(`Parsing Makefile '${path}'`);
 			const mk = new Makefile(mkOpts);
 			try {
-				await fn(mk);
+				const result = await fn(mk);
+				if (result === false) {
+					logger.error(
+						`Function '${fn.name}' for Makefile '${path}' returned false`,
+					);
+					return null;
+				}
 			} catch (exception) {
 				logger.error({
 					eventName: EVENT_MAKEFILE_EXCEPTION,
 					exception,
-					body: `Makefile '${path}' threw exception`,
+					body: `Function '${fn.name}' for Makefile '${path}' threw exception`,
 				});
 				return null;
 			}

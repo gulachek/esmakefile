@@ -98,61 +98,6 @@ be up to date. The rule to update `hello` specifies that
 update `hello` itself, namely linking `hello.o` into an
 executable file.
 
-#### Postreqs
-
-> [!TODO]
-> Postreqs are currently disabled and are under construction to
-> be a convenience API built on top of `Makefile.include`
-
-A "postreq" in esmakefile is a conceptual addition to the Make
-model, and its related to the "prereq" (prerequisite) concept
-discussed above. For a given rule, both prereqs and postreqs are
-required to functionally update the associated target. The
-difference lies at _when_ this dependency is expressed in the
-build system.
-
-See the following example.
-
-```javascript
-const fileList = 'file-list.txt';
-const concat = 'concat.txt';
-
-mk.rule(concat, [fileList], async (args) => {
-	const paths = await parseFileList(fileList);
-	const contents = [];
-
-	for (const p of paths) {
-		contents.push(readContents(p));
-		args.addPostreq(p); // p should be an absolute path
-	}
-
-	await writeContents(concat, contents);
-});
-```
-
-The dependency of the `concat.txt` target on the `file-list.txt`
-prereq is known _a priori_ to running the build system, whereas
-the dependency of `concat.txt` on each individual path whose
-contents are included is only known _a posteriori_ with respect
-to running the associated recipe.
-
-Postreqs are useful when integrating with other build tools. For
-example, C compilers have a mechanism to output "dependency
-files", listing all of the headers included when compiling a C
-source file. Instead of requiring a user to specify the
-dependency on all of these headers, the recipe can parse this
-dependency file output and add the headers as postreqs, meaning
-that as headers are changed, the compiled output will be kept up
-to date automatically.
-
-> [!WARNING]
-> Postreqs do not work well when the postreq refers to the
-> target of another rule. Doing so causes problems where
-> esmakefile cannot update the higher level target when starting
-> from a clean slate since it's unaware of the need to update
-> the lower level target prior to updating the higher level one,
-> often resulting in frustrating build failures.
-
 ### CLI Driver
 
 Most of the time, esmakefile is interacted with by a user

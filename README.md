@@ -134,8 +134,8 @@ invocation.
 npx make <goal>
 ```
 
-The format of `<goal>` is a path relative to the build root. In
-other words, if the target desired to be updated is specified as
+The format of `<goal>` is a relative path. In other words, if
+the target desired to be updated is specified as
 `'my/target.txt'`, then a user could update it with `npx make
 my/target.txt`.
 

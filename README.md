@@ -244,6 +244,40 @@ find this limitation especially limiting should submit issues
 clearly documenting use cases and why this isn't easy to work
 around.
 
+### Dependency Files
+
+A common pattern in Make build systems, especially in C/C++
+development, is to have a compiler output a "dependency file".
+This dependency file contains Make rules describing which header
+files are needed by which `.c` files so that developers only
+need to `#include "header.h"` in the C code as opposed to in
+explicit Make rules as well. The dependency file is then
+included (via `include`) in the `Makefile` to pull those
+generated rules into the build system.
+
+This pattern is possible in esmakefile:
+
+```js
+mk.rule(['output', 'output.deps'], ['input'], async (args) => {
+	// This is generic for demonstration purposes. The assumption
+	// is that the compiler informs the user of which files, beyond
+	// 'input', were used during compilation, as an array.
+	const { content, listOfFilesUsed } = compile('input');
+
+	// Write the normal content
+	await writeFile('output', content);
+
+	// Create a custom dependency file
+	await writeFile('output.deps', JSON.stringify(listOfFilesUsed));
+});
+
+mk.rule('output.deps.mk', ['output.deps']);
+
+mk.include('output.deps.mk', async (mk) => {
+	const listOfFilesUsed = JSON.parse(await readFile('output.deps', 'utf8'));
+	mk.rule('output', listOfFilesUsed);
+});
+```
 
 ### Observability
 

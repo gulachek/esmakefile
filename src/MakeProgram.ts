@@ -13,11 +13,16 @@ export class MakeProgram {
 	private db: MakeDatabase;
 	private mtx: Mutex;
 	private logger: Logger;
+	private fn: MakefileFn;
+	private path: string;
 
-	private constructor(db: MakeDatabase) {
-		this.db = db;
+	private constructor(makeFn: MakefileFn, opts?: IMakeProgramParseOpts) {
+		opts = opts || {};
+		this.db = new MakeDatabase();
 		this.mtx = new Mutex();
 		this.logger = getLogger({ name: 'esmakefile.MakeProgram' });
+		this.fn = makeFn;
+		this.path = opts.path || 'Makefile';
 	}
 
 	static async parse(
@@ -27,11 +32,10 @@ export class MakeProgram {
 		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
 		logger.trace('Makefile.parse');
 
-		opts = opts || {};
-		const db = new MakeDatabase();
-		const make = new MakeProgram(db);
+		const make = new MakeProgram(makeFn, opts);
+		const db = make.db;
 
-		db.insertMakefile(opts.path || 'Makefile', makeFn);
+		db.insertMakefile(make.path, make.fn);
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {

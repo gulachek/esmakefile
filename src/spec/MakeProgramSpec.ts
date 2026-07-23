@@ -231,7 +231,7 @@ describe('MakeProgram', () => {
 				mk.rule('foo', () => {});
 			});
 
-			expect(make.hasTarget('foo')).to.be.true;
+			expect(await make.hasTarget('foo')).to.be.true;
 		});
 
 		it('returns false if target is not added to a rule', async () => {
@@ -239,7 +239,7 @@ describe('MakeProgram', () => {
 				mk.rule('foo', () => {});
 			});
 
-			expect(make.hasTarget('bar')).to.be.false;
+			expect(await make.hasTarget('bar')).to.be.false;
 		});
 	});
 
@@ -902,7 +902,7 @@ describe('MakeProgram', () => {
 				});
 
 				expect(
-					make.hasTarget(nested),
+					await make.hasTarget(nested),
 					'expected program to contain nested target',
 				).to.be.true;
 			});
@@ -956,7 +956,7 @@ describe('MakeProgram', () => {
 				});
 
 				expect(
-					make.hasTarget(nested),
+					await make.hasTarget(nested),
 					'expected program to contain nested target',
 				).to.be.true;
 			});

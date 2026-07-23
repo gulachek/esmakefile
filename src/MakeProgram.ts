@@ -116,7 +116,7 @@ export class MakeProgram {
 		return out;
 	}
 
-	hasTarget(t: string): boolean {
+	async hasTarget(t: string): Promise<boolean> {
 		return !!this.db.selectTargetByRawPath(t);
 	}
 }

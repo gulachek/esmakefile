@@ -62,9 +62,7 @@ const makeProgram = async () => {
 		process.exit(1);
 	}
 
-	return MakeProgram.parse(mod.main, {
-		rootDir: '.',
-	});
+	return MakeProgram.parse(mod.main, {});
 };
 
 const parseLogLevel = (): LogLevel => {

@@ -264,7 +264,7 @@ describe('MakeProgram', () => {
 		}
 
 		async function parse(makeFn: MakefileFn): Promise<MakeProgram | null> {
-			return MakeProgram.parse(makeFn, { rootDir });
+			return MakeProgram.parse(makeFn);
 		}
 
 		beforeEach(async () => {
@@ -1046,12 +1046,9 @@ describe('MakeProgram', () => {
 		});
 
 		it('is an error when the __esmakefile__ dir is not created', async () => {
-			const make = await MakeProgram.parse(
-				(mk) => {
-					mk.rule('simple', () => {});
-				},
-				{ rootDir },
-			);
+			const make = await MakeProgram.parse((mk) => {
+				mk.rule('simple', () => {});
+			});
 
 			await makeReadOnlyDir(rootDir);
 			const result = await make.update();

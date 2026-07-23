@@ -5,9 +5,7 @@ import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
-export interface IMakeProgramParseOpts {
-	rootDir?: string;
-}
+export interface IMakeProgramParseOpts {}
 
 export class MakeProgram {
 	private db: MakeDatabase;

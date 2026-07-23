@@ -1,48 +1,8 @@
-/** @import {IRule, RecipeArgs, Makefile} from 'esmakefile' */
+/** @import {Makefile} from 'esmakefile' */
 import { getLogger } from 'esmakefile';
 
 import * as sass from 'sass';
-import { writeFile } from 'node:fs/promises';
-
-/** @implements {IRule} */
-class ScssRecipe {
-	/**
-	 * @param {string} src
-	 * @param {string} destPath
-	 */
-	constructor(src, destPath) {
-		/** @private @type {string} */
-		this._srcPath = src;
-		/** @private @type {string} */
-		this._destPath = destPath;
-	}
-
-	prereqs() {
-		return this._srcPath;
-	}
-
-	targets() {
-		return this._destPath;
-	}
-
-	/** @param {RecipeArgs} args */
-	async recipe(args) {
-		const log = getLogger({ name: 'esmakefile.example.ScssRecipe' });
-		const dest = this._destPath;
-		const src = this._srcPath;
-
-		log.info(`sass ${this._srcPath}`);
-		const result = sass.compile(src);
-
-		// update dependencies
-		for (const url of result.loadedUrls) {
-			args.addPostreq(url.pathname);
-		}
-
-		await writeFile(dest, result.css, 'utf8');
-		return true;
-	}
-}
+import { writeFile, readFile } from 'node:fs/promises';
 
 /**
  * @param {Makefile} mk
@@ -51,5 +11,25 @@ class ScssRecipe {
  * @returns {void}
  */
 export function addSass(mk, src, dest) {
-	mk.rule(new ScssRecipe(src, dest));
+	const depsFile = `${dest}.deps.json`;
+	const depsMkFile = `${dest}.deps.mk`;
+
+	mk.rule([dest, depsFile], [src], async () => {
+		const log = getLogger({ name: 'esmakefile.example.ScssRecipe' });
+
+		log.debug(`sass ${src}`);
+		const result = sass.compile(src);
+
+		await writeFile(dest, result.css, 'utf8');
+
+		// update dependencies
+		const deps = result.loadedUrls.map((u) => u.pathname);
+		await writeFile(depsFile, JSON.stringify(deps));
+	});
+
+	mk.rule(depsMkFile, [depsFile]);
+	mk.include(depsMkFile, async (mk) => {
+		const deps = JSON.parse(await readFile(depsFile, 'utf8'));
+		mk.rule(dest, deps);
+	});
 }

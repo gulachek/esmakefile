@@ -128,7 +128,7 @@ export class UpdateExecution {
 	}
 
 	private async _findOrStartBuild(target: TargetInfo): Promise<boolean> {
-		this._logger.trace(`_findOrStartBuild('${target.path}')`);
+		this._logger.trace(`_findOrStartBuild('${target.path.path}')`);
 
 		// TODO - is this necessary? Seems like recipe is the expensive thing
 		const built = this._builtTargets.get(target);
@@ -168,10 +168,9 @@ export class UpdateExecution {
 	): Promise<boolean> {
 		const prereqsToUpdate: TargetInfo[] = [];
 		const allPrereqs: PathInfo[] = [];
-		const allPostreq: string[] = [];
 
 		for (const target of targetGroup) {
-			const { rules, postreqs } = target;
+			const { rules } = target;
 
 			for (const ruleId of rules) {
 				const ruleInfo = this._db.selectRule(ruleId);
@@ -186,15 +185,13 @@ export class UpdateExecution {
 					}
 				}
 			}
-
-			if (postreqs) allPostreq.push(...postreqs);
 		}
 
 		if (!(await this.updateAll(prereqsToUpdate))) {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsBuild(targetGroup, allPrereqs, allPostreq);
+		const targetStatus = this._needsBuild(targetGroup, allPrereqs);
 
 		if (targetStatus === NeedsBuildValue.missingSrc) {
 			return this.endTarget(false);
@@ -256,7 +253,7 @@ export class UpdateExecution {
 				eventName: EVENT_RECIPE_BEGIN,
 				body: `Updating target '${tPath(requestedTarget)}'`,
 			});
-			const args = new RecipeArgs(new Set<string>());
+			const args = new RecipeArgs();
 			result = await recipeInfo.recipe(args);
 		} catch (err) {
 			exception = err;
@@ -288,7 +285,6 @@ export class UpdateExecution {
 	private _needsBuild(
 		targetGroup: TargetInfo[],
 		prereqs: PathInfo[],
-		postreqs: string[],
 	): NeedsBuildValue {
 		let newestDepMtimeMs = -Infinity;
 
@@ -314,12 +310,6 @@ export class UpdateExecution {
 			} else {
 				return NeedsBuildValue.missing;
 			}
-		}
-
-		for (const post of postreqs) {
-			const postStat = statSync(post, { throwIfNoEntry: false });
-			if (!postStat) return NeedsBuildValue.stale; // need to see if still needed
-			newestDepMtimeMs = Math.max(postStat.mtimeMs, newestDepMtimeMs);
 		}
 
 		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;

@@ -2,6 +2,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { dirname, join, basename } from 'node:path';
+import { getLogger } from 'esmakefile';
 
 /** @implements {IRule} */
 export class ClangObjectRecipe {
@@ -35,7 +36,7 @@ export class ClangObjectRecipe {
 	 * @param {RecipeArgs} args
 	 * @returns {Promise<boolean>}
 	 */
-	async recipe(args) {
+	recipe(args) {
 		const [obj, depfile, cmds] = this.targets();
 		const src = this.src;
 
@@ -45,19 +46,7 @@ export class ClangObjectRecipe {
 		clangArgs.push('-I', join(dirname(src), 'include'));
 		clangArgs.push('-MJ', cmds);
 
-		const result = await args.spawn('c++', clangArgs);
-		if (!result) return false;
-
-		const depfileContents = await readFile(depfile, 'utf8');
-		const depfileLines = depfileContents.split('\n');
-		depfileLines.shift(); // get rid of self
-		for (const dep of depfileLines) {
-			if (!dep) continue;
-			if (dep.endsWith(' \\')) args.addPostreq(dep.slice(2, dep.length - 2));
-			else args.addPostreq(dep.slice(2));
-		}
-
-		return true;
+		return args.spawn('c++', clangArgs);
 	}
 }
 
@@ -70,6 +59,28 @@ export class ClangObjectRecipe {
 export function addClangObject(mk, src, dest) {
 	const obj = new ClangObjectRecipe(src, dest);
 	mk.rule(obj);
+
+	const depfile = obj.depfile;
+
+	const depfileMk = depfile + '.mk';
+	mk.rule(depfileMk, [depfile]);
+	mk.include(depfileMk, async (mk) => {
+		const log = getLogger({ name: 'esmakefile.example.addClangObject' });
+
+		const depfileContents = await readFile(depfile, 'utf8');
+		const depfilePieces = depfileContents.split(/\s+/);
+
+		if (depfilePieces.length > 0) {
+			const first = depfilePieces.shift(); // get rid of self
+			log.trace(`(${depfile}) dropping piece '${first}'`);
+		}
+
+		for (const dep of depfilePieces) {
+			if (!dep) continue;
+			log.trace(`(${depfile}) parsing content: ${dep}`);
+			mk.rule(dest, [dep]);
+		}
+	});
 
 	return obj;
 }

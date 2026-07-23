@@ -65,7 +65,6 @@ export type TargetInfo = {
 	path: PathInfo;
 	rules: Set<RuleId>;
 	recipeRule: RuleId | null;
-	postreqs?: string[];
 };
 
 const PathIdKey = '__pathId';

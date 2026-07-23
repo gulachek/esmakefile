@@ -98,61 +98,6 @@ be up to date. The rule to update `hello` specifies that
 update `hello` itself, namely linking `hello.o` into an
 executable file.
 
-#### Postreqs
-
-> [!TODO]
-> Postreqs are currently disabled and are under construction to
-> be a convenience API built on top of `Makefile.include`
-
-A "postreq" in esmakefile is a conceptual addition to the Make
-model, and its related to the "prereq" (prerequisite) concept
-discussed above. For a given rule, both prereqs and postreqs are
-required to functionally update the associated target. The
-difference lies at _when_ this dependency is expressed in the
-build system.
-
-See the following example.
-
-```javascript
-const fileList = 'file-list.txt';
-const concat = 'concat.txt';
-
-mk.rule(concat, [fileList], async (args) => {
-	const paths = await parseFileList(fileList);
-	const contents = [];
-
-	for (const p of paths) {
-		contents.push(readContents(p));
-		args.addPostreq(p); // p should be an absolute path
-	}
-
-	await writeContents(concat, contents);
-});
-```
-
-The dependency of the `concat.txt` target on the `file-list.txt`
-prereq is known _a priori_ to running the build system, whereas
-the dependency of `concat.txt` on each individual path whose
-contents are included is only known _a posteriori_ with respect
-to running the associated recipe.
-
-Postreqs are useful when integrating with other build tools. For
-example, C compilers have a mechanism to output "dependency
-files", listing all of the headers included when compiling a C
-source file. Instead of requiring a user to specify the
-dependency on all of these headers, the recipe can parse this
-dependency file output and add the headers as postreqs, meaning
-that as headers are changed, the compiled output will be kept up
-to date automatically.
-
-> [!WARNING]
-> Postreqs do not work well when the postreq refers to the
-> target of another rule. Doing so causes problems where
-> esmakefile cannot update the higher level target when starting
-> from a clean slate since it's unaware of the need to update
-> the lower level target prior to updating the higher level one,
-> often resulting in frustrating build failures.
-
 ### CLI Driver
 
 Most of the time, esmakefile is interacted with by a user
@@ -299,6 +244,40 @@ find this limitation especially limiting should submit issues
 clearly documenting use cases and why this isn't easy to work
 around.
 
+### Dependency Files
+
+A common pattern in Make build systems, especially in C/C++
+development, is to have a compiler output a "dependency file".
+This dependency file contains Make rules describing which header
+files are needed by which `.c` files so that developers only
+need to `#include "header.h"` in the C code as opposed to in
+explicit Make rules as well. The dependency file is then
+included (via `include`) in the `Makefile` to pull those
+generated rules into the build system.
+
+This pattern is possible in esmakefile:
+
+```js
+mk.rule(['output', 'output.deps'], ['input'], async (args) => {
+	// This is generic for demonstration purposes. The assumption
+	// is that the compiler informs the user of which files, beyond
+	// 'input', were used during compilation, as an array.
+	const { content, listOfFilesUsed } = compile('input');
+
+	// Write the normal content
+	await writeFile('output', content);
+
+	// Create a custom dependency file
+	await writeFile('output.deps', JSON.stringify(listOfFilesUsed));
+});
+
+mk.rule('output.deps.mk', ['output.deps']);
+
+mk.include('output.deps.mk', async (mk) => {
+	const listOfFilesUsed = JSON.parse(await readFile('output.deps', 'utf8'));
+	mk.rule('output', listOfFilesUsed);
+});
+```
 
 ### Observability
 

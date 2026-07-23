@@ -1,10 +1,7 @@
 import { IRule, RecipeArgs } from './Rule.js';
-import { resolve } from 'node:path';
 import { MakeDatabase, MakefileInfo, PathInfo } from './MakeDatabase.js';
 
 export interface IMakefileOpts {
-	buildRoot?: string;
-	srcRoot?: string;
 	db: MakeDatabase;
 	path: PathInfo;
 }
@@ -46,15 +43,10 @@ export type MakefileFn = (
 ) => (void | boolean) | Promise<void | boolean>;
 
 export class Makefile {
-	readonly buildRoot: string;
-	readonly srcRoot: string;
-
 	private _path: PathInfo;
 	private _db: MakeDatabase;
 
 	constructor(opts: IMakefileOpts) {
-		this.srcRoot = resolve(opts.srcRoot || '.');
-		this.buildRoot = resolve(opts.buildRoot || 'build');
 		this._db = opts.db;
 		this._path = opts.path;
 	}

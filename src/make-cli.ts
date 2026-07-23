@@ -153,7 +153,8 @@ program
 	.action(async function () {
 		const { make } = await processGlobalOpts({ suppressLogs: true });
 
-		for (const t of make.targets()) {
+		const targets = await make.targets();
+		for (const t of targets) {
 			console.log(t);
 		}
 	});

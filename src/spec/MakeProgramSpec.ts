@@ -175,7 +175,7 @@ describe('MakeProgram', () => {
 				mk.rule(new CopyFileRule('src.txt', 'sub/dest.txt'));
 			});
 
-			const targets = new Set(make.targets());
+			const targets = new Set(await make.targets());
 
 			expect(targets.size).to.equal(2);
 			expect(targets.has('write.txt')).to.be.true;

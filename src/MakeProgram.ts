@@ -107,7 +107,7 @@ export class MakeProgram {
 		return result;
 	}
 
-	targets(): string[] {
+	async targets(): Promise<string[]> {
 		const out: string[] = [];
 		for (const t of this.db.selectTargets()) {
 			const pathInfo = t.path;

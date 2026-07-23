@@ -128,7 +128,7 @@ export class UpdateExecution {
 	}
 
 	private async _findOrStartBuild(target: TargetInfo): Promise<boolean> {
-		this._logger.trace(`_findOrStartBuild('${target.path}')`);
+		this._logger.trace(`_findOrStartBuild('${target.path.path}')`);
 
 		// TODO - is this necessary? Seems like recipe is the expensive thing
 		const built = this._builtTargets.get(target);

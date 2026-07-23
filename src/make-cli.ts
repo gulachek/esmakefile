@@ -62,7 +62,7 @@ const makeProgram = async () => {
 		process.exit(1);
 	}
 
-	return MakeProgram.parse(mod.main, {});
+	return MakeProgram.parse(mod.main, { path: mod.path });
 };
 
 const parseLogLevel = (): LogLevel => {
@@ -162,6 +162,7 @@ program.parseAsync();
 
 interface IMakefileModule {
 	main: MakefileFn;
+	path: string;
 }
 
 async function loadMakefileModule(
@@ -236,7 +237,7 @@ async function loadMakefileModule(
 						`Module has default export of function type named '${mod.default.name}'. Considering successful load.`,
 					);
 				}
-				return { main: mod.default as MakefileFn };
+				return { main: mod.default as MakefileFn, path: f };
 			}
 
 			if ('main' in mod && typeof mod.main === 'function') {
@@ -245,7 +246,7 @@ async function loadMakefileModule(
 						`Module has export of function type named 'main'. Considering successful load.`,
 					);
 				}
-				return { main: mod.main as MakefileFn };
+				return { main: mod.main as MakefileFn, path: f };
 			}
 		}
 	}

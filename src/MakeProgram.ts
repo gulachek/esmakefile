@@ -5,7 +5,9 @@ import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
-export interface IMakeProgramParseOpts {}
+export interface IMakeProgramParseOpts {
+	path?: string;
+}
 
 export class MakeProgram {
 	private db: MakeDatabase;
@@ -29,7 +31,7 @@ export class MakeProgram {
 		const db = new MakeDatabase();
 		const make = new MakeProgram(db);
 
-		db.insertMakefile('Makefile', makeFn);
+		db.insertMakefile(opts.path || 'Makefile', makeFn);
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {

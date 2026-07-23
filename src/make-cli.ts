@@ -48,7 +48,7 @@ program.option('-v, --debug', 'Sets the log level to "debug"', false);
 const makeProgram = async () => {
 	let mod: IMakefileModule | null;
 	try {
-		mod = await loadMakefileModule('.', logger);
+		mod = await loadMakefileModule(logger);
 	} catch (exception) {
 		logger.fatal({
 			body: 'Scan for Makefile threw an exception',
@@ -165,20 +165,19 @@ interface IMakefileModule {
 }
 
 async function loadMakefileModule(
-	rootDir: string,
 	logger: Logger,
 ): Promise<IMakefileModule | null> {
 	const trace = logger.enabled({ level: LogLevel.trace });
 	const debug = logger.enabled({ level: LogLevel.debug });
 	if (trace) {
-		logger.trace(`Scanning directory '${rootDir}' for Makefile`);
+		logger.trace(`Scanning '${resolve('.')}' for Makefile`);
 	}
 	const basenames = ['esmakefile', 'makefile', 'Makefile'];
 	const exts = ['.mjs', '.cjs', '.js'];
 
 	for (const b of basenames) {
 		for (const e of exts) {
-			const f = resolve(rootDir, b + e);
+			const f = b + e;
 			if (trace) {
 				logger.trace(`Trying '${f}' as Makefile`);
 			}

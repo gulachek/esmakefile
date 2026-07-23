@@ -256,7 +256,7 @@ export class UpdateExecution {
 				eventName: EVENT_RECIPE_BEGIN,
 				body: `Updating target '${tPath(requestedTarget)}'`,
 			});
-			const args = new RecipeArgs(new Set<string>());
+			const args = new RecipeArgs();
 			result = await recipeInfo.recipe(args);
 		} catch (err) {
 			exception = err;

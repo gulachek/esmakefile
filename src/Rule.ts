@@ -31,21 +31,10 @@ export interface IRule {
 }
 
 export class RecipeArgs {
-	private _postreqs: Set<string>;
 	private _log: Logger;
 
-	constructor(postreqs: Set<string>) {
-		this._postreqs = postreqs;
+	constructor() {
 		this._log = getLogger({ name: 'esmakefile.RecipeArgs' });
-	}
-
-	addPostreq(abs: string): void {
-		if (!isAbsolute(abs))
-			throw new Error(
-				`addPostreq: argument must be an absolute path. '${abs}' given.`,
-			);
-
-		this._postreqs.add(abs);
 	}
 
 	async spawn(cmd: string, cmdArgs: string[]): Promise<boolean> {

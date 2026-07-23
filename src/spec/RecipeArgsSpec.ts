@@ -15,7 +15,7 @@ import {
 const nodeExe = process.execPath;
 
 function mkArgs(): RecipeArgs {
-	return new RecipeArgs(new Set<string>());
+	return new RecipeArgs();
 }
 
 describe('RecipeArgs', () => {
@@ -28,13 +28,6 @@ describe('RecipeArgs', () => {
 
 		storeImpl = new InMemoryArtifactStore();
 		setArtifactStoreImpl(storeImpl);
-	});
-
-	describe('addPostreq', () => {
-		it('throws when relative path is given', () => {
-			const args = mkArgs();
-			expect(() => args.addPostreq('relative/path')).to.throw();
-		});
 	});
 
 	describe('spawn', () => {

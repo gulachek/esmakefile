@@ -31,7 +31,7 @@ class ScssRecipe {
 		const dest = this._destPath;
 		const src = this._srcPath;
 
-		log.info(`sass ${this._srcPath}`);
+		log.debug(`sass ${this._srcPath}`);
 		const result = sass.compile(src);
 
 		// update dependencies

@@ -10,6 +10,7 @@
 // EVENT_${eventName} for event names
 
 export const ATTR_ARTIFACT_ID = 'esmakefile.artifact.id';
+export const ATTR_MAKEFILE_PATH = 'esmakefile.makefile.path';
 
 export const EVENT_MAKEFILE_EXCEPTION = 'esmakefile.makefile.exception';
 export const EVENT_RECIPE_BEGIN = 'esmakefile.recipe.begin';

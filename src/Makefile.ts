@@ -1,5 +1,7 @@
 import { IRule, RecipeArgs } from './Rule.js';
 import { MakeDatabase, MakefileInfo, PathInfo } from './MakeDatabase.js';
+import { getLogger, Logger, LogLevel } from './logs.js';
+import { ATTR_MAKEFILE_PATH } from './names.js';
 
 export interface IMakefileOpts {
 	db: MakeDatabase;
@@ -45,10 +47,17 @@ export type MakefileFn = (
 export class Makefile {
 	private _path: PathInfo;
 	private _db: MakeDatabase;
+	private _logger: Logger;
 
 	constructor(opts: IMakefileOpts) {
 		this._db = opts.db;
 		this._path = opts.path;
+		this._logger = getLogger({
+			name: 'esmakefile.Makefile',
+			attributes: {
+				[ATTR_MAKEFILE_PATH]: this._path.path,
+			},
+		});
 	}
 
 	private _info(): MakefileInfo {
@@ -106,6 +115,13 @@ export class Makefile {
 			throw new Error('Cannot add a rule to a Makefile that is done parsing');
 		}
 
+		if (this._logger.enabled({ level: LogLevel.trace })) {
+			const tStr = JSON.stringify(targets);
+			const pStr = JSON.stringify(prereqs);
+			const fnStr = recipe ? recipe.name || '(+recipe)' : 'null';
+			this._logger.trace(`rule(${tStr}, ${pStr}, ${fnStr})`);
+		}
+
 		this._db.insertRule({
 			targets,
 			prereqs,
@@ -114,6 +130,10 @@ export class Makefile {
 	}
 
 	public include(target: string, mkFn: MakefileFn): void {
+		if (this._logger.enabled({ level: LogLevel.trace })) {
+			this._logger.trace(`include(${target})`);
+		}
+
 		this._db.insertMakefile(target, mkFn);
 	}
 }

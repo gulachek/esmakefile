@@ -27,7 +27,6 @@ npm install -D esmakefile
 
 ```javascript
 // Makefile.mjs
-import { join } from 'node:path';
 
 export default function main(mk) {
 	const hello = 'hello';

@@ -1079,6 +1079,20 @@ describe('MakeProgram', () => {
 				'build did not indicate a circular dependency was found',
 			).not.to.be.null;
 		});
+
+		it('reruns given MakefileFn on subsequent update', async () => {
+			let count = 0;
+			const make = new MakeProgram((mk) => {
+				++count;
+				mk.rule('all');
+			});
+
+			expect(count).to.equal(0);
+			await make.update();
+			expect(count).to.equal(1);
+			await make.update();
+			expect(count).to.equal(2);
+		});
 	});
 });
 

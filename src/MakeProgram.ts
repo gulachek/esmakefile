@@ -76,18 +76,6 @@ export class MakeProgram {
 		return db;
 	}
 
-	static async parse(
-		makeFn: MakefileFn,
-		opts?: IMakeProgramOpts,
-	): Promise<MakeProgram | null> {
-		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
-		logger.trace('Makefile.parse');
-
-		const make = new MakeProgram(makeFn, opts);
-		const result = await make.parse();
-		return result ? make : null;
-	}
-
 	async parse(): Promise<boolean> {
 		const db = await this.loadDb();
 		return !!db;

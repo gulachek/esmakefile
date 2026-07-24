@@ -116,53 +116,60 @@ describe('MakeProgram', () => {
 	});
 
 	describe('parse', () => {
-		it('returns instance when fn returns void', async () => {
-			const make = await MakeProgram.parse(() => {});
-			expect(make).not.to.be.empty;
+		it('returns true when fn returns void', async () => {
+			const make = new MakeProgram(() => {});
+			const result = await make.parse();
+			expect(result).to.be.true;
 		});
 
-		it('returns instance when fn returns void Promise', async () => {
-			const make = await MakeProgram.parse(async () => {
+		it('returns true when fn returns void Promise', async () => {
+			const make = new MakeProgram(async () => {
 				await waitMs(0);
 			});
-			expect(make).not.to.be.empty;
+			const result = await make.parse();
+			expect(result).to.be.true;
 		});
 
-		it('returns instance when fn returns true', async () => {
-			const make = await MakeProgram.parse(() => {
+		it('returns true when fn returns true', async () => {
+			const make = new MakeProgram(() => {
 				return true;
 			});
-			expect(make).not.to.be.empty;
+			const result = await make.parse();
+			expect(result).to.be.true;
 		});
 
-		it('returns instance when fn returns true Promise', async () => {
-			const make = await MakeProgram.parse(() => {
+		it('returns true when fn returns true Promise', async () => {
+			const make = new MakeProgram(() => {
 				return Promise.resolve(true);
 			});
-			expect(make).not.to.be.empty;
+			const result = await make.parse();
+			expect(result).to.be.true;
 		});
 
-		it('returns null when fn throws', async () => {
-			const make = await MakeProgram.parse(() => {
+		it('returns false when fn throws', async () => {
+			const make = new MakeProgram(() => {
 				throw new Error('blah');
 			});
-			expect(make).to.be.null;
+			const result = await make.parse();
+			expect(result).to.be.false;
 		});
 
-		it('returns null when fn returns false', async () => {
-			const make = await MakeProgram.parse(() => {
+		it('returns false when fn returns false', async () => {
+			const make = new MakeProgram(() => {
 				return false;
 			});
-			expect(make).to.be.null;
+			const result = await make.parse();
+			expect(result).to.be.false;
 			expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to.be
 				.empty;
 		});
 
-		it('returns null when fn returns false Promise', async () => {
-			const make = await MakeProgram.parse(() => {
+		it('returns false when fn returns false Promise', async () => {
+			const make = new MakeProgram(() => {
 				return Promise.resolve(false);
 			});
-			expect(make).to.be.null;
+			const result = await make.parse();
+			expect(result).to.be.false;
 			expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to.be
 				.empty;
 		});

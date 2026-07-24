@@ -25,17 +25,10 @@ export class MakeProgram {
 		this.path = opts.path || 'Makefile';
 	}
 
-	static async parse(
-		makeFn: MakefileFn,
-		opts?: IMakeProgramParseOpts,
-	): Promise<MakeProgram | null> {
-		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
-		logger.trace('Makefile.parse');
+	async parse(): Promise<boolean> {
+		const db = this.db;
 
-		const make = new MakeProgram(makeFn, opts);
-		const db = make.db;
-
-		db.insertMakefile(make.path, make.fn);
+		db.insertMakefile(this.path, this.fn);
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {
@@ -49,33 +42,32 @@ export class MakeProgram {
 				const updateResult = await u.run(target);
 				if (!updateResult) {
 					// Already logged failure in UpdateExecution
-					return null;
+					return false;
 				}
 			}
 
 			const mkOpts = {
-				...opts,
 				db,
 				path: pathInfo,
 			};
 
-			logger.debug(`Parsing Makefile '${path}'`);
+			this.logger.debug(`Parsing Makefile '${path}'`);
 			const mk = new Makefile(mkOpts);
 			try {
 				const result = await fn(mk);
 				if (result === false) {
-					logger.error(
+					this.logger.error(
 						`Function '${fn.name}' for Makefile '${path}' returned false`,
 					);
-					return null;
+					return false;
 				}
 			} catch (exception) {
-				logger.error({
+				this.logger.error({
 					eventName: EVENT_MAKEFILE_EXCEPTION,
 					exception,
 					body: `Function '${fn.name}' for Makefile '${path}' threw exception`,
 				});
-				return null;
+				return false;
 			}
 
 			db.updateMakefile({ path: pathInfo, isParsed: true });
@@ -83,7 +75,19 @@ export class MakeProgram {
 			mkInfo = db.selectMakefileFirstUnparsed();
 		}
 
-		return make;
+		return true;
+	}
+
+	static async parse(
+		makeFn: MakefileFn,
+		opts?: IMakeProgramParseOpts,
+	): Promise<MakeProgram | null> {
+		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
+		logger.trace('Makefile.parse');
+
+		const make = new MakeProgram(makeFn, opts);
+		const result = await make.parse();
+		return result ? make : null;
 	}
 
 	async update(goal?: string): Promise<boolean> {

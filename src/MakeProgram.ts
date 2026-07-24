@@ -5,7 +5,7 @@ import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
-export interface IMakeProgramParseOpts {
+export interface IMakeProgramOpts {
 	path?: string;
 }
 
@@ -15,7 +15,7 @@ export class MakeProgram {
 	private fn: MakefileFn;
 	private path: string;
 
-	private constructor(makeFn: MakefileFn, opts?: IMakeProgramParseOpts) {
+	constructor(makeFn: MakefileFn, opts?: IMakeProgramOpts) {
 		opts = opts || {};
 		this.mtx = new Mutex();
 		this.logger = getLogger({ name: 'esmakefile.MakeProgram' });
@@ -78,7 +78,7 @@ export class MakeProgram {
 
 	static async parse(
 		makeFn: MakefileFn,
-		opts?: IMakeProgramParseOpts,
+		opts?: IMakeProgramOpts,
 	): Promise<MakeProgram | null> {
 		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
 		logger.trace('Makefile.parse');

@@ -48,7 +48,7 @@ program.option('-v, --debug', 'Sets the log level to "debug"', false);
 const makeProgram = async () => {
 	let mod: IMakefileModule | null;
 	try {
-		mod = await loadMakefileModule('.', logger);
+		mod = await loadMakefileModule(logger);
 	} catch (exception) {
 		logger.fatal({
 			body: 'Scan for Makefile threw an exception',
@@ -62,9 +62,7 @@ const makeProgram = async () => {
 		process.exit(1);
 	}
 
-	return MakeProgram.parse(mod.main, {
-		rootDir: '.',
-	});
+	return new MakeProgram(mod.main, { path: mod.path });
 };
 
 const parseLogLevel = (): LogLevel => {
@@ -155,7 +153,8 @@ program
 	.action(async function () {
 		const { make } = await processGlobalOpts({ suppressLogs: true });
 
-		for (const t of make.targets()) {
+		const targets = await make.targets();
+		for (const t of targets) {
 			console.log(t);
 		}
 	});
@@ -164,23 +163,23 @@ program.parseAsync();
 
 interface IMakefileModule {
 	main: MakefileFn;
+	path: string;
 }
 
 async function loadMakefileModule(
-	rootDir: string,
 	logger: Logger,
 ): Promise<IMakefileModule | null> {
 	const trace = logger.enabled({ level: LogLevel.trace });
 	const debug = logger.enabled({ level: LogLevel.debug });
 	if (trace) {
-		logger.trace(`Scanning directory '${rootDir}' for Makefile`);
+		logger.trace(`Scanning '${resolve('.')}' for Makefile`);
 	}
 	const basenames = ['esmakefile', 'makefile', 'Makefile'];
 	const exts = ['.mjs', '.cjs', '.js'];
 
 	for (const b of basenames) {
 		for (const e of exts) {
-			const f = resolve(rootDir, b + e);
+			const f = b + e;
 			if (trace) {
 				logger.trace(`Trying '${f}' as Makefile`);
 			}
@@ -239,7 +238,7 @@ async function loadMakefileModule(
 						`Module has default export of function type named '${mod.default.name}'. Considering successful load.`,
 					);
 				}
-				return { main: mod.default as MakefileFn };
+				return { main: mod.default as MakefileFn, path: f };
 			}
 
 			if ('main' in mod && typeof mod.main === 'function') {
@@ -248,7 +247,7 @@ async function loadMakefileModule(
 						`Module has export of function type named 'main'. Considering successful load.`,
 					);
 				}
-				return { main: mod.main as MakefileFn };
+				return { main: mod.main as MakefileFn, path: f };
 			}
 		}
 	}

@@ -134,8 +134,8 @@ invocation.
 npx make <goal>
 ```
 
-The format of `<goal>` is a path relative to the build root. In
-other words, if the target desired to be updated is specified as
+The format of `<goal>` is a relative path. In other words, if
+the target desired to be updated is specified as
 `'my/target.txt'`, then a user could update it with `npx make
 my/target.txt`.
 
@@ -153,15 +153,14 @@ npx make watch [goal]
 
 In cases where esmakefile needs to be run outside the context of
 a CLI environment, `MakeProgram` is exposed as a programmatic
-way to run an esmakefile build system. First, it must be
-"parsed" via `MakeProgram.parse`. Then, the parsed
-`MakeProgram` can update a goal target with the `update()`
-function. The goal that's updated can optionally be specified.
+way to run an esmakefile build system. It can update a goal
+target with the `update()` function. The goal that's updated can
+optionally be specified.
 
 ```js
 import { MakeProgram } from 'esmakefile';
 
-const make = await MakeProgram.parse((mk) => {
+const make = new MakeProgram((mk) => {
 	mk.rule('target', () => {
 		// ...
 	});

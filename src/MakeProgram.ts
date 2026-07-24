@@ -5,33 +5,28 @@ import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
-export interface IMakeProgramParseOpts {
-	rootDir?: string;
+export interface IMakeProgramOpts {
+	path?: string;
 }
 
 export class MakeProgram {
-	private db: MakeDatabase;
 	private mtx: Mutex;
 	private logger: Logger;
+	private fn: MakefileFn;
+	private path: string;
 
-	private constructor(db: MakeDatabase) {
-		this.db = db;
+	constructor(makeFn: MakefileFn, opts?: IMakeProgramOpts) {
+		opts = opts || {};
 		this.mtx = new Mutex();
 		this.logger = getLogger({ name: 'esmakefile.MakeProgram' });
+		this.fn = makeFn;
+		this.path = opts.path || 'Makefile';
 	}
 
-	static async parse(
-		makeFn: MakefileFn,
-		opts?: IMakeProgramParseOpts,
-	): Promise<MakeProgram | null> {
-		const logger = getLogger({ name: 'esmakefile.MakeProgram.parse' });
-		logger.trace('Makefile.parse');
-
-		opts = opts || {};
+	private async loadDb(): Promise<MakeDatabase | null> {
 		const db = new MakeDatabase();
-		const make = new MakeProgram(db);
 
-		db.insertMakefile('Makefile', makeFn);
+		db.insertMakefile(this.path, this.fn);
 
 		let mkInfo = db.selectMakefileFirstUnparsed();
 		while (mkInfo) {
@@ -50,23 +45,22 @@ export class MakeProgram {
 			}
 
 			const mkOpts = {
-				...opts,
 				db,
 				path: pathInfo,
 			};
 
-			logger.debug(`Parsing Makefile '${path}'`);
+			this.logger.debug(`Parsing Makefile '${path}'`);
 			const mk = new Makefile(mkOpts);
 			try {
 				const result = await fn(mk);
 				if (result === false) {
-					logger.error(
+					this.logger.error(
 						`Function '${fn.name}' for Makefile '${path}' returned false`,
 					);
 					return null;
 				}
 			} catch (exception) {
-				logger.error({
+				this.logger.error({
 					eventName: EVENT_MAKEFILE_EXCEPTION,
 					exception,
 					body: `Function '${fn.name}' for Makefile '${path}' threw exception`,
@@ -79,21 +73,28 @@ export class MakeProgram {
 			mkInfo = db.selectMakefileFirstUnparsed();
 		}
 
-		return make;
+		return db;
+	}
+
+	async parse(): Promise<boolean> {
+		const db = await this.loadDb();
+		return !!db;
 	}
 
 	async update(goal?: string): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
+		const db = await this.loadDb();
+		if (!db) return false;
 		let goalInfo: TargetInfo;
 		if (goal) {
-			const givenInfo = this.db.selectTargetByRawPath(goal);
+			const givenInfo = db.selectTargetByRawPath(goal);
 			if (!givenInfo) {
 				this.logger.error(`Makefile has no target defined for goal '${goal}'.`);
 				return false;
 			}
 			goalInfo = givenInfo;
 		} else {
-			const defaultInfo = defaultGoal(this.db);
+			const defaultInfo = defaultGoal(db);
 			if (!defaultInfo) {
 				this.logger.error('No targets were found. Nothing to update.');
 				return false;
@@ -101,23 +102,28 @@ export class MakeProgram {
 			goalInfo = defaultInfo;
 		}
 
-		const build = new UpdateExecution(this.db);
+		const build = new UpdateExecution(db);
 		// important to not simply return build.run() promise as it would unlock mtx too early
 		const result = await build.run(goalInfo);
 		return result;
 	}
 
-	targets(): string[] {
+	async targets(): Promise<string[]> {
+		const db = await this.loadDb();
+		if (!db) return [];
+
 		const out: string[] = [];
-		for (const t of this.db.selectTargets()) {
+		for (const t of db.selectTargets()) {
 			const pathInfo = t.path;
 			out.push(pathInfo.path);
 		}
 		return out;
 	}
 
-	hasTarget(t: string): boolean {
-		return !!this.db.selectTargetByRawPath(t);
+	async hasTarget(t: string): Promise<boolean> {
+		const db = await this.loadDb();
+		if (!db) return false;
+		return !!db.selectTargetByRawPath(t);
 	}
 }
 

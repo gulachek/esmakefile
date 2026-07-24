@@ -27,7 +27,6 @@ npm install -D esmakefile
 
 ```javascript
 // Makefile.mjs
-
 export default function main(mk) {
 	const hello = 'hello';
 	const hello_o = 'hello.o';
@@ -59,13 +58,13 @@ npx make
 ## Concepts
 
 This section broadly discusses the most essential concepts of
-esmakefile. The concepts are divided into sub sections to help
+esmakefile. The concepts are divided into subsections to help
 the reader organize a conceptual model, but the concepts
 generally do not stand alone without concepts pulled from the
-other sections.
+other subsections.
 
 For detailed API documentation, refer to the source
-code's TSDoc comments and implementation. The main entrypoint
+code's TSDoc comments and implementation. The main entry point
 for the public API is `src/index.ts`.
 
 ### `Makefile` Rules
@@ -134,7 +133,7 @@ invocation.
 npx make <goal>
 ```
 
-The format of `<goal>` is a relative path. In other words, if
+The format of `<goal>` is a path. In other words, if
 the target desired to be updated is specified as
 `'my/target.txt'`, then a user could update it with `npx make
 my/target.txt`.

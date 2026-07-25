@@ -126,8 +126,8 @@ export class UpdateExecution {
 		recipeRule: RuleId | null,
 		requestedTarget: TargetInfo,
 	): Promise<boolean> {
-		const prereqsToUpdate: TargetInfo[] = [];
-		const allPrereqs: PathInfo[] = [];
+		const targetPrereqs: TargetInfo[] = [];
+		const nonTargetPrereqs: PathInfo[] = [];
 
 		for (const target of targetGroup) {
 			const { rules } = target;
@@ -137,21 +137,25 @@ export class UpdateExecution {
 
 				// update prereqs
 				for (const src of ruleInfo.prereqs) {
-					allPrereqs.push(src);
-
 					const srcTarget = this._db.selectTargetByPath(src);
 					if (srcTarget) {
-						prereqsToUpdate.push(srcTarget);
+						targetPrereqs.push(srcTarget);
+					} else {
+						nonTargetPrereqs.push(src);
 					}
 				}
 			}
 		}
 
-		if (!(await this.updateAll(prereqsToUpdate))) {
+		if (!(await this.updateAll(targetPrereqs))) {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = await this._needsUpdate(targetGroup, allPrereqs);
+		const targetStatus = await this._needsUpdate(
+			targetGroup,
+			targetPrereqs,
+			nonTargetPrereqs,
+		);
 
 		if (targetStatus === NeedsUpdateValue.missingSrc) {
 			return this.endTarget(false);
@@ -219,17 +223,26 @@ export class UpdateExecution {
 
 	private async _needsUpdate(
 		targetGroup: TargetInfo[],
-		prereqs: PathInfo[],
+		targetPrereqs: TargetInfo[],
+		nonTargetPrereqs: PathInfo[],
 	): Promise<NeedsUpdateValue> {
 		let newestDepMtimeMs = -Infinity;
 
-		for (const prereq of prereqs) {
+		for (const prereq of targetPrereqs) {
+			const abs = this._db.resolvePath(prereq.pathInfo);
+			const preStat = await this._stat(abs);
+			if (preStat) {
+				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
+			} else {
+				return NeedsUpdateValue.stale; // phony target
+			}
+		}
+
+		for (const prereq of nonTargetPrereqs) {
 			const abs = this._db.resolvePath(prereq);
 			const preStat = await this._stat(abs);
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
-			} else if (this._db.selectTargetByPath(prereq)) {
-				newestDepMtimeMs = Infinity;
 			} else {
 				this._logger.error(`Missing prereq file '${abs}'.`);
 				return NeedsUpdateValue.missingSrc;

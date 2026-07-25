@@ -8,17 +8,17 @@ import {
 } from './MakeDatabase.js';
 import { RecipeArgs } from './Rule.js';
 
-import { mkdir } from 'node:fs/promises';
-import { statSync } from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as nodePath from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
-import { Logger, getLogger } from './logs.js';
+import { LogLevel, Logger, getLogger } from './logs.js';
 import {
 	EVENT_RECIPE_BEGIN,
 	EVENT_RECIPE_EXCEPTION,
 	EVENT_TARGET_STALE_NO_RECIPE,
 	EVENT_TARGET_UP_TO_DATE,
 } from './names.js';
+import { Stats } from 'node:fs';
 
 export class UpdateExecution {
 	private _db: MakeDatabase;
@@ -61,7 +61,7 @@ export class UpdateExecution {
 		const esmakefileDir = '__esmakefile__';
 
 		try {
-			await mkdir(esmakefileDir, { recursive: true });
+			await fsPromises.mkdir(esmakefileDir, { recursive: true });
 		} catch (ex) {
 			this._logger.error(
 				`Failed to make directory '${esmakefileDir}': ${ex.message}`,
@@ -150,7 +150,7 @@ export class UpdateExecution {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsUpdate(targetGroup, allPrereqs);
+		const targetStatus = await this._needsUpdate(targetGroup, allPrereqs);
 
 		if (targetStatus === NeedsUpdateValue.missingSrc) {
 			return this.endTarget(false);
@@ -185,7 +185,7 @@ export class UpdateExecution {
 
 		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
-			await mkdir(nodePath.dirname(t.pathInfo.path), {
+			await fsPromises.mkdir(nodePath.dirname(t.pathInfo.path), {
 				recursive: true,
 			});
 		}
@@ -216,15 +216,15 @@ export class UpdateExecution {
 		return this.endTarget(result);
 	}
 
-	private _needsUpdate(
+	private async _needsUpdate(
 		targetGroup: TargetInfo[],
 		prereqs: PathInfo[],
-	): NeedsUpdateValue {
+	): Promise<NeedsUpdateValue> {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of prereqs) {
 			const abs = this._db.resolvePath(prereq);
-			const preStat = statSync(abs, { throwIfNoEntry: false });
+			const preStat = await this._stat(abs);
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
 			} else if (this._db.selectTargetByPath(prereq)) {
@@ -238,7 +238,7 @@ export class UpdateExecution {
 		let oldestTargetMtimeMs = Infinity;
 		for (const t of targetGroup) {
 			const abs = this._db.resolvePath(t.pathInfo);
-			const stat = statSync(abs, { throwIfNoEntry: false });
+			const stat = await this._stat(abs);
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
 			} else {
@@ -249,6 +249,18 @@ export class UpdateExecution {
 		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsUpdateValue.stale;
 
 		return NeedsUpdateValue.upToDate;
+	}
+
+	private async _stat(path: string): Promise<Stats | null> {
+		try {
+			const stats = await fsPromises.stat(path);
+			return stats;
+		} catch (ex) {
+			if (this._logger.enabled({ level: LogLevel.trace })) {
+				this._logger.trace(ex.message);
+			}
+			return null;
+		}
 	}
 }
 

@@ -19,43 +19,16 @@ import {
 	EVENT_TARGET_UP_TO_DATE,
 } from './names.js';
 
-type RecipeInProgressInfo = {
-	complete: false;
-
-	/** performance.now() when recipe() was started */
-	startTime: number;
-
-	completePromise: Promise<RecipeCompleteInfo>;
-};
-
-type RecipeCompleteInfo = {
-	complete: true;
-
-	/** performance.now() when recipe() was started */
-	startTime: number;
-
-	/** performance.now() when recipe() resolved */
-	endTime: number;
-
-	/** return val of recipe() */
-	result: boolean;
-
-	/** if recipe() threw an exception */
-	exception?: Error;
-};
-
 type TargetCompleteInfo = {
 	result: boolean;
 };
-
-type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
 
 export class UpdateExecution {
 	private _db: MakeDatabase;
 
 	private _builtTargets = new Map<TargetInfo, TargetCompleteInfo>();
 
-	private _info = new Map<RuleId, RecipeBuildInfo>();
+	private _recipeResults = new Map<RuleId, Promise<boolean>>();
 	private _logger: Logger;
 
 	constructor(db: MakeDatabase) {
@@ -208,26 +181,12 @@ export class UpdateExecution {
 			return this.endTarget(true);
 		}
 
-		const prevAttempt = this._info.get(recipeRule);
-		if (prevAttempt) {
-			// for some reason need to compare to true for compiler
-			if (prevAttempt.complete === true) {
-				return prevAttempt.result;
-			} else {
-				const complete = await prevAttempt.completePromise;
-				return complete.result;
-			}
-		}
+		const prevAttempt = this._recipeResults.get(recipeRule);
+		if (prevAttempt) return prevAttempt;
 
-		const { promise, resolve } = makePromise<RecipeCompleteInfo>();
+		const { promise, resolve } = makePromise<boolean>();
 
-		const buildInfo: RecipeInProgressInfo = {
-			complete: false,
-			startTime: performance.now(),
-			completePromise: promise,
-		};
-
-		this._info.set(recipeRule, buildInfo);
+		this._recipeResults.set(recipeRule, promise);
 
 		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
@@ -237,7 +196,6 @@ export class UpdateExecution {
 		}
 
 		let result = false;
-		let exception: Error | undefined;
 
 		try {
 			this._logger.debug({
@@ -247,7 +205,6 @@ export class UpdateExecution {
 			const args = new RecipeArgs();
 			result = await recipeInfo.recipe(args);
 		} catch (err) {
-			exception = err;
 			result = false;
 			this._logger.error({
 				eventName: EVENT_RECIPE_EXCEPTION,
@@ -256,20 +213,11 @@ export class UpdateExecution {
 			});
 		}
 
-		const completeInfo: RecipeCompleteInfo = {
-			...buildInfo,
-			complete: true,
-			endTime: performance.now(),
-			result,
-			exception,
-		};
-
 		if (!result) {
 			this._logger.error(`Failed to update target '${tPath(requestedTarget)}'`);
 		}
 
-		resolve(completeInfo);
-		this._info.set(recipeRule, completeInfo);
+		resolve(result);
 		return this.endTarget(result);
 	}
 

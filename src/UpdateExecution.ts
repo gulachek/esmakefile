@@ -229,12 +229,17 @@ export class UpdateExecution {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of targetPrereqs) {
+			if (this._recipeResults.has(prereq.recipeRule)) {
+				// recipe was run. consider stale
+				return NeedsUpdateValue.stale;
+			}
+
 			const abs = this._db.resolvePath(prereq.pathInfo);
 			const preStat = await this._stat(abs);
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
 			} else {
-				return NeedsUpdateValue.stale; // phony target
+				return NeedsUpdateValue.stale; // phony target w/o recipe
 			}
 		}
 

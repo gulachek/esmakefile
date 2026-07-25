@@ -88,8 +88,6 @@ export class UpdateExecution {
 	}
 
 	async run(goal: TargetInfo): Promise<boolean> {
-		const goalPath = goal.pathInfo.path;
-
 		const esmakefileDir = '__esmakefile__';
 
 		try {
@@ -105,14 +103,7 @@ export class UpdateExecution {
 			return false;
 		}
 
-		this._logger.info(`Updating goal '${goalPath}'`);
 		const result = await this.updateAll([goal]);
-		if (result) {
-			this._logger.info(`Successfully updated goal '${goalPath}'`);
-		} else {
-			this._logger.error(`Failed to update goal '${goalPath}'`);
-		}
-
 		return result;
 	}
 

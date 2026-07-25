@@ -36,10 +36,11 @@ export class MakeProgram {
 
 			const target = db.selectTargetByPath(pathInfo);
 			if (target) {
+				this.logger.debug(`Updating Makefile '${path}'`);
 				const u = new UpdateExecution(db);
 				const updateResult = await u.run(target);
 				if (!updateResult) {
-					// Already logged failure in UpdateExecution
+					this.logger.error(`Failed to update included Makefile '${path}'`);
 					return null;
 				}
 			}
@@ -103,8 +104,18 @@ export class MakeProgram {
 		}
 
 		const update = new UpdateExecution(db);
+		const goalPath = goalInfo.pathInfo.path;
+		this.logger.info(`Updating goal '${goalPath}'`);
+
 		// important to not simply return update.run() promise as it would unlock mtx too early
 		const result = await update.run(goalInfo);
+
+		if (result) {
+			this.logger.info(`Successfully updated goal '${goalPath}'`);
+		} else {
+			this.logger.error(`Failed to update goal '${goalPath}'`);
+		}
+
 		return result;
 	}
 

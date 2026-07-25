@@ -60,7 +60,7 @@ export class UpdateExecution {
 
 	constructor(db: MakeDatabase) {
 		this._db = db;
-		this._logger = getLogger({ name: 'esmakefile.Build' });
+		this._logger = getLogger({ name: 'esmakefile.UpdateExecution' });
 	}
 
 	private _reportCycle(): boolean {
@@ -120,21 +120,21 @@ export class UpdateExecution {
 		const promises: Promise<boolean>[] = [];
 
 		for (const t of targets) {
-			promises.push(this._findOrStartBuild(t));
+			promises.push(this._findOrStartUpdate(t));
 		}
 
 		const results = await Promise.all(promises);
 		return results.every((b) => b);
 	}
 
-	private async _findOrStartBuild(target: TargetInfo): Promise<boolean> {
-		this._logger.trace(`_findOrStartBuild('${target.path.path}')`);
+	private async _findOrStartUpdate(target: TargetInfo): Promise<boolean> {
+		this._logger.trace(`_findOrStartUpdate('${target.path.path}')`);
 
 		// TODO - is this necessary? Seems like recipe is the expensive thing
 		const built = this._builtTargets.get(target);
 		if (built) {
 			this._logger.trace(
-				`_findOrStartBuild: '${target.path}' is already updated. Skipping.`,
+				`_findOrStartUpdate: '${target.path}' is already updated. Skipping.`,
 			);
 			return built.result;
 		}
@@ -149,7 +149,7 @@ export class UpdateExecution {
 			targetGroup = ruleInfo.targets;
 		}
 
-		result = await this._startBuild(targetGroup, recipeRule, target);
+		result = await this._startUpdate(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
 			this._builtTargets.set(t, { result });
 		}
@@ -161,7 +161,7 @@ export class UpdateExecution {
 		return result;
 	}
 
-	private async _startBuild(
+	private async _startUpdate(
 		targetGroup: TargetInfo[],
 		recipeRule: RuleId | null,
 		requestedTarget: TargetInfo,
@@ -191,13 +191,13 @@ export class UpdateExecution {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsBuild(targetGroup, allPrereqs);
+		const targetStatus = this._needsUpdate(targetGroup, allPrereqs);
 
-		if (targetStatus === NeedsBuildValue.missingSrc) {
+		if (targetStatus === NeedsUpdateValue.missingSrc) {
 			return this.endTarget(false);
 		}
 
-		if (targetStatus === NeedsBuildValue.upToDate) {
+		if (targetStatus === NeedsUpdateValue.upToDate) {
 			this._logger.debug({
 				eventName: EVENT_TARGET_UP_TO_DATE,
 				body: `Target '${tPath(requestedTarget)}' is up to date`,
@@ -206,7 +206,7 @@ export class UpdateExecution {
 		}
 
 		if (!isRuleId(recipeRule)) {
-			if (targetStatus === NeedsBuildValue.stale) {
+			if (targetStatus === NeedsUpdateValue.stale) {
 				const rels = targetGroup.join(', ');
 				this._logger.warn({
 					eventName: EVENT_TARGET_STALE_NO_RECIPE,
@@ -282,10 +282,10 @@ export class UpdateExecution {
 		return this.endTarget(result);
 	}
 
-	private _needsBuild(
+	private _needsUpdate(
 		targetGroup: TargetInfo[],
 		prereqs: PathInfo[],
-	): NeedsBuildValue {
+	): NeedsUpdateValue {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of prereqs) {
@@ -297,7 +297,7 @@ export class UpdateExecution {
 				newestDepMtimeMs = Infinity;
 			} else {
 				this._logger.error(`Missing prereq file '${abs}'.`);
-				return NeedsBuildValue.missingSrc;
+				return NeedsUpdateValue.missingSrc;
 			}
 		}
 
@@ -308,17 +308,17 @@ export class UpdateExecution {
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
 			} else {
-				return NeedsBuildValue.missing;
+				return NeedsUpdateValue.missing;
 			}
 		}
 
-		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsBuildValue.stale;
+		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsUpdateValue.stale;
 
-		return NeedsBuildValue.upToDate;
+		return NeedsUpdateValue.upToDate;
 	}
 }
 
-enum NeedsBuildValue {
+enum NeedsUpdateValue {
 	stale,
 	missing,
 	missingSrc,

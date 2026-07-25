@@ -31,26 +31,31 @@ export class Vt100Stream extends Writable {
 		return Buffer.concat(this._chunks);
 	}
 
-	vtOn<E extends BuildEvent>(e: E, l: Listener<E>): void {
+	vtOn<E extends Vt100StreamEvent>(e: E, l: Listener<E>): void {
 		this._events.on(e, l);
 	}
 
-	vtOff<E extends BuildEvent>(e: E, l: Listener<E>): void {
+	vtOff<E extends Vt100StreamEvent>(e: E, l: Listener<E>): void {
 		this._events.off(e, l);
 	}
 
-	private _emit<E extends BuildEvent>(e: E, ...args: BuildEventMap[E]): void {
+	private _emit<E extends Vt100StreamEvent>(
+		e: E,
+		...args: Vt100StreamEventMap[E]
+	): void {
 		this._events.emit(e, ...args);
 	}
 }
 
-type BuildEventMap = {
+type Vt100StreamEventMap = {
 	data: [Buffer];
 };
 
-type BuildEvent = keyof BuildEventMap;
+type Vt100StreamEvent = keyof Vt100StreamEventMap;
 
-type Listener<E extends BuildEvent> = (...data: BuildEventMap[E]) => void;
+type Listener<E extends Vt100StreamEvent> = (
+	...data: Vt100StreamEventMap[E]
+) => void;
 
 type ErrorCallback = (err: Error | null) => void;
 type Chunk = {

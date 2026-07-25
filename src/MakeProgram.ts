@@ -102,9 +102,9 @@ export class MakeProgram {
 			goalInfo = defaultInfo;
 		}
 
-		const build = new UpdateExecution(db);
-		// important to not simply return build.run() promise as it would unlock mtx too early
-		const result = await build.run(goalInfo);
+		const update = new UpdateExecution(db);
+		// important to not simply return update.run() promise as it would unlock mtx too early
+		const result = await update.run(goalInfo);
 		return result;
 	}
 

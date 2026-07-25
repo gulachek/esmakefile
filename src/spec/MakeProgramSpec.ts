@@ -27,26 +27,26 @@ import {
 } from '../names.js';
 
 abstract class TestRule {
-	public buildCount: number = 0;
-	private _returnFalseOnBuild: boolean = false;
-	public _throwOnBuild: Error | null = null;
+	public updateCount: number = 0;
+	private _returnFalseOnUpdate: boolean = false;
+	public _throwOnUpdate: Error | null = null;
 
 	async recipe(args: RecipeArgs): Promise<boolean> {
-		++this.buildCount;
-		if (this._throwOnBuild) throw this._throwOnBuild;
-		if (this._returnFalseOnBuild) return false;
-		return this.onBuild(args);
+		++this.updateCount;
+		if (this._throwOnUpdate) throw this._throwOnUpdate;
+		if (this._returnFalseOnUpdate) return false;
+		return this.onUpdate(args);
 	}
 
-	public returnFalseOnBuild(): void {
-		this._returnFalseOnBuild = true;
+	public returnFalseOnUpdate(): void {
+		this._returnFalseOnUpdate = true;
 	}
 
-	public throwOnBuild(err: Error): void {
-		this._throwOnBuild = err;
+	public throwOnUpdate(err: Error): void {
+		this._throwOnUpdate = err;
 	}
 
-	protected abstract onBuild(args: RecipeArgs): Promise<boolean>;
+	protected abstract onUpdate(args: RecipeArgs): Promise<boolean>;
 }
 
 class WriteFileRule extends TestRule implements IRule {
@@ -63,7 +63,7 @@ class WriteFileRule extends TestRule implements IRule {
 		return this.path;
 	}
 
-	override async onBuild() {
+	override async onUpdate() {
 		await writeFile(this.path, this.txt, 'utf8');
 		return true;
 	}
@@ -87,7 +87,7 @@ class CopyFileRule extends TestRule implements IRule {
 		return this.dest;
 	}
 
-	override async onBuild(): Promise<boolean> {
+	override async onUpdate(): Promise<boolean> {
 		try {
 			await copyFile(this.src, this.dest);
 			return true;
@@ -398,7 +398,7 @@ describe('MakeProgram', () => {
 			const write = new WriteFileRule(path, 'test');
 
 			const make = new MakeProgram((mk) => {
-				write.throwOnBuild(new Error('test'));
+				write.throwOnUpdate(new Error('test'));
 				mk.rule(write);
 			});
 
@@ -440,8 +440,8 @@ describe('MakeProgram', () => {
 
 			const result = await make.update();
 			expect(result).to.be.true;
-			expect(writeOne.buildCount).to.equal(1);
-			expect(writeTwo.buildCount).to.equal(0);
+			expect(writeOne.updateCount).to.equal(1);
+			expect(writeTwo.updateCount).to.equal(0);
 		});
 
 		it('fails when no targets exist for a default goal', async () => {
@@ -464,8 +464,8 @@ describe('MakeProgram', () => {
 
 			const result = await make.update(pTwo);
 			expect(result).to.be.true;
-			expect(writeOne.buildCount).to.equal(0);
-			expect(writeTwo.buildCount).to.equal(1);
+			expect(writeOne.updateCount).to.equal(0);
+			expect(writeTwo.updateCount).to.equal(1);
 		});
 
 		it('fails when explicit goal does not exist as a target', async () => {
@@ -536,7 +536,7 @@ describe('MakeProgram', () => {
 			expect(result).to.be.true;
 		});
 
-		it("fails if a src prereq doesn't exist", async () => {
+		it("fails if a prereq doesn't exist", async () => {
 			const make = new MakeProgram((mk) => {
 				mk.rule('all', 'prereq');
 			});
@@ -544,7 +544,7 @@ describe('MakeProgram', () => {
 			expect(result).to.be.false;
 		});
 
-		it("fails if a build prereq doesn't have a recipe", async () => {
+		it("fails if a missing prereq doesn't have a recipe", async () => {
 			const make = new MakeProgram((mk) => {
 				mk.rule('all', 'prereq');
 			});
@@ -552,7 +552,7 @@ describe('MakeProgram', () => {
 			expect(result).to.be.false;
 		});
 
-		it('succeeds if a build prereq does have a recipe that succeeds', async () => {
+		it('succeeds if a prereq does have a recipe that succeeds', async () => {
 			const make = new MakeProgram((mk) => {
 				const prereq = 'prereq';
 				mk.rule('all', prereq);
@@ -621,7 +621,7 @@ describe('MakeProgram', () => {
 			await make.update(cpPath);
 			await make.update(cpPath);
 
-			expect(cp.buildCount).to.equal(1);
+			expect(cp.updateCount).to.equal(1);
 		});
 
 		it('remakes target if older than prereqs', async () => {
@@ -640,7 +640,7 @@ describe('MakeProgram', () => {
 
 			await make.update(cpPath);
 
-			expect(cp.buildCount).to.equal(2);
+			expect(cp.updateCount).to.equal(2);
 			const contents = await readPath(cpPath);
 			expect(contents).to.equal('update');
 		});
@@ -665,7 +665,7 @@ describe('MakeProgram', () => {
 
 			await make.update(cpPath);
 
-			expect(cp.buildCount).to.equal(2);
+			expect(cp.updateCount).to.equal(2);
 			const contents = await readPath(cpPath);
 			expect(contents).to.equal('hello');
 		});
@@ -686,8 +686,8 @@ describe('MakeProgram', () => {
 			const second = make.update(cpPath);
 			await Promise.all([first, second]);
 
-			expect(write.buildCount).to.equal(1);
-			expect(cp.buildCount).to.equal(1);
+			expect(write.updateCount).to.equal(1);
+			expect(cp.updateCount).to.equal(1);
 		});
 
 		it('updating two targets from same target group runs recipe once', async () => {
@@ -830,7 +830,7 @@ describe('MakeProgram', () => {
 		it('does not update a target if a prereq fails to update', async () => {
 			const srcPath = 'src.txt';
 			const write = new WriteFileRule(srcPath, 'hello');
-			write.returnFalseOnBuild();
+			write.returnFalseOnUpdate();
 
 			const cpPath = 'cp.txt';
 			const cp = new CopyFileRule(srcPath, cpPath);
@@ -842,7 +842,7 @@ describe('MakeProgram', () => {
 
 			const result = await make.update(cpPath);
 
-			expect(cp.buildCount).to.equal(0);
+			expect(cp.updateCount).to.equal(0);
 			expect(result).to.be.false;
 		});
 
@@ -859,14 +859,14 @@ describe('MakeProgram', () => {
 
 			let result = await make.update(outPath);
 			expect(result).to.be.true;
-			expect(copy.buildCount).to.equal(1);
+			expect(copy.updateCount).to.equal(1);
 
 			// now delete (hits case where target path does exist prior)
 			await rmPath(srcPath);
 
 			result = await make.update(outPath);
 			expect(result).to.be.false;
-			expect(copy.buildCount).to.equal(1);
+			expect(copy.updateCount).to.equal(1);
 		});
 
 		it('logs a debug event when a target is already up to date', async () => {
@@ -1062,7 +1062,7 @@ describe('MakeProgram', () => {
 			expect(result, 'should fail').to.be.false;
 			expect(
 				logs.find(LogLevel.error, rootDir),
-				'build failed to indicate that directory is not writable',
+				'update failed to indicate that directory is not writable',
 			).not.to.be.null;
 		});
 
@@ -1076,7 +1076,7 @@ describe('MakeProgram', () => {
 			expect(result).to.be.false;
 			expect(
 				logs.find(LogLevel.error, /[Cc]ircular/),
-				'build did not indicate a circular dependency was found',
+				'update did not indicate a circular dependency was found',
 			).not.to.be.null;
 		});
 

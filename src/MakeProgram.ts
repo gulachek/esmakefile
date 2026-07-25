@@ -114,7 +114,7 @@ export class MakeProgram {
 
 		const out: string[] = [];
 		for (const t of db.selectTargets()) {
-			const pathInfo = t.path;
+			const { pathInfo } = t;
 			out.push(pathInfo.path);
 		}
 		return out;

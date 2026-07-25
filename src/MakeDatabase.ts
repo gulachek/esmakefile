@@ -62,7 +62,7 @@ export type TargetId = StrictId<typeof TargetIdKey>;
 
 export type TargetInfo = {
 	id: TargetId;
-	path: PathInfo;
+	pathInfo: PathInfo;
 	rules: Set<RuleId>;
 	recipeRule: RuleId | null;
 };
@@ -216,22 +216,22 @@ export class MakeDatabase {
 		return this._targets[v];
 	}
 
-	private insertTarget(path: PathInfo): TargetInfo {
+	private insertTarget(pathInfo: PathInfo): TargetInfo {
 		const id = this._targets.length;
 		const info: TargetInfo = {
 			id: mkId(TargetIdKey, id),
-			path,
+			pathInfo,
 			rules: new Set<RuleId>(),
 			recipeRule: null,
 		};
 
 		this._targets.push(info);
-		this._targetsIndexPath.set(path.id, info);
+		this._targetsIndexPath.set(pathInfo.id, info);
 		return info;
 	}
 
 	private updateTargetWithRule(target: TargetInfo, rule: RuleInfo): void {
-		const { path } = target.path;
+		const { path } = target.pathInfo;
 
 		if (rule.recipe) {
 			if (isId(RuleIdKey, target.recipeRule))
@@ -239,7 +239,7 @@ export class MakeDatabase {
 					`Target '${path}' already has a recipe specified. Cannot add another one.`,
 				);
 
-			if (this._makefiles.has(target.path.id)) {
+			if (this._makefiles.has(target.pathInfo.id)) {
 				throw new Error(`Cannot add a recipe to Makefile target '${path}'`);
 			}
 

@@ -71,7 +71,7 @@ export class UpdateExecution {
 				const { prereqs } = this._db.selectRule(rule);
 				for (const p of prereqs) {
 					if (this._db.selectTargetByPath(p)) {
-						cd.addEdge(targetInfo.path.path, p.path);
+						cd.addEdge(targetInfo.pathInfo.path, p.path);
 					}
 				}
 			}
@@ -88,7 +88,7 @@ export class UpdateExecution {
 	}
 
 	async run(goal: TargetInfo): Promise<boolean> {
-		const goalPath = goal.path.path;
+		const goalPath = goal.pathInfo.path;
 
 		const esmakefileDir = '__esmakefile__';
 
@@ -128,13 +128,13 @@ export class UpdateExecution {
 	}
 
 	private async _findOrStartUpdate(target: TargetInfo): Promise<boolean> {
-		this._logger.trace(`_findOrStartUpdate('${target.path.path}')`);
+		this._logger.trace(`_findOrStartUpdate('${target.pathInfo.path}')`);
 
 		// TODO - is this necessary? Seems like recipe is the expensive thing
 		const built = this._builtTargets.get(target);
 		if (built) {
 			this._logger.trace(
-				`_findOrStartUpdate: '${target.path}' is already updated. Skipping.`,
+				`_findOrStartUpdate: '${target.pathInfo.path}' is already updated. Skipping.`,
 			);
 			return built.result;
 		}
@@ -240,7 +240,7 @@ export class UpdateExecution {
 
 		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
-			await mkdir(nodePath.dirname(t.path.path), {
+			await mkdir(nodePath.dirname(t.pathInfo.path), {
 				recursive: true,
 			});
 		}
@@ -303,7 +303,7 @@ export class UpdateExecution {
 
 		let oldestTargetMtimeMs = Infinity;
 		for (const t of targetGroup) {
-			const abs = this._db.resolvePath(t.path);
+			const abs = this._db.resolvePath(t.pathInfo);
 			const stat = statSync(abs, { throwIfNoEntry: false });
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
@@ -341,5 +341,5 @@ function makePromise<T>(): IPromisePieces<T> {
 }
 
 function tPath(t: TargetInfo): string {
-	return t.path.path;
+	return t.pathInfo.path;
 }

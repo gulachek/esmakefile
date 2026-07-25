@@ -3,6 +3,7 @@ import {
 	PathInfo,
 	RuleId,
 	TargetInfo,
+	TargetId,
 	isRuleId,
 } from './MakeDatabase.js';
 import { RecipeArgs } from './Rule.js';
@@ -19,16 +20,12 @@ import {
 	EVENT_TARGET_UP_TO_DATE,
 } from './names.js';
 
-type TargetCompleteInfo = {
-	result: boolean;
-};
-
 export class UpdateExecution {
 	private _db: MakeDatabase;
 
-	private _builtTargets = new Map<TargetInfo, TargetCompleteInfo>();
-
+	private _targetResults = new Map<TargetId, Promise<boolean>>();
 	private _recipeResults = new Map<RuleId, Promise<boolean>>();
+
 	private _logger: Logger;
 
 	constructor(db: MakeDatabase) {
@@ -95,15 +92,13 @@ export class UpdateExecution {
 		this._logger.trace(`_findOrStartUpdate('${target.pathInfo.path}')`);
 
 		// TODO - is this necessary? Seems like recipe is the expensive thing
-		const built = this._builtTargets.get(target);
-		if (built) {
+		const prevAttempt = this._targetResults.get(target.id);
+		if (prevAttempt) {
 			this._logger.trace(
-				`_findOrStartUpdate: '${target.pathInfo.path}' is already updated. Skipping.`,
+				`_findOrStartUpdate: '${target.pathInfo.path}' was already encountered. Skipping.`,
 			);
-			return built.result;
+			return prevAttempt;
 		}
-
-		let result = false;
 
 		let targetGroup = [target];
 
@@ -113,12 +108,12 @@ export class UpdateExecution {
 			targetGroup = ruleInfo.targets;
 		}
 
-		result = await this._startUpdate(targetGroup, recipeRule, target);
+		const tPromise = this._startUpdate(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
-			this._builtTargets.set(t, { result });
+			this._targetResults.set(t.id, tPromise);
 		}
 
-		return result;
+		return tPromise;
 	}
 
 	private endTarget(result: boolean): boolean {

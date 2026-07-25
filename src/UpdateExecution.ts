@@ -202,7 +202,7 @@ export class UpdateExecution {
 				eventName: EVENT_RECIPE_BEGIN,
 				body: `Updating target '${tPath(requestedTarget)}'`,
 			});
-			const args = new RecipeArgs();
+			const args = new RecipeArgs(this._db, recipeInfo);
 			result = await recipeInfo.recipe(args);
 		} catch (err) {
 			result = false;
@@ -211,6 +211,18 @@ export class UpdateExecution {
 				body: 'Recipe threw an exception',
 				exception: err,
 			});
+		}
+
+		if (recipeInfo.restat) {
+			for (const t of targetGroup) {
+				const p = t.pathInfo.path;
+				if (this._logger.enabled({ level: LogLevel.trace })) {
+					this._logger.trace(
+						`Clearing stat cache for ${p} because recipe requested restat`,
+					);
+				}
+				this._statCache.delete(p);
+			}
 		}
 
 		if (!result) {
@@ -229,7 +241,11 @@ export class UpdateExecution {
 		let newestDepMtimeMs = -Infinity;
 
 		for (const prereq of targetPrereqs) {
-			if (this._recipeResults.has(prereq.recipeRule)) {
+			const recipeRule =
+				prereq.recipeRule && this._db.selectRule(prereq.recipeRule);
+			const restat = recipeRule ? recipeRule.restat : false;
+
+			if (!restat && this._recipeResults.has(prereq.recipeRule)) {
 				// recipe was run. consider stale
 				return NeedsUpdateValue.stale;
 			}

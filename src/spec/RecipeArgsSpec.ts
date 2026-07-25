@@ -11,11 +11,18 @@ import {
 	EVENT_RECIPE_CHILD_PROCESS_OUTPUT_UPLOAD_EXCEPTION,
 	MIME_TYPE_ANSI_STREAM,
 } from '../names.js';
+import { MakeDatabase } from '../MakeDatabase.js';
 
 const nodeExe = process.execPath;
 
 function mkArgs(): RecipeArgs {
-	return new RecipeArgs();
+	const db = new MakeDatabase();
+	const rule = db.insertRule({
+		targets: ['target'],
+		prereqs: ['prereq'],
+		recipe: null,
+	});
+	return new RecipeArgs(db, rule);
 }
 
 describe('RecipeArgs', () => {

@@ -55,6 +55,7 @@ export type RuleInfo = {
 	recipe: (args: RecipeArgs) => Promise<boolean> | null;
 	prereqs: PathInfo[];
 	targets: TargetInfo[];
+	restat: boolean;
 };
 
 const TargetIdKey = '__targetId';
@@ -174,6 +175,7 @@ export class MakeDatabase {
 			targets,
 			prereqs,
 			recipe,
+			restat: false,
 		};
 		this._rules.push(info);
 
@@ -193,6 +195,11 @@ export class MakeDatabase {
 
 	selectRules(): RuleInfo[] {
 		return Array.from(this._rules);
+	}
+
+	updateRuleRestat(rule: RuleInfo, restat: boolean): void {
+		// Implementation could change w/ real db backing. Better to have db encapsulate this than consumer updating directly
+		rule.restat = restat;
 	}
 
 	selectTargets(): TargetInfo[] {

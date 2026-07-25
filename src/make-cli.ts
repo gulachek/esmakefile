@@ -110,6 +110,7 @@ program
 		const { make } = await processGlobalOpts({});
 
 		const result = await make.update(goal);
+		await loggerProvider.waitEmpty();
 
 		process.exit(result ? 0 : 1);
 	});

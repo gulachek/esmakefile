@@ -103,9 +103,9 @@ const processGlobalOpts = async (opts: { suppressLogs?: boolean }) => {
 };
 
 program
-	.command('build', { isDefault: true })
-	.description('Build a specified target')
-	.argument('[goal]', 'The goal target to be built')
+	.command('update', { isDefault: true })
+	.description('Update a specified target')
+	.argument('[goal]', 'The goal target to be updated')
 	.action(async function (goal?: string) {
 		const { make } = await processGlobalOpts({});
 
@@ -116,8 +116,8 @@ program
 
 program
 	.command('watch')
-	.description('Rebuild top level targets when a source file changes')
-	.argument('[goal]', 'The goal target to be built')
+	.description('Monitor and update targets when source files change')
+	.argument('[goal]', 'The goal target to be updated')
 	.action(async function (goal?: string) {
 		const { make } = await processGlobalOpts({});
 

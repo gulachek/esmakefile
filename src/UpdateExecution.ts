@@ -25,6 +25,7 @@ export class UpdateExecution {
 
 	private _targetResults = new Map<TargetId, Promise<boolean>>();
 	private _recipeResults = new Map<RuleId, Promise<boolean>>();
+	private _statCache = new Map<string, Promise<Stats>>();
 
 	private _logger: Logger;
 
@@ -252,15 +253,21 @@ export class UpdateExecution {
 	}
 
 	private async _stat(path: string): Promise<Stats | null> {
+		const prevStat = this._statCache.get(path);
+		if (prevStat) return prevStat;
+		const { promise, resolve } = makePromise<Stats | null>();
+
 		try {
 			const stats = await fsPromises.stat(path);
-			return stats;
+			resolve(stats);
 		} catch (ex) {
 			if (this._logger.enabled({ level: LogLevel.trace })) {
 				this._logger.trace(ex.message);
 			}
-			return null;
+			resolve(null);
 		}
+
+		return promise;
 	}
 }
 

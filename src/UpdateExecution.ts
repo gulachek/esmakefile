@@ -198,7 +198,7 @@ export class UpdateExecution {
 
 		if (!isRuleId(recipeRule)) {
 			if (targetStatus === NeedsUpdateValue.stale) {
-				const rels = targetGroup.join(', ');
+				const rels = targetGroup.map((t) => t.pathInfo.path).join(', ');
 				this._logger.warn({
 					eventName: EVENT_TARGET_STALE_NO_RECIPE,
 					body: `Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,

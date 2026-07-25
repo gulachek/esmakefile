@@ -1,4 +1,3 @@
-import { isAbsolute } from 'node:path';
 import { Vt100Stream } from './Vt100Stream.js';
 import { spawn } from 'node:child_process';
 import { getLogger, Logger, LogLevel } from './logs.js';

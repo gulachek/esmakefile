@@ -32,6 +32,7 @@ export class CliLoggerProvider implements ILoggerProvider {
 	private paused: boolean = true;
 	private q: LogRecord[] = [];
 	private loggers = new WeakLinkedList<Logger>();
+	private emptyResolve?: (() => void) | null = null;
 
 	constructor(tStart: number, store: ArtifactStore) {
 		this.store = store;
@@ -70,6 +71,20 @@ export class CliLoggerProvider implements ILoggerProvider {
 	resume(): void {
 		this.paused = false;
 		this.processQ();
+	}
+
+	waitEmpty(): Promise<void> {
+		if (this.q.length < 0) {
+			return Promise.resolve();
+		}
+
+		if (this.emptyResolve) {
+			throw new Error('Emptiness is already being awaited');
+		}
+
+		return new Promise<void>((res) => {
+			this.emptyResolve = res;
+		});
 	}
 
 	private log(l: LogRecord): void {
@@ -138,6 +153,11 @@ export class CliLoggerProvider implements ILoggerProvider {
 		while (this.q.length > 0) {
 			const l = this.q.shift();
 			this.printLog(l);
+		}
+
+		if (this.emptyResolve) {
+			this.emptyResolve();
+			delete this.emptyResolve;
 		}
 	}
 }

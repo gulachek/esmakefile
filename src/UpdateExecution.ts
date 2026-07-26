@@ -3,59 +3,30 @@ import {
 	PathInfo,
 	RuleId,
 	TargetInfo,
+	TargetId,
 	isRuleId,
 } from './MakeDatabase.js';
 import { RecipeArgs } from './Rule.js';
 
-import { mkdir } from 'node:fs/promises';
-import { statSync } from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as nodePath from 'node:path';
 import { CycleDetector } from './CycleDetector.js';
-import { Logger, getLogger } from './logs.js';
+import { LogLevel, Logger, getLogger } from './logs.js';
 import {
 	EVENT_RECIPE_BEGIN,
 	EVENT_RECIPE_EXCEPTION,
 	EVENT_TARGET_STALE_NO_RECIPE,
 	EVENT_TARGET_UP_TO_DATE,
 } from './names.js';
-
-type RecipeInProgressInfo = {
-	complete: false;
-
-	/** performance.now() when recipe() was started */
-	startTime: number;
-
-	completePromise: Promise<RecipeCompleteInfo>;
-};
-
-type RecipeCompleteInfo = {
-	complete: true;
-
-	/** performance.now() when recipe() was started */
-	startTime: number;
-
-	/** performance.now() when recipe() resolved */
-	endTime: number;
-
-	/** return val of recipe() */
-	result: boolean;
-
-	/** if recipe() threw an exception */
-	exception?: Error;
-};
-
-type TargetCompleteInfo = {
-	result: boolean;
-};
-
-type RecipeBuildInfo = RecipeInProgressInfo | RecipeCompleteInfo;
+import { Stats } from 'node:fs';
 
 export class UpdateExecution {
 	private _db: MakeDatabase;
 
-	private _builtTargets = new Map<TargetInfo, TargetCompleteInfo>();
+	private _targetResults = new Map<TargetId, Promise<boolean>>();
+	private _recipeResults = new Map<RuleId, Promise<boolean>>();
+	private _statCache = new Map<string, Promise<Stats>>();
 
-	private _info = new Map<RuleId, RecipeBuildInfo>();
 	private _logger: Logger;
 
 	constructor(db: MakeDatabase) {
@@ -91,7 +62,7 @@ export class UpdateExecution {
 		const esmakefileDir = '__esmakefile__';
 
 		try {
-			await mkdir(esmakefileDir, { recursive: true });
+			await fsPromises.mkdir(esmakefileDir, { recursive: true });
 		} catch (ex) {
 			this._logger.error(
 				`Failed to make directory '${esmakefileDir}': ${ex.message}`,
@@ -122,15 +93,13 @@ export class UpdateExecution {
 		this._logger.trace(`_findOrStartUpdate('${target.pathInfo.path}')`);
 
 		// TODO - is this necessary? Seems like recipe is the expensive thing
-		const built = this._builtTargets.get(target);
-		if (built) {
+		const prevAttempt = this._targetResults.get(target.id);
+		if (prevAttempt) {
 			this._logger.trace(
-				`_findOrStartUpdate: '${target.pathInfo.path}' is already updated. Skipping.`,
+				`_findOrStartUpdate: '${target.pathInfo.path}' was already encountered. Skipping.`,
 			);
-			return built.result;
+			return prevAttempt;
 		}
-
-		let result = false;
 
 		let targetGroup = [target];
 
@@ -140,12 +109,12 @@ export class UpdateExecution {
 			targetGroup = ruleInfo.targets;
 		}
 
-		result = await this._startUpdate(targetGroup, recipeRule, target);
+		const tPromise = this._startUpdate(targetGroup, recipeRule, target);
 		for (const t of targetGroup) {
-			this._builtTargets.set(t, { result });
+			this._targetResults.set(t.id, tPromise);
 		}
 
-		return result;
+		return tPromise;
 	}
 
 	private endTarget(result: boolean): boolean {
@@ -157,8 +126,8 @@ export class UpdateExecution {
 		recipeRule: RuleId | null,
 		requestedTarget: TargetInfo,
 	): Promise<boolean> {
-		const prereqsToUpdate: TargetInfo[] = [];
-		const allPrereqs: PathInfo[] = [];
+		const targetPrereqs: TargetInfo[] = [];
+		const nonTargetPrereqs: PathInfo[] = [];
 
 		for (const target of targetGroup) {
 			const { rules } = target;
@@ -168,21 +137,25 @@ export class UpdateExecution {
 
 				// update prereqs
 				for (const src of ruleInfo.prereqs) {
-					allPrereqs.push(src);
-
 					const srcTarget = this._db.selectTargetByPath(src);
 					if (srcTarget) {
-						prereqsToUpdate.push(srcTarget);
+						targetPrereqs.push(srcTarget);
+					} else {
+						nonTargetPrereqs.push(src);
 					}
 				}
 			}
 		}
 
-		if (!(await this.updateAll(prereqsToUpdate))) {
+		if (!(await this.updateAll(targetPrereqs))) {
 			return this.endTarget(false);
 		}
 
-		const targetStatus = this._needsUpdate(targetGroup, allPrereqs);
+		const targetStatus = await this._needsUpdate(
+			targetGroup,
+			targetPrereqs,
+			nonTargetPrereqs,
+		);
 
 		if (targetStatus === NeedsUpdateValue.missingSrc) {
 			return this.endTarget(false);
@@ -198,7 +171,7 @@ export class UpdateExecution {
 
 		if (!isRuleId(recipeRule)) {
 			if (targetStatus === NeedsUpdateValue.stale) {
-				const rels = targetGroup.join(', ');
+				const rels = targetGroup.map((t) => t.pathInfo.path).join(', ');
 				this._logger.warn({
 					eventName: EVENT_TARGET_STALE_NO_RECIPE,
 					body: `Target '${rels}' is out of date, but it has no recipe to update. Assuming it is up to date. Consider giving it a recipe, removing unnecessary prereqs, or entirely removing the target.`,
@@ -208,46 +181,30 @@ export class UpdateExecution {
 			return this.endTarget(true);
 		}
 
-		const prevAttempt = this._info.get(recipeRule);
-		if (prevAttempt) {
-			// for some reason need to compare to true for compiler
-			if (prevAttempt.complete === true) {
-				return prevAttempt.result;
-			} else {
-				const complete = await prevAttempt.completePromise;
-				return complete.result;
-			}
-		}
+		const prevAttempt = this._recipeResults.get(recipeRule);
+		if (prevAttempt) return prevAttempt;
 
-		const { promise, resolve } = makePromise<RecipeCompleteInfo>();
+		const { promise, resolve } = makePromise<boolean>();
 
-		const buildInfo: RecipeInProgressInfo = {
-			complete: false,
-			startTime: performance.now(),
-			completePromise: promise,
-		};
-
-		this._info.set(recipeRule, buildInfo);
+		this._recipeResults.set(recipeRule, promise);
 
 		const recipeInfo = this._db.selectRule(recipeRule);
 		for (const t of targetGroup) {
-			await mkdir(nodePath.dirname(t.pathInfo.path), {
+			await fsPromises.mkdir(nodePath.dirname(t.pathInfo.path), {
 				recursive: true,
 			});
 		}
 
 		let result = false;
-		let exception: Error | undefined;
 
 		try {
 			this._logger.debug({
 				eventName: EVENT_RECIPE_BEGIN,
 				body: `Updating target '${tPath(requestedTarget)}'`,
 			});
-			const args = new RecipeArgs();
+			const args = new RecipeArgs(this._db, recipeInfo);
 			result = await recipeInfo.recipe(args);
 		} catch (err) {
-			exception = err;
 			result = false;
 			this._logger.error({
 				eventName: EVENT_RECIPE_EXCEPTION,
@@ -256,36 +213,57 @@ export class UpdateExecution {
 			});
 		}
 
-		const completeInfo: RecipeCompleteInfo = {
-			...buildInfo,
-			complete: true,
-			endTime: performance.now(),
-			result,
-			exception,
-		};
+		if (recipeInfo.restat) {
+			for (const t of targetGroup) {
+				const p = t.pathInfo.path;
+				if (this._logger.enabled({ level: LogLevel.trace })) {
+					this._logger.trace(
+						`Clearing stat cache for ${p} because recipe requested restat`,
+					);
+				}
+				this._statCache.delete(p);
+			}
+		}
 
 		if (!result) {
 			this._logger.error(`Failed to update target '${tPath(requestedTarget)}'`);
 		}
 
-		resolve(completeInfo);
-		this._info.set(recipeRule, completeInfo);
+		resolve(result);
 		return this.endTarget(result);
 	}
 
-	private _needsUpdate(
+	private async _needsUpdate(
 		targetGroup: TargetInfo[],
-		prereqs: PathInfo[],
-	): NeedsUpdateValue {
+		targetPrereqs: TargetInfo[],
+		nonTargetPrereqs: PathInfo[],
+	): Promise<NeedsUpdateValue> {
 		let newestDepMtimeMs = -Infinity;
 
-		for (const prereq of prereqs) {
-			const abs = this._db.resolvePath(prereq);
-			const preStat = statSync(abs, { throwIfNoEntry: false });
+		for (const prereq of targetPrereqs) {
+			const recipeRule =
+				prereq.recipeRule && this._db.selectRule(prereq.recipeRule);
+			const restat = recipeRule ? recipeRule.restat : false;
+
+			if (!restat && this._recipeResults.has(prereq.recipeRule)) {
+				// recipe was run. consider stale
+				return NeedsUpdateValue.stale;
+			}
+
+			const abs = this._db.resolvePath(prereq.pathInfo);
+			const preStat = await this._stat(abs);
 			if (preStat) {
 				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
-			} else if (this._db.selectTargetByPath(prereq)) {
-				newestDepMtimeMs = Infinity;
+			} else {
+				return NeedsUpdateValue.stale; // phony target w/o recipe
+			}
+		}
+
+		for (const prereq of nonTargetPrereqs) {
+			const abs = this._db.resolvePath(prereq);
+			const preStat = await this._stat(abs);
+			if (preStat) {
+				newestDepMtimeMs = Math.max(preStat.mtimeMs, newestDepMtimeMs);
 			} else {
 				this._logger.error(`Missing prereq file '${abs}'.`);
 				return NeedsUpdateValue.missingSrc;
@@ -295,7 +273,7 @@ export class UpdateExecution {
 		let oldestTargetMtimeMs = Infinity;
 		for (const t of targetGroup) {
 			const abs = this._db.resolvePath(t.pathInfo);
-			const stat = statSync(abs, { throwIfNoEntry: false });
+			const stat = await this._stat(abs);
 			if (stat) {
 				oldestTargetMtimeMs = Math.min(stat.mtimeMs, oldestTargetMtimeMs);
 			} else {
@@ -306,6 +284,24 @@ export class UpdateExecution {
 		if (newestDepMtimeMs > oldestTargetMtimeMs) return NeedsUpdateValue.stale;
 
 		return NeedsUpdateValue.upToDate;
+	}
+
+	private async _stat(path: string): Promise<Stats | null> {
+		const prevStat = this._statCache.get(path);
+		if (prevStat) return prevStat;
+		const { promise, resolve } = makePromise<Stats | null>();
+
+		try {
+			const stats = await fsPromises.stat(path);
+			resolve(stats);
+		} catch (ex) {
+			if (this._logger.enabled({ level: LogLevel.trace })) {
+				this._logger.trace(ex.message);
+			}
+			resolve(null);
+		}
+
+		return promise;
 	}
 }
 

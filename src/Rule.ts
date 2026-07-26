@@ -1,4 +1,3 @@
-import { isAbsolute } from 'node:path';
 import { Vt100Stream } from './Vt100Stream.js';
 import { spawn } from 'node:child_process';
 import { getLogger, Logger, LogLevel } from './logs.js';
@@ -9,6 +8,7 @@ import {
 	MIME_TYPE_ANSI_STREAM,
 } from './names.js';
 import { getArtifactStore } from './artifacts.js';
+import { MakeDatabase, RuleInfo } from './MakeDatabase.js';
 
 /**
  * A rule definition
@@ -32,9 +32,23 @@ export interface IRule {
 
 export class RecipeArgs {
 	private _log: Logger;
+	private _db: MakeDatabase;
+	private _rule: RuleInfo;
+	private _didRestat = false;
 
-	constructor() {
+	constructor(db: MakeDatabase, rule: RuleInfo) {
 		this._log = getLogger({ name: 'esmakefile.RecipeArgs' });
+		this._db = db;
+		this._rule = rule;
+	}
+
+	restat(): void {
+		this._log.debug('restat requested');
+
+		if (!this._didRestat) {
+			this._db.updateRuleRestat(this._rule, true);
+			this._didRestat = true;
+		}
 	}
 
 	async spawn(cmd: string, cmdArgs: string[]): Promise<boolean> {

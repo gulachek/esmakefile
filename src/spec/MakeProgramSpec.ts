@@ -588,6 +588,67 @@ describe('MakeProgram', () => {
 			expect(count).to.equal(2);
 		});
 
+		it('remakes if prereq recipe runs, even if timestamp unchanged', async () => {
+			const t = 't';
+			const prereq = 'prereq';
+			const force = 'force';
+
+			await writeFile(prereq, ':)');
+
+			let tCount = 0;
+			let pCount = 0;
+
+			const make = new MakeProgram((mk) => {
+				mk.rule(t, [prereq], async () => {
+					tCount += 1;
+					await writePath(t, 't');
+				});
+
+				mk.rule(prereq, [force], () => {
+					pCount += 1;
+				});
+
+				mk.rule(force);
+			});
+
+			await make.update(t);
+			await make.update(t);
+
+			expect(tCount).to.equal(2);
+			expect(pCount).to.equal(2);
+		});
+
+		it('does not remake if prereq requests restat and timestamp is unchanged', async () => {
+			const t = 't';
+			const prereq = 'prereq';
+			const force = 'force';
+
+			await writeFile(prereq, ':)');
+
+			let tCount = 0;
+			let pCount = 0;
+
+			const make = new MakeProgram((mk) => {
+				mk.rule(t, [prereq], async () => {
+					tCount += 1;
+					await writePath(t, 't');
+				});
+
+				mk.rule(prereq, [force], (args) => {
+					pCount += 1;
+					args.restat();
+				});
+
+				mk.rule(force);
+			});
+
+			await make.update(t);
+			await make.update(t);
+
+			expect(tCount).to.equal(1);
+			expect(pCount).to.equal(2);
+		});
+
 		it('ensures a target directory exists before updating', async () => {
 			const srcPath = 'src.txt';
 			const write = new WriteFileRule(srcPath, 'hello');

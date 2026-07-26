@@ -276,6 +276,61 @@ mk.include('output.deps.mk', async (mk) => {
 });
 ```
 
+### External Build System Integration
+
+Sometimes, it's useful to integrate with another tool that
+already does its own dependency tracking. A common case in the
+Make ecosystem is recursive use of make, where a larger build
+system can be split into a smaller build system.
+
+A problem that arises from external build system integration is
+that the dependencies are lost in the esmakefile system. Examine
+the following example:
+
+```js
+// Generates an external build system
+mk.rule('build/CMakeCache.txt', ['CMakeLists.txt'], (args) => {
+	return args.spawn('cmake', ['-S', '.', '-B', 'build']);
+});
+
+mk.rule('force');
+
+// Integrates/runs the external build system
+mk.rule('build/main', ['build/CMakeCache.txt', 'force'], (args) => {
+	return args.spawn('cmake', ['--build', 'build']);
+});
+
+// Test the compiled program
+mk.rule('test-results.txt', ['build/main'], (args) => {
+	args.spawn('build/main');
+	// ... output results to test-results.txt
+});
+```
+
+In this case, the `test-results.txt` target will always be
+updated, since `build/main` is always updated due to having the
+`force` prereq. Alternatively, if the `force` prereq were
+removed, then an update to `main.c` would _not_ trigger the
+`cmake --build` recipe to run. We have a problem!
+
+To remedy this, a `restat()` function is exposed on the argument
+object passed to recipes. This will tell esmakefile to
+reevaluate the modification timestamps associated with the
+recipe's rule's targets after the recipe is run. This means that
+downstream targets are only updated if the external build system
+decides to actually update the targets that it manages.
+
+To use `restat()` in the previous example, add it to the
+integrating recipe:
+
+```js
+// Integrates/runs the external build system
+mk.rule('build/main', ['build/CMakeCache.txt', 'force'], (args) => {
+	args.restat(); // <-- ADD THIS
+	return args.spawn('cmake', ['--build', 'build']);
+});
+```
+
 ### Observability
 
 esmakefile builds on top of

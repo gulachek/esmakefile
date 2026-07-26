@@ -2,7 +2,6 @@
 import { writeFile } from 'fs/promises';
 import { getLogger, rebasePath } from 'esmakefile';
 import { addSass } from './SassRecipe.mjs';
-import { addClangExecutable } from './clang/ClangExecutableRecipe.mjs';
 import { join } from 'node:path';
 
 /**
@@ -22,7 +21,19 @@ export default function main(mk) {
 
 	addSass(mk, scssFile, css);
 
-	addClangExecutable(mk, main, ['src/main.cpp', 'src/hello.cpp']);
+	const cmakeCache = join(outDir, 'CMakeCache.txt');
+	const cmakeLists = 'CMakeLists.txt';
+	mk.rule(cmakeCache, [cmakeLists], (args) => {
+		return args.spawn('cmake', ['-S', '.', '-B', outDir]);
+	});
+
+	const force = 'force';
+	mk.rule(force);
+
+	mk.rule(main, [cmakeCache, force], (args) => {
+		args.restat();
+		return args.spawn('cmake', ['--build', outDir]);
+	});
 
 	mk.rule('run-main', main, (args) => {
 		return args.spawn(main, []);

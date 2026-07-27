@@ -1,4 +1,5 @@
 import { spawn } from 'node-pty';
+import './fixNodePty.js'; // address microsoft/node-pty#919
 import { getLogger, Logger, LogLevel } from './logs.js';
 import {
 	ATTR_ARTIFACT_ID,

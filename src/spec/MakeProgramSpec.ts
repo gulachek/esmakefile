@@ -180,7 +180,7 @@ describe('MakeProgram', () => {
 
 			expect(targets.size).to.equal(2);
 			expect(targets.has('write.txt')).to.be.true;
-			expect(targets.has('sub/dest.txt')).to.be.true;
+			expect(targets.has(join('sub', 'dest.txt'))).to.be.true;
 		});
 	});
 

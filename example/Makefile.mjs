@@ -3,6 +3,17 @@ import { writeFile } from 'fs/promises';
 import { getLogger, rebasePath } from 'esmakefile';
 import { addSass } from './SassRecipe.mjs';
 import { join } from 'node:path';
+import { platform } from 'node:os';
+
+/**
+ * Transform a path to appropriately include .exe for windows
+ *
+ * @param {string} path
+ * @returns {string}
+ */
+function exe(path) {
+	return platform() === 'win32' ? path + '.exe' : path;
+}
 
 /**
  * @param {Makefile} mk
@@ -11,9 +22,10 @@ import { join } from 'node:path';
 export default function main(mk) {
 	const outDir = 'build';
 	const srcDir = 'src';
+	const cmake = exe('cmake');
 
 	const logger = getLogger({ name: 'esmakefile.example.make' });
-	const main = join(outDir, 'main');
+	const main = join(outDir, exe('main'));
 	const scssFile = join(srcDir, 'style.scss');
 	const css = rebasePath(scssFile, srcDir, outDir).replace(/.scss$/, '.css');
 
@@ -24,7 +36,7 @@ export default function main(mk) {
 	const cmakeCache = join(outDir, 'CMakeCache.txt');
 	const cmakeLists = 'CMakeLists.txt';
 	mk.rule(cmakeCache, [cmakeLists], (args) => {
-		return args.spawn('cmake', ['-S', '.', '-B', outDir]);
+		return args.spawn(cmake, ['-S', '.', '-B', outDir]);
 	});
 
 	const force = 'force';
@@ -32,7 +44,7 @@ export default function main(mk) {
 
 	mk.rule(main, [cmakeCache, force], (args) => {
 		args.restat();
-		return args.spawn('cmake', ['--build', outDir]);
+		return args.spawn(cmake, ['--build', outDir]);
 	});
 
 	mk.rule('run-main', main, (args) => {

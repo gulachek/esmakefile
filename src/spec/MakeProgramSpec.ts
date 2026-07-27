@@ -696,7 +696,7 @@ describe('MakeProgram', () => {
 			});
 
 			await make.update(cpPath);
-			await waitMs(1);
+			await waitMs(2);
 			await writePath(srcPath, 'update');
 
 			await make.update(cpPath);
@@ -721,7 +721,7 @@ describe('MakeProgram', () => {
 			});
 
 			await make.update(cpPath);
-			await waitMs(1);
+			await waitMs(2);
 			await writePath(otherPath, 'update');
 
 			await make.update(cpPath);
@@ -823,9 +823,9 @@ describe('MakeProgram', () => {
 			await make.update(a);
 			expect(bCount).to.equal(1);
 
-			await waitMs(1);
+			await waitMs(2);
 			await writePath(c, 'update c');
-			await waitMs(1);
+			await waitMs(2);
 			await writePath(a, 'update a');
 
 			// Above sets up where b is older than c, even though
@@ -942,7 +942,7 @@ describe('MakeProgram', () => {
 			});
 
 			await make.update(outPath);
-			await waitMs(1);
+			await waitMs(2);
 			logs.clear();
 			await make.update(outPath);
 
@@ -1079,7 +1079,7 @@ describe('MakeProgram', () => {
 			const src = 'src';
 
 			await writePath(stale, 'stale');
-			await waitMs(1);
+			await waitMs(2);
 			await writePath(src, 'src');
 
 			const make = new MakeProgram((mk) => {

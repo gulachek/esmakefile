@@ -74,7 +74,7 @@ export class CliLoggerProvider implements ILoggerProvider {
 	}
 
 	waitEmpty(): Promise<void> {
-		if (this.q.length < 0) {
+		if (this.q.length < 1) {
 			return Promise.resolve();
 		}
 

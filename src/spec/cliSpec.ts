@@ -4,10 +4,11 @@ import { fork, ChildProcess } from 'node:child_process';
 import { expect } from 'chai';
 
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const testDir = 'test-src';
-const thisModule = new URL(import.meta.url);
-const makeCli = join(dirname(dirname(thisModule.pathname)), 'make-cli.js');
+const thisModule = fileURLToPath(new URL(import.meta.url));
+const makeCli = join(dirname(dirname(thisModule)), 'make-cli.js');
 
 type ChildProcessResult = {
 	exitCode: number;

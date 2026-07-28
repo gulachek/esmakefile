@@ -1,0 +1,28 @@
+name: Build Example Makefile 
+
+on:
+  workflow_call:
+
+jobs:
+  build-example:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Install example
+        run: npm i
+        working-directory: ./example
+      - run: npm run build
+      - name: Resolve .bin/make
+        run: npm i
+        working-directory: ./example
+      - name: Build/Run example
+        run: npx make run-main
+        working-directory: ./example

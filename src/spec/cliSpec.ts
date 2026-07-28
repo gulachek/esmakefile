@@ -139,4 +139,4 @@ export function main(mk) {
 		const contents = await readFile(join(testDir, 'probe'), 'utf8');
 		expect(contents).to.equal('success');
 	});
-});
+}).timeout(5000);

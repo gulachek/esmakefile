@@ -1,8 +1,9 @@
 /** @import { Makefile } from 'esmakefile' */
-import { writeFile } from 'fs/promises';
+import { writeFile } from 'node:fs/promises';
+import { statSync } from 'node:fs';
 import { getLogger, rebasePath } from 'esmakefile';
 import { addSass } from './SassRecipe.mjs';
-import { join } from 'node:path';
+import { join, delimiter, resolve } from 'node:path';
 import { platform } from 'node:os';
 
 /**
@@ -39,6 +40,7 @@ export default function main(mk) {
 		/** @type {string[]} */
 		const cmakeArgs = ['-S', '.', '-B', outDir];
 		if (platform() === 'win32') cmakeArgs.push('-G', 'Ninja');
+		else cmakeArgs.push(`-DCMAKE_MAKE_PROGRAM=${posixWhichMake()}`);
 
 		return args.spawn(cmake, cmakeArgs);
 	});
@@ -119,4 +121,20 @@ export default function main(mk) {
  */
 function waitMs(ms) {
 	return new Promise((res) => setTimeout(res, ms));
+}
+
+/**
+ * Find `make` executable in PATH
+ */
+function posixWhichMake() {
+	const envPath = process.env['PATH'] || '';
+	const entries = envPath.split(delimiter);
+	for (const entry of entries) {
+		const make = join(entry, 'make');
+		if (resolve(make) === resolve(process.argv[1])) continue;
+		const st = statSync(make, { throwIfNoEntry: false });
+		if (st) return make;
+	}
+
+	throw new Error(`'make' not found in PATH (${envPath})`);
 }

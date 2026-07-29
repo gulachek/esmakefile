@@ -1,5 +1,5 @@
-import { spawn } from 'node-pty';
-import './fixNodePty.js'; // address microsoft/node-pty#919
+import { Vt100Stream } from './Vt100Stream.js';
+import { spawn } from 'node:child_process';
 import { getLogger, Logger, LogLevel } from './logs.js';
 import {
 	ATTR_ARTIFACT_ID,
@@ -58,42 +58,29 @@ export class RecipeArgs {
 				`spawn(${JSON.stringify(cmd)}, ${JSON.stringify(cmdArgs)})`,
 			);
 		}
-		const proc = spawn(cmd, cmdArgs, {});
+		const proc = spawn(cmd, cmdArgs, { stdio: 'pipe' });
 
-		let enqueue: (chunk: Uint8Array) => void;
-		let close: () => void;
-		const content = new ReadableStream<Uint8Array>({
-			start(c) {
-				enqueue = c.enqueue.bind(c);
-				close = c.close.bind(c);
-			},
-		});
-
-		let hasOutput = false;
-		proc.onData((data) => {
-			hasOutput = true;
-			enqueue(Buffer.from(data));
-		});
-
-		const store = getArtifactStore();
-		const putPromise = store.putStream({
-			content,
-			contentType: MIME_TYPE_ANSI_STREAM,
-		});
-		// Prevent unhandled rejection warning; errors are caught in onExit
-		putPromise.catch(() => {});
+		const stream = new Vt100Stream();
+		proc.stdout.pipe(stream, { end: false });
+		proc.stderr.pipe(stream, { end: false });
 
 		return new Promise<boolean>((res) => {
-			proc.onExit(async ({ exitCode }) => {
-				close();
+			proc.on('close', async (code) => {
+				stream.end();
+				const content = stream.contents();
+				if (content.length > 0) {
+					const store = getArtifactStore();
 
-				if (hasOutput) {
 					try {
 						// TODO expose this for consumers
-						const artifactId = await putPromise;
+						const artifactId = await store.put({
+							content,
+							contentType: MIME_TYPE_ANSI_STREAM,
+						});
+
 						this._log.emit({
 							eventName: EVENT_RECIPE_CHILD_PROCESS_OUTPUT,
-							level: exitCode === 0 ? LogLevel.info : LogLevel.error,
+							level: code === 0 ? LogLevel.info : LogLevel.error,
 							body: `Output from '${cmd}'`,
 							attributes: { [ATTR_ARTIFACT_ID]: artifactId },
 						});
@@ -105,8 +92,7 @@ export class RecipeArgs {
 						});
 					}
 				}
-
-				res(exitCode === 0);
+				res(code === 0);
 			});
 		});
 	}

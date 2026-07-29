@@ -1,0 +1,9 @@
+name: Orchestrate Actions on Push
+
+on: [push]
+
+jobs:
+  run-unit-tests:
+    uses: ./.github/workflows/run-unit-tests.yml
+  build-example:
+    uses: ./.github/workflows/build-example.yml

@@ -1,8 +1,20 @@
 /** @import { Makefile } from 'esmakefile' */
-import { writeFile } from 'fs/promises';
+import { writeFile } from 'node:fs/promises';
+import { statSync } from 'node:fs';
 import { getLogger, rebasePath } from 'esmakefile';
 import { addSass } from './SassRecipe.mjs';
-import { join } from 'node:path';
+import { join, delimiter, resolve } from 'node:path';
+import { platform } from 'node:os';
+
+/**
+ * Transform a path to appropriately include .exe for windows
+ *
+ * @param {string} path
+ * @returns {string}
+ */
+function exe(path) {
+	return platform() === 'win32' ? path + '.exe' : path;
+}
 
 /**
  * @param {Makefile} mk
@@ -11,9 +23,10 @@ import { join } from 'node:path';
 export default function main(mk) {
 	const outDir = 'build';
 	const srcDir = 'src';
+	const cmake = exe('cmake');
 
 	const logger = getLogger({ name: 'esmakefile.example.make' });
-	const main = join(outDir, 'main');
+	const main = join(outDir, exe('main'));
 	const scssFile = join(srcDir, 'style.scss');
 	const css = rebasePath(scssFile, srcDir, outDir).replace(/.scss$/, '.css');
 
@@ -24,7 +37,12 @@ export default function main(mk) {
 	const cmakeCache = join(outDir, 'CMakeCache.txt');
 	const cmakeLists = 'CMakeLists.txt';
 	mk.rule(cmakeCache, [cmakeLists], (args) => {
-		return args.spawn('cmake', ['-S', '.', '-B', outDir]);
+		/** @type {string[]} */
+		const cmakeArgs = ['-S', '.', '-B', outDir];
+		if (platform() === 'win32') cmakeArgs.push('-G', 'Ninja');
+		else cmakeArgs.push(`-DCMAKE_MAKE_PROGRAM=${posixWhichMake()}`);
+
+		return args.spawn(cmake, cmakeArgs);
 	});
 
 	const force = 'force';
@@ -32,7 +50,7 @@ export default function main(mk) {
 
 	mk.rule(main, [cmakeCache, force], (args) => {
 		args.restat();
-		return args.spawn('cmake', ['--build', outDir]);
+		return args.spawn(cmake, ['--build', outDir]);
 	});
 
 	mk.rule('run-main', main, (args) => {
@@ -103,4 +121,20 @@ export default function main(mk) {
  */
 function waitMs(ms) {
 	return new Promise((res) => setTimeout(res, ms));
+}
+
+/**
+ * Find `make` executable in PATH
+ */
+function posixWhichMake() {
+	const envPath = process.env['PATH'] || '';
+	const entries = envPath.split(delimiter);
+	for (const entry of entries) {
+		const make = join(entry, 'make');
+		if (resolve(make) === resolve(process.argv[1])) continue;
+		const st = statSync(make, { throwIfNoEntry: false });
+		if (st) return make;
+	}
+
+	throw new Error(`'make' not found in PATH (${envPath})`);
 }

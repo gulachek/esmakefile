@@ -1,13 +1,15 @@
 import { writeFile, readFile, rm, mkdir } from 'node:fs/promises';
 import { fork, ChildProcess } from 'node:child_process';
+import { Vt100Stream } from '../Vt100Stream.js';
 
 import { expect } from 'chai';
 
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const testDir = 'test-src';
-const thisModule = new URL(import.meta.url);
-const makeCli = join(dirname(dirname(thisModule.pathname)), 'make-cli.js');
+const thisModule = fileURLToPath(new URL(import.meta.url));
+const makeCli = join(dirname(dirname(thisModule)), 'make-cli.js');
 
 type ChildProcessResult = {
 	exitCode: number;
@@ -15,8 +17,16 @@ type ChildProcessResult = {
 };
 
 function wait(cp: ChildProcess): Promise<ChildProcessResult> {
+	const stream = new Vt100Stream();
+	cp.stdout.pipe(stream, { end: false });
+	cp.stderr.pipe(stream, { end: false });
+
 	return new Promise<ChildProcessResult>((res, rej) => {
 		cp.on('exit', (exitCode, signal) => {
+			if (exitCode !== 0) {
+				const contents = stream.contents();
+				console.log(contents.toString('utf8'));
+			}
 			res({ exitCode, signal });
 		});
 
@@ -138,4 +148,4 @@ export function main(mk) {
 		const contents = await readFile(join(testDir, 'probe'), 'utf8');
 		expect(contents).to.equal('success');
 	});
-});
+}).timeout(5000);

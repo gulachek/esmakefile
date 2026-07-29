@@ -36,7 +36,11 @@ export default function main(mk) {
 	const cmakeCache = join(outDir, 'CMakeCache.txt');
 	const cmakeLists = 'CMakeLists.txt';
 	mk.rule(cmakeCache, [cmakeLists], (args) => {
-		return args.spawn(cmake, ['-S', '.', '-B', outDir]);
+		/** @type {string[]} */
+		const cmakeArgs = ['-S', '.', '-B', outDir];
+		if (platform() === 'win32') cmakeArgs.push('-G', 'Ninja');
+
+		return args.spawn(cmake, cmakeArgs);
 	});
 
 	const force = 'force';

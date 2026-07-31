@@ -7,3 +7,5 @@ jobs:
     uses: ./.github/workflows/run-unit-tests.yml
   build-example:
     uses: ./.github/workflows/build-example.yml
+  lint:
+    uses: ./.github/workflows/lint.yml

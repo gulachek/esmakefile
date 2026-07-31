@@ -1,0 +1,20 @@
+name: Lint the codebase
+
+on:
+  workflow_call:
+
+jobs:
+  run-eslint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Install example
+        run: npm i
+        working-directory: ./example
+      - run: npm run build
+      - run: npm run lint

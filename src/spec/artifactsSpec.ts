@@ -113,7 +113,7 @@ describe('ArtifactStore', () => {
 				chunks.push(value);
 				++i;
 			}
-			expect(complete).to.be.true;
+			expect(complete).to.equal(true);
 			const flat = new Uint8Array(chunks.reduce((s, c) => s + c.length, 0));
 			let off = 0;
 			for (const c of chunks) {

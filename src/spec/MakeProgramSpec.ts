@@ -448,7 +448,7 @@ describe('MakeProgram', () => {
 			const make = new MakeProgram(() => {});
 			const result = await make.update();
 			expect(result).to.be.false;
-			expect(logs.find(LogLevel.error, /No target/i)).not.to.be.null;
+			expect(logs.find(LogLevel.error, /No target/i)).not.to.equal(null);
 		});
 
 		it('does not update first target when another is specified', async () => {
@@ -1043,7 +1043,7 @@ describe('MakeProgram', () => {
 
 				const result = await make.parse();
 				expect(result).to.be.false;
-				expect(logs.find(LogLevel.error, /nested\.mk/)).not.to.be.null;
+				expect(logs.find(LogLevel.error, /nested\.mk/)).not.to.equal(null);
 			});
 
 			it('fails to parse when nested MakefileFn throws', async () => {
@@ -1126,7 +1126,7 @@ describe('MakeProgram', () => {
 			expect(
 				logs.find(LogLevel.error, rootDir),
 				'update failed to indicate that directory is not writable',
-			).not.to.be.null;
+			).not.to.equal(null);
 		});
 
 		it('is an error when a cycle exists', async () => {
@@ -1140,7 +1140,7 @@ describe('MakeProgram', () => {
 			expect(
 				logs.find(LogLevel.error, /[Cc]ircular/),
 				'update did not indicate a circular dependency was found',
-			).not.to.be.null;
+			).not.to.equal(null);
 		});
 
 		it('reruns given MakefileFn on subsequent update', async () => {

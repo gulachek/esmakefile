@@ -95,7 +95,7 @@ describe('InMemoryArtifactStore', () => {
 	describe('get', () => {
 		it('returns null for a nonexistent id', async () => {
 			const result = await store.get('no-such-id');
-			expect(result).to.be.null;
+			expect(result).to.equal(null);
 		});
 
 		it('returns the stored content and contentType', async () => {
@@ -107,7 +107,7 @@ describe('InMemoryArtifactStore', () => {
 			});
 
 			const response = await store.get(id);
-			expect(response).to.not.be.null;
+			expect(response).not.to.equal(null);
 
 			const content = await readStream(response!.body);
 			expect(response!.contentType).to.equal('text/plain');

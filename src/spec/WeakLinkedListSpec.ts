@@ -26,8 +26,8 @@ describe('WeakLinkedList', () => {
 			expect(wl.prune()).to.equal(2);
 
 			// only adding these to avoid compiler warnings about unused vars
-			expect(o1).not.to.be.null;
-			expect(o2).not.to.be.null;
+			expect(o1).not.to.equal(null);
+			expect(o2).not.to.equal(null);
 		});
 	});
 });

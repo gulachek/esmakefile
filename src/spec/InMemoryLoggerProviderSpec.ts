@@ -39,12 +39,12 @@ describe('InMemoryLoggerProvider', () => {
 
 		it('returns null when level does not match any', () => {
 			const l = iml.find(LogLevel.error, /.*/);
-			expect(l).to.be.null;
+			expect(l).to.equal(null);
 		});
 
 		it('returns null when pattern does not match any', () => {
 			const l = iml.find(LogLevel.info, /fourth/);
-			expect(l).to.be.null;
+			expect(l).to.equal(null);
 		});
 
 		it('returns first match only', () => {

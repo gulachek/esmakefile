@@ -54,7 +54,7 @@ describe('RecipeArgs', () => {
 
 			const artifactStore = getArtifactStore();
 			const artifact = await artifactStore.get(artifactId);
-			expect(artifact).to.not.be.null;
+			expect(artifact).not.to.equal(null);
 			const { content, contentType } = artifact!;
 			expect(contentType).to.equal(MIME_TYPE_ANSI_STREAM);
 			const contentStr = new TextDecoder('ascii').decode(content);
@@ -95,7 +95,7 @@ describe('RecipeArgs', () => {
 
 			const artifactStore = getArtifactStore();
 			const artifact = await artifactStore.get(artifactId);
-			expect(artifact).to.not.be.null;
+			expect(artifact).not.to.equal(null);
 			const { content, contentType } = artifact!;
 			expect(contentType).to.equal(MIME_TYPE_ANSI_STREAM);
 			const contentStr = new TextDecoder('ascii').decode(content);

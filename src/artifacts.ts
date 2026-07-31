@@ -107,7 +107,6 @@ export class ArtifactStore {
 		try {
 			// Perhaps this would be more important to provide a timeout
 			// with a network service backend, but this seems ok right now
-			// eslint-disable-next-line no-constant-condition
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;

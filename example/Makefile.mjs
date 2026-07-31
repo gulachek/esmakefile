@@ -1,4 +1,5 @@
 /** @import { Makefile } from 'esmakefile' */
+/* globals process, setTimeout */
 import { writeFile } from 'node:fs/promises';
 import { statSync } from 'node:fs';
 import { getLogger, rebasePath } from 'esmakefile';

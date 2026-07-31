@@ -10,7 +10,7 @@ describe('CycleDetector', () => {
 
 	function expectCycle(...seq: string[]): void {
 		const result = cd.findCycle();
-		expect(result).not.to.be.null;
+		expect(result).not.to.equal(null);
 		const rels = result.path;
 		rotateToAlignStart(seq, rels);
 		expect(seq).to.deep.equal(rels);
@@ -23,13 +23,13 @@ describe('CycleDetector', () => {
 	describe('findCycle', () => {
 		it('returns null for an empty graph', () => {
 			const result = cd.findCycle();
-			expect(result).to.be.null;
+			expect(result).to.equal(null);
 		});
 
 		it('returns null for a graph with no cycle', () => {
 			edge('a', 'b');
 			const result = cd.findCycle();
-			expect(result).to.be.null;
+			expect(result).to.equal(null);
 		});
 
 		it('finds length 1 cycle', () => {

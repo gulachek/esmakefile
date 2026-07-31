@@ -55,7 +55,7 @@ describe('ArtifactStore', () => {
 	describe('get', () => {
 		it('returns null for a non-existent id', async () => {
 			const result = await store.get('missing');
-			expect(result).to.be.null;
+			expect(result).to.equal(null);
 		});
 
 		it('returns buffered content after put', async () => {
@@ -63,7 +63,7 @@ describe('ArtifactStore', () => {
 			const id = await store.put({ content: data, contentType: 'text/plain' });
 
 			const result = await store.get(id);
-			expect(result).to.not.be.null;
+			expect(result).not.to.equal(null);
 			expect(result!.contentType).to.equal('text/plain');
 			expect(new TextDecoder().decode(result!.content)).to.equal('buffered');
 		});
@@ -77,7 +77,7 @@ describe('ArtifactStore', () => {
 			});
 
 			const result = await store.get(id);
-			expect(result).to.not.be.null;
+			expect(result).not.to.equal(null);
 			expect(result!.contentType).to.equal('application/octet-stream');
 			expect(new TextDecoder().decode(result!.content)).to.equal(
 				'streamed then buffered',
@@ -88,7 +88,7 @@ describe('ArtifactStore', () => {
 	describe('getStream', () => {
 		it('returns null for a non-existent id', async () => {
 			const result = await store.getStream('missing');
-			expect(result).to.be.null;
+			expect(result).to.equal(null);
 		});
 
 		it('returns a stream with correct contentType and contentLength after put', async () => {
@@ -96,7 +96,7 @@ describe('ArtifactStore', () => {
 			const id = await store.put({ content: data, contentType: 'text/plain' });
 
 			const result = await store.getStream(id);
-			expect(result).to.not.be.null;
+			expect(result).not.to.equal(null);
 			expect(result!.contentType).to.equal('text/plain');
 			expect(result!.contentLength).to.equal(data.length);
 
@@ -113,7 +113,7 @@ describe('ArtifactStore', () => {
 				chunks.push(value);
 				++i;
 			}
-			expect(complete).to.be.true;
+			expect(complete).to.equal(true);
 			const flat = new Uint8Array(chunks.reduce((s, c) => s + c.length, 0));
 			let off = 0;
 			for (const c of chunks) {

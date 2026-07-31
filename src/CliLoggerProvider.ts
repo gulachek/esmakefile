@@ -199,7 +199,7 @@ function fmtLogLevel(level: LogLevel): string {
 	// range is valid
 	const s = logLevelToStr(level);
 	const padding = ' '.repeat(Math.max(0, 6 - s.length));
-	let out = s;
+	let out: string;
 
 	if (level < LogLevel.debug)
 		// trace

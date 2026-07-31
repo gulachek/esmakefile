@@ -23,10 +23,10 @@ describe('InMemoryLoggerProvider', () => {
 	describe('clear', () => {
 		it('resets the logs to be empty', () => {
 			l.error('error');
-			expect(iml.logs).not.to.be.empty;
+			expect(iml.logs.length).not.to.equal(0);
 
 			iml.clear();
-			expect(iml.logs).to.be.empty;
+			expect(iml.logs.length).to.equal(0);
 		});
 	});
 
@@ -39,12 +39,12 @@ describe('InMemoryLoggerProvider', () => {
 
 		it('returns null when level does not match any', () => {
 			const l = iml.find(LogLevel.error, /.*/);
-			expect(l).to.be.null;
+			expect(l).to.equal(null);
 		});
 
 		it('returns null when pattern does not match any', () => {
 			const l = iml.find(LogLevel.info, /fourth/);
-			expect(l).to.be.null;
+			expect(l).to.equal(null);
 		});
 
 		it('returns first match only', () => {
@@ -67,7 +67,7 @@ describe('InMemoryLoggerProvider', () => {
 
 		it('returns an empty array when nothing matches', () => {
 			const evts = iml.findEvents('c');
-			expect(evts).to.be.empty;
+			expect(evts.length).to.equal(0);
 		});
 
 		it('returns all events in order matching event name', () => {

@@ -41,7 +41,7 @@ describe('RecipeArgs', () => {
 		it('logs an event with uploaded output when the process writes to stdout', async () => {
 			const args = mkArgs();
 			const result = await args.spawn(nodeExe, ['-e', 'console.log("Hello")']);
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 
 			const evts = logs.findEvents(EVENT_RECIPE_CHILD_PROCESS_OUTPUT);
 			expect(evts.length).to.equal(1);
@@ -54,7 +54,7 @@ describe('RecipeArgs', () => {
 
 			const artifactStore = getArtifactStore();
 			const artifact = await artifactStore.get(artifactId);
-			expect(artifact).to.not.be.null;
+			expect(artifact).not.to.equal(null);
 			const { content, contentType } = artifact!;
 			expect(contentType).to.equal(MIME_TYPE_ANSI_STREAM);
 			const contentStr = new TextDecoder('ascii').decode(content);
@@ -66,7 +66,7 @@ describe('RecipeArgs', () => {
 
 			const args = mkArgs();
 			const result = await args.spawn(nodeExe, ['-e', 'console.log("Hello")']);
-			expect(result).to.be.true; // program still exits successfully
+			expect(result).to.equal(true); // program still exits successfully
 
 			const evts = logs.findEvents(
 				EVENT_RECIPE_CHILD_PROCESS_OUTPUT_UPLOAD_EXCEPTION,
@@ -82,7 +82,7 @@ describe('RecipeArgs', () => {
 				'-e',
 				'console.log("Hello"); process.exit(1);',
 			]);
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 
 			const evts = logs.findEvents(EVENT_RECIPE_CHILD_PROCESS_OUTPUT);
 			expect(evts.length).to.equal(1);
@@ -95,7 +95,7 @@ describe('RecipeArgs', () => {
 
 			const artifactStore = getArtifactStore();
 			const artifact = await artifactStore.get(artifactId);
-			expect(artifact).to.not.be.null;
+			expect(artifact).not.to.equal(null);
 			const { content, contentType } = artifact!;
 			expect(contentType).to.equal(MIME_TYPE_ANSI_STREAM);
 			const contentStr = new TextDecoder('ascii').decode(content);

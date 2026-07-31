@@ -113,7 +113,7 @@ describe('MakeProgram', () => {
 		it('returns true when fn returns void', async () => {
 			const make = new MakeProgram(() => {});
 			const result = await make.parse();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('returns true when fn returns void Promise', async () => {
@@ -121,7 +121,7 @@ describe('MakeProgram', () => {
 				await waitMs(0);
 			});
 			const result = await make.parse();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('returns true when fn returns true', async () => {
@@ -129,7 +129,7 @@ describe('MakeProgram', () => {
 				return true;
 			});
 			const result = await make.parse();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('returns true when fn returns true Promise', async () => {
@@ -137,7 +137,7 @@ describe('MakeProgram', () => {
 				return Promise.resolve(true);
 			});
 			const result = await make.parse();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('returns false when fn throws', async () => {
@@ -145,7 +145,7 @@ describe('MakeProgram', () => {
 				throw new Error('blah');
 			});
 			const result = await make.parse();
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 		});
 
 		it('returns false when fn returns false', async () => {
@@ -153,9 +153,10 @@ describe('MakeProgram', () => {
 				return false;
 			});
 			const result = await make.parse();
-			expect(result).to.be.false;
-			expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to.be
-				.empty;
+			expect(result).to.equal(false);
+			expect(
+				logs.find(LogLevel.error, /Makefile .* returned false/),
+			).not.to.equal(null);
 		});
 
 		it('returns false when fn returns false Promise', async () => {
@@ -163,9 +164,10 @@ describe('MakeProgram', () => {
 				return Promise.resolve(false);
 			});
 			const result = await make.parse();
-			expect(result).to.be.false;
-			expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to.be
-				.empty;
+			expect(result).to.equal(false);
+			expect(
+				logs.find(LogLevel.error, /Makefile .* returned false/),
+			).not.to.equal(null);
 		});
 	});
 
@@ -179,8 +181,8 @@ describe('MakeProgram', () => {
 			const targets = new Set(await make.targets());
 
 			expect(targets.size).to.equal(2);
-			expect(targets.has('write.txt')).to.be.true;
-			expect(targets.has(join('sub', 'dest.txt'))).to.be.true;
+			expect(targets.has('write.txt')).to.equal(true);
+			expect(targets.has(join('sub', 'dest.txt'))).to.equal(true);
 		});
 	});
 
@@ -210,7 +212,7 @@ describe('MakeProgram', () => {
 			});
 			await make.parse();
 
-			expect(expectationsRan).to.be.true;
+			expect(expectationsRan).to.equal(true);
 		});
 
 		it('can add multiple rules for the same target', async () => {
@@ -225,7 +227,7 @@ describe('MakeProgram', () => {
 			});
 			await make.parse();
 
-			expect(expectationsRan).to.be.true;
+			expect(expectationsRan).to.equal(true);
 		});
 	});
 
@@ -235,7 +237,7 @@ describe('MakeProgram', () => {
 				mk.rule('foo', () => {});
 			});
 
-			expect(await make.hasTarget('foo')).to.be.true;
+			expect(await make.hasTarget('foo')).to.equal(true);
 		});
 
 		it('returns false if target is not added to a rule', async () => {
@@ -243,7 +245,7 @@ describe('MakeProgram', () => {
 				mk.rule('foo', () => {});
 			});
 
-			expect(await make.hasTarget('bar')).to.be.false;
+			expect(await make.hasTarget('bar')).to.equal(false);
 		});
 	});
 
@@ -273,7 +275,7 @@ describe('MakeProgram', () => {
 			if (stats) {
 				await chmod(testSrc, 0o777);
 				await rm(testSrc, { recursive: true });
-				expect(existsSync(testSrc)).to.be.false;
+				expect(existsSync(testSrc)).to.equal(false);
 			}
 
 			await mkdir(testSrc, { recursive: true });
@@ -297,7 +299,7 @@ describe('MakeProgram', () => {
 			const result = await make.update(path);
 			const contents = await readPath(path);
 			expect(contents).to.equal('hello');
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('debug logs when a recipe begins', async () => {
@@ -326,7 +328,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 			expect(count).to.equal(1);
 		});
 
@@ -350,7 +352,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update();
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 		});
 
 		it('succeeds if recipe is void', async () => {
@@ -358,7 +360,7 @@ describe('MakeProgram', () => {
 				mk.rule('all', () => {});
 			});
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('succeeds if recipe is true', async () => {
@@ -366,7 +368,7 @@ describe('MakeProgram', () => {
 				mk.rule('all', () => true);
 			});
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('fails if recipe returns Promise<false>', async () => {
@@ -374,7 +376,7 @@ describe('MakeProgram', () => {
 				mk.rule('all', () => Promise.resolve(false));
 			});
 			const result = await make.update();
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 		});
 
 		it('succeeds if recipe is Promise<void>', async () => {
@@ -382,7 +384,7 @@ describe('MakeProgram', () => {
 				mk.rule('all', () => Promise.resolve());
 			});
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('succeeds if recipe is Promise<true>', async () => {
@@ -390,7 +392,7 @@ describe('MakeProgram', () => {
 				mk.rule('all', () => Promise.resolve(true));
 			});
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('fails if recipe throws', async () => {
@@ -403,7 +405,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update(path);
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 		});
 
 		it('logs an exception event when recipe throws', async () => {
@@ -439,7 +441,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 			expect(writeOne.updateCount).to.equal(1);
 			expect(writeTwo.updateCount).to.equal(0);
 		});
@@ -447,8 +449,8 @@ describe('MakeProgram', () => {
 		it('fails when no targets exist for a default goal', async () => {
 			const make = new MakeProgram(() => {});
 			const result = await make.update();
-			expect(result).to.be.false;
-			expect(logs.find(LogLevel.error, /No target/i)).not.to.be.null;
+			expect(result).to.equal(false);
+			expect(logs.find(LogLevel.error, /No target/i)).not.to.equal(null);
 		});
 
 		it('does not update first target when another is specified', async () => {
@@ -463,7 +465,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update(pTwo);
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 			expect(writeOne.updateCount).to.equal(0);
 			expect(writeTwo.updateCount).to.equal(1);
 		});
@@ -474,9 +476,10 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update('does-not-exist');
-			expect(result).to.be.false;
-			expect(logs.find(LogLevel.error, /no target .*does-not-exist/i)).not.to.be
-				.empty;
+			expect(result).to.equal(false);
+			expect(
+				logs.find(LogLevel.error, /no target .*does-not-exist/i),
+			).not.to.equal(null);
 		});
 
 		it("updates a target's prereq", async () => {
@@ -493,8 +496,8 @@ describe('MakeProgram', () => {
 
 			const result = await make.update(target);
 
-			expect(result, 'expected update success').to.be.true;
-			expect(prereqUpdated, 'expected prereq to be updated').to.be.true;
+			expect(result, 'expected update success').to.equal(true);
+			expect(prereqUpdated, 'expected prereq to be updated').to.equal(true);
 		});
 
 		it('defaults a string type prereq to src path', async () => {
@@ -519,7 +522,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('updates a phony target without a recipe with prereqs', async () => {
@@ -533,7 +536,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it("fails if a prereq doesn't exist", async () => {
@@ -541,7 +544,7 @@ describe('MakeProgram', () => {
 				mk.rule('all', 'prereq');
 			});
 			const result = await make.update();
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 		});
 
 		it("fails if a missing prereq doesn't have a recipe", async () => {
@@ -549,7 +552,7 @@ describe('MakeProgram', () => {
 				mk.rule('all', 'prereq');
 			});
 			const result = await make.update();
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 		});
 
 		it('succeeds if a prereq does have a recipe that succeeds', async () => {
@@ -560,7 +563,7 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update();
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 		});
 
 		it('remakes if depending on a phony target', async () => {
@@ -664,7 +667,7 @@ describe('MakeProgram', () => {
 			await make.update(cpPath);
 
 			const dirStat = await stat(dirname(rel(cpPath)));
-			expect(dirStat.isDirectory()).to.be.true;
+			expect(dirStat.isDirectory()).to.equal(true);
 		});
 
 		it('skips updating target if newer than prereqs', async () => {
@@ -904,7 +907,7 @@ describe('MakeProgram', () => {
 			const result = await make.update(cpPath);
 
 			expect(cp.updateCount).to.equal(0);
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 		});
 
 		it('does not update a target if a prereq was deleted', async () => {
@@ -919,14 +922,14 @@ describe('MakeProgram', () => {
 			});
 
 			let result = await make.update(outPath);
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 			expect(copy.updateCount).to.equal(1);
 
 			// now delete (hits case where target path does exist prior)
 			await rmPath(srcPath);
 
 			result = await make.update(outPath);
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 			expect(copy.updateCount).to.equal(1);
 		});
 
@@ -947,7 +950,7 @@ describe('MakeProgram', () => {
 			await make.update(outPath);
 
 			const evts = logs.findEvents(EVENT_TARGET_UP_TO_DATE);
-			expect(evts).not.to.be.empty;
+			expect(evts).not.to.equal(null);
 			const e = evts[0];
 			expect(e.level).to.equal(LogLevel.debug);
 		});
@@ -965,7 +968,7 @@ describe('MakeProgram', () => {
 				expect(
 					await make.hasTarget(nested),
 					'expected program to contain nested target',
-				).to.be.true;
+				).to.equal(true);
 			});
 
 			it('throws when Makefile target already has recipe', async () => {
@@ -980,7 +983,7 @@ describe('MakeProgram', () => {
 				});
 				await make.parse();
 
-				expect(expectationsRan, 'Did not evaluate expectation').to.be.true;
+				expect(expectationsRan, 'Did not evaluate expectation').to.equal(true);
 			});
 
 			it('throws when recipe is added to a Makefile target', async () => {
@@ -995,7 +998,7 @@ describe('MakeProgram', () => {
 				});
 				await make.parse();
 
-				expect(expectationsRan, 'Did not evaluate expectation').to.be.true;
+				expect(expectationsRan, 'Did not evaluate expectation').to.equal(true);
 			});
 
 			it('updates prereqs prior to executing included mk function', async () => {
@@ -1007,7 +1010,9 @@ describe('MakeProgram', () => {
 					let prereqUpdated = false;
 
 					mk.include(nestedMk, (mk) => {
-						expect(prereqUpdated, 'expected prereq to be updated').to.be.true;
+						expect(prereqUpdated, 'expected prereq to be updated').to.equal(
+							true,
+						);
 						mk.rule(nested, () => {});
 					});
 
@@ -1021,7 +1026,7 @@ describe('MakeProgram', () => {
 				expect(
 					await make.hasTarget(nested),
 					'expected program to contain nested target',
-				).to.be.true;
+				).to.equal(true);
 			});
 
 			it('fails to parse when a nested Makefile cannot be updated', async () => {
@@ -1040,8 +1045,8 @@ describe('MakeProgram', () => {
 				});
 
 				const result = await make.parse();
-				expect(result).to.be.false;
-				expect(logs.find(LogLevel.error, /nested\.mk/)).not.to.be.null;
+				expect(result).to.equal(false);
+				expect(logs.find(LogLevel.error, /nested\.mk/)).not.to.equal(null);
 			});
 
 			it('fails to parse when nested MakefileFn throws', async () => {
@@ -1054,8 +1059,8 @@ describe('MakeProgram', () => {
 				});
 
 				const result = await make.parse();
-				expect(result).to.be.false;
-				expect(logs.findEvents(EVENT_MAKEFILE_EXCEPTION)).not.to.be.empty;
+				expect(result).to.equal(false);
+				expect(logs.findEvents(EVENT_MAKEFILE_EXCEPTION)).not.to.equal(null);
 			});
 
 			it('fails to parse when nested MakefileFn returns false', async () => {
@@ -1068,9 +1073,10 @@ describe('MakeProgram', () => {
 				});
 
 				const result = await make.parse();
-				expect(result).to.be.false;
-				expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to
-					.be.empty;
+				expect(result).to.equal(false);
+				expect(
+					logs.find(LogLevel.error, /Makefile .* returned false/),
+				).not.to.equal(null);
 			});
 		});
 
@@ -1087,10 +1093,10 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update(stale);
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
-			expect(evts).not.to.be.empty;
+			expect(evts).not.to.equal(null);
 			const e = evts[0];
 			expect(e.level).to.equal(LogLevel.warn);
 		});
@@ -1105,10 +1111,10 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update('phony');
-			expect(result).to.be.true;
+			expect(result).to.equal(true);
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
-			expect(evts).to.be.empty;
+			expect(evts).to.eql([]);
 		});
 
 		it('is an error when the __esmakefile__ dir is not created', async () => {
@@ -1120,11 +1126,11 @@ describe('MakeProgram', () => {
 			const result = await make.update();
 			await restoreDirWriting(rootDir);
 
-			expect(result, 'should fail').to.be.false;
+			expect(result, 'should fail').to.equal(false);
 			expect(
 				logs.find(LogLevel.error, rootDir),
 				'update failed to indicate that directory is not writable',
-			).not.to.be.null;
+			).not.to.equal(null);
 		});
 
 		it('is an error when a cycle exists', async () => {
@@ -1134,11 +1140,11 @@ describe('MakeProgram', () => {
 			});
 
 			const result = await make.update();
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 			expect(
 				logs.find(LogLevel.error, /[Cc]ircular/),
 				'update did not indicate a circular dependency was found',
-			).not.to.be.null;
+			).not.to.equal(null);
 		});
 
 		it('reruns given MakefileFn on subsequent update', async () => {

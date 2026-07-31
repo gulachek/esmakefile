@@ -195,7 +195,7 @@ export class UpdateExecution {
 			});
 		}
 
-		let result = false;
+		let result: boolean;
 
 		try {
 			this._logger.debug({

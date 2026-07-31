@@ -82,7 +82,7 @@ describe('RecipeArgs', () => {
 				'-e',
 				'console.log("Hello"); process.exit(1);',
 			]);
-			expect(result).to.be.false;
+			expect(result).to.equal(false);
 
 			const evts = logs.findEvents(EVENT_RECIPE_CHILD_PROCESS_OUTPUT);
 			expect(evts.length).to.equal(1);

@@ -154,8 +154,9 @@ describe('MakeProgram', () => {
 			});
 			const result = await make.parse();
 			expect(result).to.equal(false);
-			expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to.be
-				.empty;
+			expect(
+				logs.find(LogLevel.error, /Makefile .* returned false/),
+			).not.to.equal(null);
 		});
 
 		it('returns false when fn returns false Promise', async () => {
@@ -164,8 +165,9 @@ describe('MakeProgram', () => {
 			});
 			const result = await make.parse();
 			expect(result).to.equal(false);
-			expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to.be
-				.empty;
+			expect(
+				logs.find(LogLevel.error, /Makefile .* returned false/),
+			).not.to.equal(null);
 		});
 	});
 
@@ -475,8 +477,9 @@ describe('MakeProgram', () => {
 
 			const result = await make.update('does-not-exist');
 			expect(result).to.equal(false);
-			expect(logs.find(LogLevel.error, /no target .*does-not-exist/i)).not.to.be
-				.empty;
+			expect(
+				logs.find(LogLevel.error, /no target .*does-not-exist/i),
+			).not.to.equal(null);
 		});
 
 		it("updates a target's prereq", async () => {
@@ -947,7 +950,7 @@ describe('MakeProgram', () => {
 			await make.update(outPath);
 
 			const evts = logs.findEvents(EVENT_TARGET_UP_TO_DATE);
-			expect(evts).not.to.be.empty;
+			expect(evts).not.to.equal(null);
 			const e = evts[0];
 			expect(e.level).to.equal(LogLevel.debug);
 		});
@@ -1057,7 +1060,7 @@ describe('MakeProgram', () => {
 
 				const result = await make.parse();
 				expect(result).to.equal(false);
-				expect(logs.findEvents(EVENT_MAKEFILE_EXCEPTION)).not.to.be.empty;
+				expect(logs.findEvents(EVENT_MAKEFILE_EXCEPTION)).not.to.equal(null);
 			});
 
 			it('fails to parse when nested MakefileFn returns false', async () => {
@@ -1071,8 +1074,9 @@ describe('MakeProgram', () => {
 
 				const result = await make.parse();
 				expect(result).to.equal(false);
-				expect(logs.find(LogLevel.error, /Makefile .* returned false/)).not.to
-					.be.empty;
+				expect(
+					logs.find(LogLevel.error, /Makefile .* returned false/),
+				).not.to.equal(null);
 			});
 		});
 
@@ -1092,7 +1096,7 @@ describe('MakeProgram', () => {
 			expect(result).to.equal(true);
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
-			expect(evts).not.to.be.empty;
+			expect(evts).not.to.equal(null);
 			const e = evts[0];
 			expect(e.level).to.equal(LogLevel.warn);
 		});
@@ -1110,7 +1114,7 @@ describe('MakeProgram', () => {
 			expect(result).to.equal(true);
 
 			const evts = logs.findEvents(EVENT_TARGET_STALE_NO_RECIPE);
-			expect(evts).to.be.empty;
+			expect(evts).to.eql([]);
 		});
 
 		it('is an error when the __esmakefile__ dir is not created', async () => {

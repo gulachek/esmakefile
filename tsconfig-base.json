@@ -3,7 +3,7 @@
 		"composite": true,
 		"target": "es2021",
 		"lib": ["es2021"],
-		"module": "node16",
+		"module": "nodenext",
 		"moduleResolution": "node16",
 		"resolveJsonModule": true,
 		"allowSyntheticDefaultImports": true,

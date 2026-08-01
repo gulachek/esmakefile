@@ -17,7 +17,7 @@ import { CliLoggerProvider } from './CliLoggerProvider.js';
 import { resolve } from 'node:path';
 import { Stats, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import pkg from '../package.json';
+import pkg from '../package.json' with { type: 'json' };
 
 const artifactImpl = new InMemoryArtifactStore();
 setArtifactStoreImpl(artifactImpl);

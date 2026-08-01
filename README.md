@@ -47,10 +47,10 @@ export default function main(mk) {
 });
 ```
 
-3. Run `npx make`
+3. Run `npx esmakefile`
 
 ```sh
-npx make
+npx esmakefile
 ```
 
 4. Tailor the build system to your project!
@@ -100,8 +100,8 @@ executable file.
 
 Most of the time, esmakefile is interacted with by a user
 authoring a JavaScript module specifying the build system and
-running `npx make` from the shell. Refer to the "Quick Start"
-example above for typical usage, and run with `npx make help` to
+running `npx esmakefile` from the shell. Refer to the "Quick Start"
+example above for typical usage, and run with `npx esmakefile help` to
 see which options are supported.
 
 #### Module Naming Conventions
@@ -130,12 +130,12 @@ can specify another goal simply by adding it to the shell
 invocation.
 
 ```sh
-npx make <goal>
+npx esmakefile <goal>
 ```
 
 The format of `<goal>` is a path. In other words, if
 the target desired to be updated is specified as
-`'my/target.txt'`, then a user could update it with `npx make
+`'my/target.txt'`, then a user could update it with `npx esmakefile
 my/target.txt`.
 
 #### Watch Mode
@@ -145,7 +145,7 @@ will watch the root directory for changes and update the goal
 specified at the command line.
 
 ```sh
-npx make watch [goal]
+npx esmakefile watch [goal]
 ```
 
 ### `MakeProgram` Programmatic Driver

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const testDir = 'test-src';
 const thisModule = fileURLToPath(new URL(import.meta.url));
-const makeCli = join(dirname(dirname(thisModule)), 'make-cli.js');
+const makeCli = join(dirname(dirname(thisModule)), 'esmakefile-cli.js');
 
 type ChildProcessResult = {
 	exitCode: number;
@@ -34,7 +34,7 @@ function wait(cp: ChildProcess): Promise<ChildProcessResult> {
 	});
 }
 
-describe('make cli', () => {
+describe('cli', () => {
 	beforeEach(async () => {
 		await rm(testDir, {
 			recursive: true,

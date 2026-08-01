@@ -34,7 +34,7 @@ function wait(cp: ChildProcess): Promise<ChildProcessResult> {
 	});
 }
 
-describe('make cli', () => {
+describe('cli', () => {
 	beforeEach(async () => {
 		await rm(testDir, {
 			recursive: true,

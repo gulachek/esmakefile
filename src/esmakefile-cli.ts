@@ -17,6 +17,7 @@ import { CliLoggerProvider } from './CliLoggerProvider.js';
 import { resolve } from 'node:path';
 import { Stats, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import pkg from '../package.json';
 
 const artifactImpl = new InMemoryArtifactStore();
 setArtifactStoreImpl(artifactImpl);
@@ -29,7 +30,7 @@ const loggerProvider = setLoggerProvider(
 const sdk = new NodeSDK({
 	resource: resourceFromAttributes({
 		[ATTR_SERVICE_NAME]: 'esmakefile',
-		[ATTR_SERVICE_VERSION]: '0.6.3', // TODO: make this more automatic
+		[ATTR_SERVICE_VERSION]: pkg.version,
 	}),
 });
 sdk.start();

@@ -6,7 +6,7 @@
 	"types": "types/index.d.ts",
 	"type": "module",
 	"bin": {
-		"make": "dist/make-cli.js"
+		"esmakefile": "dist/make-cli.js"
 	},
 	"scripts": {
 		"build": "tsc --build",

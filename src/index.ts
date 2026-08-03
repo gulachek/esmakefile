@@ -34,4 +34,4 @@ export {
 	EVENT_RECIPE_CHILD_PROCESS_OUTPUT_UPLOAD_EXCEPTION,
 	MIME_TYPE_ANSI_STREAM,
 } from './names.js';
-export { MakeProgram } from './MakeProgram.js';
+export { MakeProgram, IMakeProgramOpts } from './MakeProgram.js';

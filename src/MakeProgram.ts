@@ -5,7 +5,11 @@ import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
+/**
+ * Options to configure a {@link MakeProgram}
+ */
 export interface IMakeProgramOpts {
+	/** A path to identify the top level {@link Makefile | Makefile's} target which is useful for logging */
 	path?: string;
 }
 

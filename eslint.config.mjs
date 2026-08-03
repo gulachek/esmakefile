@@ -19,6 +19,7 @@ export default defineConfig([
 		'node_modules/',
 		'dist/',
 		'types/',
+		'docs/typedoc/',
 		'example/build/',
 		'example/node_modules/',
 	]),

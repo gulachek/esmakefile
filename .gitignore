@@ -10,3 +10,4 @@ install
 .vs
 .cache
 tsconfig.tsbuildinfo
+docs/typedoc

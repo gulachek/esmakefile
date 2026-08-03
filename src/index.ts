@@ -1,5 +1,5 @@
 export { rebasePath } from './Path.js';
-export { Makefile, MakefileFn } from './Makefile.js';
+export { Makefile, MakefileFn, RecipeFunction } from './Makefile.js';
 export { IRule, RecipeArgs } from './Rule.js';
 export {
 	getLogger,

@@ -8,7 +8,12 @@ export interface IMakefileOpts {
 	path: PathInfo;
 }
 
-type RecipeFunction = (
+/**
+ * A function that updates the associated target(s)
+ * @param args Arguments to help update the target(s)
+ * @returns A raw or `Promise` wrapped `boolean` indicating whether the recipe was successful. `false` indicates failure, and `true` or `undefined` indicates success.
+ */
+export type RecipeFunction = (
 	args: RecipeArgs,
 ) => Promise<boolean | void> | boolean | void;
 

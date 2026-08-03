@@ -8,14 +8,18 @@ export interface IMakefileOpts {
 	path: PathInfo;
 }
 
-type Prereqs = string | string[];
-type Targets = string | string[];
-
-type RecipeFunction = (
+/**
+ * A function that updates the associated target(s)
+ * @param args Arguments to help update the target(s)
+ * @returns A raw or `Promise` wrapped `boolean` indicating whether the recipe was successful. `false` indicates failure, and `true` or `undefined` indicates success.
+ */
+export type RecipeFunction = (
 	args: RecipeArgs,
 ) => Promise<boolean | void> | boolean | void;
 
-function isRule(ruleOrTargets: IRule | Targets): ruleOrTargets is IRule {
+function isRule(
+	ruleOrTargets: IRule | string | string[],
+): ruleOrTargets is IRule {
 	if (typeof ruleOrTargets === 'string') return false;
 	return 'targets' in ruleOrTargets;
 }
@@ -40,15 +44,27 @@ function normalizeRecipe(
 	return null;
 }
 
+/**
+ * A function that defines a {@link Makefile}'s rules
+ * @param make The {@link Makefile} whose rules should be defined
+ * @returns A boolean value indicating whether the parse was successful. `false` indicates failure, and `true` (or `undefined`) indicates success. A `Promise` may be returned, too.
+ */
 export type MakefileFn = (
 	make: Makefile,
 ) => (void | boolean) | Promise<void | boolean>;
 
+/**
+ * A set of rules describing how to update targets
+ * @remarks Passed to a {@link MakefileFn}. Not constructed directly by users; see {@link MakeProgram}
+ */
 export class Makefile {
 	private _path: PathInfo;
 	private _db: MakeDatabase;
 	private _logger: Logger;
 
+	/**
+	 * @internal
+	 */
 	constructor(opts: IMakefileOpts) {
 		this._db = opts.db;
 		this._path = opts.path;
@@ -68,16 +84,31 @@ export class Makefile {
 		return info;
 	}
 
+	/**
+	 * Add a rule from an {@link IRule} instance
+	 * @param rule The rule definition
+	 */
 	public rule(rule: IRule): void;
-	public rule(targets: Targets, recipe: RecipeFunction): void;
+	/**
+	 * Add a rule with targets and a recipe
+	 * @param targets The target(s) the recipe updates
+	 * @param recipe The recipe used to update `targets`
+	 */
+	public rule(targets: string | string[], recipe: RecipeFunction): void;
+	/**
+	 * Add a rule with targets, prerequisites, and an optional recipe
+	 * @param targets The target(s) the recipe updates
+	 * @param prereqs The prerequisite(s) needed to update `targets`
+	 * @param recipe The recipe used to update `targets`
+	 */
 	public rule(
-		targets: Targets,
-		prereqs?: Prereqs,
+		targets: string | string[],
+		prereqs?: string | string[],
 		recipe?: RecipeFunction,
 	): void;
 	public rule(
-		ruleOrTargets: IRule | Targets,
-		prereqsOrRecipe?: Prereqs | RecipeFunction,
+		ruleOrTargets: IRule | string | string[],
+		prereqsOrRecipe?: string | string[] | RecipeFunction,
 		recipeFn?: RecipeFunction,
 	): void {
 		let targets: string[];
@@ -85,17 +116,17 @@ export class Makefile {
 		let recipe: (args: RecipeArgs) => Promise<boolean> | null = null;
 		if (recipeFn) {
 			// targets, prereqs, recipe
-			targets = normalizeToArray(ruleOrTargets as Targets);
-			prereqs = normalizeToArray(prereqsOrRecipe as Prereqs);
+			targets = normalizeToArray(ruleOrTargets as string | string[]);
+			prereqs = normalizeToArray(prereqsOrRecipe as string | string[]);
 			recipe = normalizeRecipe(undefined, recipeFn);
 		} else if (typeof prereqsOrRecipe === 'function') {
 			// targets, recipe
-			targets = normalizeToArray(ruleOrTargets as Targets);
+			targets = normalizeToArray(ruleOrTargets as string | string[]);
 			prereqs = [];
 			recipe = normalizeRecipe(undefined, prereqsOrRecipe);
 		} else if (prereqsOrRecipe) {
 			// targets, prereqs
-			targets = normalizeToArray(ruleOrTargets as Targets);
+			targets = normalizeToArray(ruleOrTargets as string | string[]);
 			prereqs = normalizeToArray(prereqsOrRecipe);
 		} else if (isRule(ruleOrTargets)) {
 			// rule
@@ -106,7 +137,7 @@ export class Makefile {
 			recipe = normalizeRecipe(ruleOrTargets, ruleOrTargets.recipe);
 		} else {
 			// targets
-			targets = normalizeToArray(ruleOrTargets as Targets);
+			targets = normalizeToArray(ruleOrTargets as string | string[]);
 			prereqs = [];
 		}
 
@@ -129,6 +160,11 @@ export class Makefile {
 		});
 	}
 
+	/**
+	 * Include a nested {@link Makefile}
+	 * @param target A path identifying the nested Makefile as a target
+	 * @param mkFn The function defining the nested Makefile's rules
+	 */
 	public include(target: string, mkFn: MakefileFn): void {
 		if (this._logger.enabled({ level: LogLevel.trace })) {
 			this._logger.trace(`include(${target})`);

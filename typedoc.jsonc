@@ -1,0 +1,18 @@
+{
+	"$schema": "https://typedoc.org/schema.json",
+	"plugin": ["typedoc-plugin-markdown"],
+	"entryPoints": ["./src/index.ts"],
+	"excludeInternal": true,
+	"treatWarningsAsErrors": true,
+	// The docs/typedoc directory is referenced in README.md
+	"outputs": [
+		{
+			"name": "html",
+			"path": "docs/typedoc/html"
+		},
+		{
+			"name": "markdown",
+			"path": "docs/typedoc/markdown"
+		}
+	]
+}

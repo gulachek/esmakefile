@@ -55,6 +55,12 @@ npx esmakefile
 
 4. Tailor the build system to your project!
 
+## API Reference
+
+An API reference is available under the `docs/typedoc`
+directory. This documents the public API as exposed through
+the `src/index.ts` entry point.
+
 ## Concepts
 
 This section broadly discusses the most essential concepts of
@@ -62,10 +68,6 @@ esmakefile. The concepts are divided into subsections to help
 the reader organize a conceptual model, but the concepts
 generally do not stand alone without concepts pulled from the
 other subsections.
-
-For detailed API documentation, refer to the source
-code's TSDoc comments and implementation. The main entry point
-for the public API is `src/index.ts`.
 
 ### `Makefile` Rules
 

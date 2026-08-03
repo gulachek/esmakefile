@@ -1,13 +1,15 @@
-build
+# Dev only files
 node_modules
 dist/spec
 types/spec
-test-cases
 test-src
-coverage
-.cache
-.eslint*
-.prettierrc.json
-.mocharc.json
 project.vim
 debug-spec.sh
+CLAUDE.md
+CONTRIBUTING.md
+example
+*.tsbuildinfo
+tsconfig*
+
+# Don't expect any hidden files right now
+.*

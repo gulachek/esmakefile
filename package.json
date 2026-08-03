@@ -12,7 +12,8 @@
 		"build": "tsc --build",
 		"lint": "eslint . --max-warnings 0",
 		"test": "mocha",
-		"example": "node example/make.mjs -C example"
+		"example": "node example/make.mjs -C example",
+		"docs": "typedoc"
 	},
 	"keywords": [],
 	"author": "Nicholas Gulachek",
@@ -35,6 +36,8 @@
 		"mocha": "^10.8.2",
 		"prettier": "^3.9.4",
 		"sass": "^1.101.0",
+		"typedoc": "^0.28.20",
+		"typedoc-plugin-markdown": "^4.12.0",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.65.0"
 	}

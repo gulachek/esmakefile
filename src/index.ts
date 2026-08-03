@@ -1,5 +1,5 @@
 export { rebasePath } from './Path.js';
-export { Makefile, MakefileFn } from './Makefile.js';
+export { Makefile, MakefileFn, RecipeFunction } from './Makefile.js';
 export { IRule, RecipeArgs } from './Rule.js';
 export {
 	getLogger,
@@ -34,4 +34,4 @@ export {
 	EVENT_RECIPE_CHILD_PROCESS_OUTPUT_UPLOAD_EXCEPTION,
 	MIME_TYPE_ANSI_STREAM,
 } from './names.js';
-export { MakeProgram } from './MakeProgram.js';
+export { MakeProgram, IMakeProgramOpts } from './MakeProgram.js';

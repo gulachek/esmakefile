@@ -1,4 +1,5 @@
 set path=,,src/**
+set path+=.github/**
 set path+=example,example/clang/**,example/src/**
 
 " Lean on git to save backups

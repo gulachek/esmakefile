@@ -5,16 +5,27 @@ import { UpdateExecution } from './UpdateExecution.js';
 import { getLogger, Logger } from './logs.js';
 import { EVENT_MAKEFILE_EXCEPTION } from './names.js';
 
+/**
+ * Options to configure a {@link MakeProgram}
+ */
 export interface IMakeProgramOpts {
+	/** A path to identify the top level {@link Makefile | Makefile's} target which is useful for logging */
 	path?: string;
 }
 
+/**
+ * Programmatic driver for running an esmakefile build system
+ */
 export class MakeProgram {
 	private mtx: Mutex;
 	private logger: Logger;
 	private fn: MakefileFn;
 	private path: string;
 
+	/**
+	 * @param makeFn The function defining the top level {@link Makefile}'s rules
+	 * @param opts Options to configure the program
+	 */
 	constructor(makeFn: MakefileFn, opts?: IMakeProgramOpts) {
 		opts = opts || {};
 		this.mtx = new Mutex();
@@ -77,11 +88,20 @@ export class MakeProgram {
 		return db;
 	}
 
+	/**
+	 * Parse the Makefile and all its included Makefiles without updating any targets
+	 * @returns `true` if parsing succeeded
+	 */
 	async parse(): Promise<boolean> {
 		const db = await this.loadDb();
 		return !!db;
 	}
 
+	/**
+	 * Update a goal target
+	 * @param goal The target to update, defaulting to the first target defined by the Makefile
+	 * @returns `true` if the goal was successfully updated
+	 */
 	async update(goal?: string): Promise<boolean> {
 		await using _ = await this.mtx.lockAsync();
 		const db = await this.loadDb();
@@ -119,6 +139,10 @@ export class MakeProgram {
 		return result;
 	}
 
+	/**
+	 * List all target paths defined by the Makefile
+	 * @returns All target paths, or an empty array if parsing fails
+	 */
 	async targets(): Promise<string[]> {
 		const db = await this.loadDb();
 		if (!db) return [];
@@ -131,6 +155,11 @@ export class MakeProgram {
 		return out;
 	}
 
+	/**
+	 * Check whether the Makefile defines a given target
+	 * @param t The target path to check
+	 * @returns `true` if the target is defined
+	 */
 	async hasTarget(t: string): Promise<boolean> {
 		const db = await this.loadDb();
 		if (!db) return false;

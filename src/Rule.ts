@@ -30,18 +30,28 @@ export interface IRule {
 	recipe?(args: RecipeArgs): Promise<boolean | void> | boolean | void;
 }
 
+/**
+ * Argument passed to a rule's {@link RecipeFunction}
+ */
 export class RecipeArgs {
 	private _log: Logger;
 	private _db: MakeDatabase;
 	private _rule: RuleInfo;
 	private _didRestat = false;
 
+	/**
+	 * @internal
+	 */
 	constructor(db: MakeDatabase, rule: RuleInfo) {
 		this._log = getLogger({ name: 'esmakefile.RecipeArgs' });
 		this._db = db;
 		this._rule = rule;
 	}
 
+	/**
+	 * Request that the rule's targets be re-evaluated for staleness after the recipe runs
+	 * @remarks Useful when integrating with an external build system that manages its own targets' modification times
+	 */
 	restat(): void {
 		this._log.debug('restat requested');
 
@@ -51,6 +61,12 @@ export class RecipeArgs {
 		}
 	}
 
+	/**
+	 * Spawn a child process, piping its output to the recipe's logs
+	 * @param cmd The command to run
+	 * @param cmdArgs Arguments to pass to the command
+	 * @returns `true` if the process exited with a code of `0`
+	 */
 	async spawn(cmd: string, cmdArgs: string[]): Promise<boolean> {
 		// TODO - should be tracing child processes
 		if (this._log.enabled({ level: LogLevel.debug })) {

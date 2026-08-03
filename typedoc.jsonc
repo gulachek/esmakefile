@@ -4,6 +4,7 @@
 	"entryPoints": ["./src/index.ts"],
 	"excludeInternal": true,
 	"treatWarningsAsErrors": true,
+	// The docs/typedoc directory is referenced in README.md
 	"outputs": [
 		{
 			"name": "html",

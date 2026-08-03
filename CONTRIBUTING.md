@@ -46,3 +46,14 @@ must be exercised with pragmatism. If a complex algorithm is
 implemented in a helper class and it seems unlikely to
 frequently change, by all means maintainers should unit test
 this functionality.
+
+## Documentation
+
+### API Reference
+
+An API reference is generated via `npm run docs`, which will
+use typedoc to convert TSDoc comments into a consolidated
+reference.
+
+Refer to `dev-docs/01-tsdoc-conventions.md` for conventions and
+expectations.

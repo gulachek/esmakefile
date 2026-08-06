@@ -1,0 +1,27 @@
+# Publish npm package with provenance. This closely followed the instructions:
+# provided here: https://docs.npmjs.com/generating-provenance-statements
+
+name: Publish package to npmjs
+on:
+  workflow_call:
+    secrets:
+      npm-token:
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.npm-token }}

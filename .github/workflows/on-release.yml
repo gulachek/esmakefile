@@ -1,0 +1,9 @@
+name: Orchestrate actions on release
+on:
+  release:
+    types: [published]
+jobs:
+  publish-npm:
+    uses: ./.github/workflows/publish-npm.yml
+    secrets:
+      npm-token: ${{ secrets.NPM_TOKEN }}

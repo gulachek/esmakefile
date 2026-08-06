@@ -14,7 +14,8 @@
 		"lint": "eslint . --max-warnings 0",
 		"test": "mocha",
 		"example": "node example/make.mjs -C example",
-		"docs": "typedoc"
+		"docs": "typedoc",
+		"prepack": "npm run build && npm run docs"
 	},
 	"keywords": [],
 	"author": "Nicholas Gulachek",

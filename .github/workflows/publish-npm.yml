@@ -21,6 +21,8 @@ jobs:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
+      - name: Validate Tag and Version
+        run: node validateGitHubReleaseTag.cjs
       - run: npm ci
       - run: npm publish --provenance --access public
         env:

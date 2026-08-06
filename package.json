@@ -1,6 +1,6 @@
 {
 	"name": "esmakefile",
-	"version": "0.6.3",
+	"version": "0.7.0",
 	"description": "JavaScript build system inspired by Make",
 	"repository": "github:gulachek/esmakefile",
 	"main": "dist/index.js",

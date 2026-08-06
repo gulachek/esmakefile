@@ -17,7 +17,14 @@
 		"docs": "typedoc",
 		"prepack": "npm run build && npm run docs"
 	},
-	"keywords": [],
+	"keywords": [
+		"make",
+		"makefile",
+		"build",
+		"task",
+		"orchestration",
+		"build system"
+	],
 	"author": "Nicholas Gulachek",
 	"license": "MIT",
 	"dependencies": {

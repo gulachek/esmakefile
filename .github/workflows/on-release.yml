@@ -3,7 +3,10 @@ on:
   release:
     types: [published]
 jobs:
+  test-pack:
+    uses: ./.github/workflows/test-pack.yml
   publish-npm:
+    needs: test-pack
     uses: ./.github/workflows/publish-npm.yml
     secrets:
       npm-token: ${{ secrets.NPM_TOKEN }}

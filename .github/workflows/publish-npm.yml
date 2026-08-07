@@ -24,6 +24,9 @@ jobs:
       - name: Validate Tag and Version
         run: node validateGitHubReleaseTag.cjs
       - run: npm ci
+      - name: Install example
+        run: npm i
+        working-directory: ./example
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.npm-token }}

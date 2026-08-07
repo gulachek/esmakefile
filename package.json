@@ -1,6 +1,6 @@
 {
 	"name": "esmakefile",
-	"version": "0.6.3",
+	"version": "0.7.0",
 	"description": "JavaScript build system inspired by Make",
 	"repository": "github:gulachek/esmakefile",
 	"main": "dist/index.js",
@@ -9,14 +9,31 @@
 	"bin": {
 		"esmakefile": "dist/esmakefile-cli.js"
 	},
+	"files": [
+		"LICENSE.txt",
+		"README.md",
+		"CHANGELOG.md",
+		"src",
+		"dist",
+		"docs",
+		"types"
+	],
 	"scripts": {
 		"build": "tsc --build",
 		"lint": "eslint . --max-warnings 0",
 		"test": "mocha",
 		"example": "node example/make.mjs -C example",
-		"docs": "typedoc"
+		"docs": "typedoc",
+		"prepack": "npm run build && npm run docs"
 	},
-	"keywords": [],
+	"keywords": [
+		"make",
+		"makefile",
+		"build",
+		"task",
+		"orchestration",
+		"build system"
+	],
 	"author": "Nicholas Gulachek",
 	"license": "MIT",
 	"dependencies": {

@@ -1,4 +1,4 @@
-name: Orchestrate Actions on Push
+name: Orchestrate actions on push
 
 on: [push]
 
@@ -11,3 +11,5 @@ jobs:
     uses: ./.github/workflows/lint.yml
   build-docs:
     uses: ./.github/workflows/build-docs.yml
+  test-pack:
+    uses: ./.github/workflows/test-pack.yml

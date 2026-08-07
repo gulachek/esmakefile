@@ -11,3 +11,4 @@ install
 .cache
 tsconfig.tsbuildinfo
 docs/typedoc
+esmakefile-*.tgz

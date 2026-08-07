@@ -1,12 +1,9 @@
-# Publish npm package with provenance. This closely followed the instructions:
-# provided here: https://docs.npmjs.com/generating-provenance-statements
+# Publish npm package trusted publisher. This closely follows the example
+# provided here: https://docs.npmjs.com/trusted-publishers
 
 name: Publish package to npmjs
 on:
   workflow_call:
-    secrets:
-      npm-token:
-        required: true
 
 jobs:
   publish:
@@ -21,12 +18,10 @@ jobs:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
-      - name: Validate Tag and Version
+      - name: Validate tag and version
         run: node validateGitHubReleaseTag.cjs
       - run: npm ci
       - name: Install example
         run: npm i
         working-directory: ./example
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.npm-token }}
+      - run: npm publish --access public

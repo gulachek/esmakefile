@@ -12,3 +12,4 @@ install
 tsconfig.tsbuildinfo
 docs/typedoc
 esmakefile-*.tgz
+test-pkg

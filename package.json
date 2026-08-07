@@ -9,6 +9,15 @@
 	"bin": {
 		"esmakefile": "dist/esmakefile-cli.js"
 	},
+	"files": [
+		"LICENSE.txt",
+		"README.md",
+		"CHANGELOG.md",
+		"src",
+		"dist",
+		"docs",
+		"types"
+	],
 	"scripts": {
 		"build": "tsc --build",
 		"lint": "eslint . --max-warnings 0",
